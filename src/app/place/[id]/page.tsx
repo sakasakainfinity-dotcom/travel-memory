@@ -16,8 +16,7 @@ type Photo = {
 };
 
 export default function PlaceDetailPage() {
-  const params = useParams<{ id: string }>();
-  // 念のため配列対策（型はstringのはずだけど保険）
+  const params = useParams() as { id?: string | string[] };
   const placeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
   const [place, setPlace] = useState<Place | null>(null);
@@ -31,7 +30,6 @@ export default function PlaceDetailPage() {
       try {
         setLoading(true);
         setErr(null);
-
         const { data: p, error: e1 } = await supabase
           .from("places")
           .select("*")
@@ -47,7 +45,6 @@ export default function PlaceDetailPage() {
     })();
   }, [placeId]);
 
-  // place に紐づく memories → photos
   useEffect(() => {
     if (!placeId) return;
     (async () => {
@@ -61,6 +58,73 @@ export default function PlaceDetailPage() {
         if (!ms || ms.length === 0) {
           setPhotos([]);
           return;
+        }
+
+        const ids = ms.map((m) => m.id);
+        const { data: ph2, error: ep } = await supabase
+          .from("photos")
+          .select("id,file_url,w,h,created_at,memory_id")
+          .in("memory_id", ids)
+          .order("created_at", { ascending: false });
+        if (ep) throw ep;
+
+        setPhotos(
+          (ph2 ?? []).map((p: any) => ({
+            id: p.id,
+            file_url: p.file_url,
+            w: p.w ?? null,
+            h: p.h ?? null,
+            created_at: p.created_at,
+          }))
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [placeId]);
+
+  if (loading) {
+    return (
+      <main style={{ display: "grid", placeItems: "center", height: "100vh" }}>
+        <div>Loading…</div>
+      </main>
+    );
+  }
+
+  if (err) {
+    return (
+      <main style={{ padding: 16 }}>
+        <p style={{ color: "crimson" }}>{err}</p>
+        <p><Link href="/">← 戻る</Link></p>
+      </main>
+    );
+  }
+
+  if (!place) {
+    return (
+      <main style={{ padding: 16 }}>
+        <p>この場所は見つからんかったよ。</p>
+        <p><Link href="/">← 戻る</Link></p>
+      </main>
+    );
+  }
+
+  return (
+    <main style={{ padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <Link href="/">← 戻る</Link>
+        <h1 style={{ margin: 0 }}>{place.title ?? "無題の場所"}</h1>
+      </div>
+
+      <div style={{ color: "#666", marginBottom: 16 }}>
+        {`(${Number((place as any).lat).toFixed(4)}, ${Number((place as any).lng).toFixed(4)})`}
+      </div>
+
+      <PhotoGrid photos={photos} />
+    </main>
+  );
+}
+
 
 
 
