@@ -123,12 +123,13 @@ export default function PlaceDetailPage() {
       </div>
 
       <div style={{ color: "#666", marginBottom: 16 }}>
-          ({place.lat.toFixed(4)}, {place.lng.toFixed(4)})
+         {`(${Number(place.lat).toFixed(4)}, ${Number(place.lng).toFixed(4)})`}
       <div>
         <PhotoGrid photos={photos} />
       </div>
     </main>
   );
 }
+
 
 
