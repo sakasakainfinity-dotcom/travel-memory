@@ -1,0 +1,19 @@
+# Node/Next
+node_modules
+.next
+out
+dist
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+
+# Vercel
+.vercel

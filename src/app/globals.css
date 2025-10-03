@@ -1,0 +1,8 @@
+/* app/globals.css */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+:root, body, #__next, main {
+  height: 100%;
+}
