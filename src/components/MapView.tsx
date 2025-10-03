@@ -78,7 +78,7 @@ export default function MapView({
       style,
       center: [initialView?.lng ?? 139.76, initialView?.lat ?? 35.68],
       zoom: initialView?.zoom ?? 9,
-      attributionControl: true,
+      attributionControl: { compact: true },
     });
     mapRef.current = map;
 
