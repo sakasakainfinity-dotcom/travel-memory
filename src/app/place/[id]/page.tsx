@@ -113,7 +113,7 @@ export default function PlaceDetailPage() {
         </p>
       </main>
     );
-  
+  }
 
   return (
     <main style={{ padding: 16 }}>
@@ -130,6 +130,7 @@ export default function PlaceDetailPage() {
     </main>
   );
 }
+
 
 
 
