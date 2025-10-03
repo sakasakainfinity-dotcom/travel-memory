@@ -5,22 +5,14 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PhotoGrid from "@/components/PhotoGrid";
-import type { Place } from "@/types/db";
-
-type Photo = {
-  id: string;
-  file_url: string;
-  w: number | null;
-  h: number | null;
-  created_at: string;
-};
+import type { Place, Photo as DBPhoto } from "@/types/db"; // ← ここPOINT
 
 export default function PlaceDetailPage() {
   const params = useParams() as { id?: string | string[] };
   const placeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
   const [place, setPlace] = useState<Place | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<DBPhoto[]>([]); // ← DBのPhoto型に統一
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -45,10 +37,12 @@ export default function PlaceDetailPage() {
     })();
   }, [placeId]);
 
+  // place に紐づく memories → photos
   useEffect(() => {
     if (!placeId) return;
     (async () => {
       try {
+        // まず place の memories を取得
         const { data: ms, error: em } = await supabase
           .from("memories")
           .select("id")
@@ -61,22 +55,26 @@ export default function PlaceDetailPage() {
         }
 
         const ids = ms.map((m) => m.id);
+
+        // PhotoGrid が期待しているのは url / storage_path / place_id を持つDB型
         const { data: ph2, error: ep } = await supabase
           .from("photos")
-          .select("id,file_url,w,h,created_at,memory_id")
+          .select("id,url,storage_path,place_id,created_at,memory_id") // ← ここPOINT
           .in("memory_id", ids)
           .order("created_at", { ascending: false });
         if (ep) throw ep;
 
-        setPhotos(
-          (ph2 ?? []).map((p: any) => ({
-            id: p.id,
-            file_url: p.file_url,
-            w: p.w ?? null,
-            h: p.h ?? null,
-            created_at: p.created_at,
-          }))
-        );
+        // 余計なフィールドは無視して、必要最低限をDB型に合わせて詰める
+        const normalized: DBPhoto[] = (ph2 ?? []).map((p: any) => ({
+          id: p.id,
+          url: p.url,
+          storage_path: p.storage_path,
+          place_id: p.place_id,
+          created_at: p.created_at,
+          // types/db に他の必須があればここで追加
+        }));
+
+        setPhotos(normalized);
       } catch (e) {
         console.error(e);
       }
@@ -124,6 +122,7 @@ export default function PlaceDetailPage() {
     </main>
   );
 }
+
 
 
 
