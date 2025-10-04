@@ -1,20 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
+// src/app/auth/callback/page.tsx
+"use client";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient"; // ← 使うだけ。export はしない
 
-export const supabase = createClient(url, key, {
-  auth: {
-    persistSession: true,     // セッション保持
-    autoRefreshToken: true,   // 自動更新
-    detectSessionInUrl: true, // /auth/callback での交換を許可
-    flowType: "pkce",         // OAuthはPKCE
-  },
-});
+export default function AuthCallbackPage() {
+  const router = useRouter();
 
-// デバッグは必要なら残してOK
-if (typeof window !== "undefined") {
-  console.log("[supabase] using", url);
-  (window as any).supabase = supabase;
+  useEffect(() => {
+    (async () => {
+      // PKCE の code/state をセッションに交換（必須）
+      const { error } = await supabase.auth.exchangeCodeForSession();
+      if (error) console.error("exchange error:", error);
+      router.replace("/");
+    })();
+  }, [router]);
+
+  return <p style={{ padding: 16 }}>ログイン処理中…</p>;
 }
 
