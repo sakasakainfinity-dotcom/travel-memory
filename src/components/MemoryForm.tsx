@@ -59,25 +59,32 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
     }
   }
 
-  return (
-    <div style={{ display: "grid", gap: 10, marginTop: 24 }}>
-      <label>
-        訪問日
-        <input type="date" value={visitedAt} onChange={(e) => setVisitedAt(e.target.value)} style={{ padding: 8 }} />
-      </label>
-      <label>
-        メモ
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} style={{ padding: 8 }} />
-      </label>
-      <label>
-        写真（複数OK）
-        <input type="file" multiple accept="image/*" onChange={(e) => setFiles(e.target.files)} />
-      </label>
-      <button onClick={submit} disabled={loading} style={{ padding: "10px 14px", fontWeight: 700 }}>
-        {loading ? "保存中..." : "思い出を保存"}
-      </button>
-      <p style={{ color: "#666" }}>※ まずは原本アップ。重すぎる画像はスキップするよ（>12MB）。</p>
-    </div>
-  );
-}
+return (
+  <div style={{ display: "grid", gap: 10, marginTop: 24 }}>
+    <label>
+      訪問日
+      <input type="date" value={visitedAt} onChange={(e) => setVisitedAt(e.target.value)} style={{ padding: 8 }} />
+    </label>
+
+    <label>
+      メモ
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} style={{ padding: 8 }} />
+    </label>
+
+    <label>
+      写真（複数OK）
+      <input type="file" multiple accept="image/*" onChange={(e) => setFiles(e.target.files)} />
+    </label>
+
+    <button onClick={submit} disabled={loading} style={{ padding: "10px 14px", fontWeight: 700 }}>
+      {loading ? "保存中..." : "思い出を保存"}
+    </button>
+
+    {/* ← ここをエスケープ */}
+    <p style={{ color: "#666" }}>
+      ※ まずは原本アップ。重すぎる画像はスキップするよ（&gt;12MB）。
+    </p>
+  </div>
+);
+
 
