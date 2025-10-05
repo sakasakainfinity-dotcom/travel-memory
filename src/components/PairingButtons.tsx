@@ -13,12 +13,12 @@ export default function PairingButtons() {
   };
 
   const loginEmail = async () => {
-    if (!email) return alert("メールを入れてね");
+    if (!email) return alert("メールアドレスを入れてね");
     await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
-    alert("ログイン用リンクを送ったよ。メールを確認して戻ってきて。");
+    alert("ログイン用リンクを送ったよ。メールを確認してね。");
   };
 
   const logout = async () => {
@@ -27,20 +27,29 @@ export default function PairingButtons() {
   };
 
   return (
-    <div style={{ display: "flex", gap: 8 }}>
-      <button onClick={loginGoogle}>Googleでログイン</button>
-      <input
-        type="email"
-        placeholder="email@example.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ padding: 6 }}
-      />
-      <button onClick={loginEmail}>メールでログイン</button>
-      <button onClick={logout}>ログアウト</button>
+    <div style={{ display: "grid", gap: 10 }}>
+      <button onClick={loginGoogle} style={{ padding: "10px 14px", fontWeight: 700 }}>
+        Googleでログイン
+      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          type="email"
+          placeholder="email@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ padding: 8, flex: 1 }}
+        />
+        <button onClick={loginEmail} style={{ padding: "10px 14px", fontWeight: 700 }}>
+          メールでログイン
+        </button>
+      </div>
+      <button onClick={logout} style={{ padding: "10px 14px" }}>
+        ログアウト
+      </button>
     </div>
   );
 }
+
 
 
 
