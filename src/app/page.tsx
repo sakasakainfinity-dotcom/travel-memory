@@ -7,6 +7,7 @@ import type { Place as MapPlace } from "@/components/MapView";
 import SearchBox from "@/components/SearchBox";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
+import { useRouter } from "next/navigation";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -416,6 +417,7 @@ export default function Page() {
   const [newAt, setNewAt] = useState<{ lat: number; lng: number } | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const router = useRouter();
 
   const [editOpen, setEditOpen] = useState(false);
 
@@ -491,17 +493,45 @@ export default function Page() {
         initialView={initialView}
       />
 
+    
       {/* 検索ヘッダ（最前面） */}
       <div
         style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 10000, pointerEvents: "auto" }}
-        onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
-        <div style={{ maxWidth: 960, margin: "10px auto", padding: "0 12px", display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div
+          style={{
+            maxWidth: 960,
+            margin: "10px auto",
+            padding: "0 12px",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12
+          }}
+        >
           <SearchBox onPick={(p) => setFlyTo(p)} />
+
+          {/* ★ 「仮」を撤去して正式ログアウトに差し替え */}
           <button
-            style={{ background: "rgba(255,255,255,0.9)", border: "1px solid #ddd", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
-            onClick={(e) => { e.stopPropagation(); alert("ログアウト（仮）"); }}
+            style={{
+              background: "rgba(255,255,255,0.9)",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 12px",
+              cursor: "pointer"
+            }}
+            onClick={async (e) => {
+              e.stopPropagation();
+              try {
+                await supabase.auth.signOut();
+              } finally {
+                router.replace("/login"); // ← 即ログイン画面へ
+                // 必要なら物理遷移でもOK: window.location.replace("/login");
+              }
+            }}
           >
             ログアウト
           </button>
