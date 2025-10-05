@@ -1,6 +1,4 @@
-// src/components/AuthGate.tsx
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -8,18 +6,19 @@ import { supabase } from "@/lib/supabaseClient";
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
-
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       const { data } = await supabase.auth.getUser();
       if (!mounted) return;
       const ok = !!data.user;
       setAuthed(ok);
       setReady(true);
+
       if (!ok && pathname !== "/login") router.replace("/login");
       if (ok && pathname === "/login") router.replace("/");
     })();
@@ -37,8 +36,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, [router, pathname]);
 
-  // /login は常に描画（ここでログインUIを出す）
-  if (pathname === "/login") return <>{children}</>;
+  if (pathname === "/login") return <>{children}</>; // ログインページは素通り
 
   if (!ready) {
     return (
@@ -51,3 +49,4 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
