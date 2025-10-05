@@ -1,3 +1,4 @@
+// src/components/AuthGate.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,34 +7,50 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [authed, setAuthed] = useState<boolean>(false);
+
   const router = useRouter();
   const pathname = usePathname();
 
-  // ★ /login はゲートを通さない（常に表示）
-  if (pathname === "/login") {
-    return <>{children}</>;
-  }
-
   useEffect(() => {
-    // 初期状態
-    supabase.auth.getUser().then(({ data }) => {
-      const ok = !!data.user;
-      setAuthed(ok);
-      setReady(true);
-      if (!ok) router.replace("/login");
-    });
+    let mounted = true;
 
-    // 変化監視
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+      setAuthed(!!data.user);
+      setReady(true);
+
+      // ここから遷移ロジック（useEffect内のみ）
+      if (!data.user && pathname !== "/login") {
+        router.replace("/login");
+      }
+      if (data.user && pathname === "/login") {
+        router.replace("/");
+      }
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       const ok = !!session?.user;
       setAuthed(ok);
-      if (ok) router.replace("/");
-      else router.replace("/login");
+      // 状態が変わったら適切なページへ
+      if (ok && pathname === "/login") router.replace("/");
+      if (!ok && pathname !== "/login") router.replace("/login");
     });
-    return () => sub.subscription.unsubscribe();
-  }, [router]);
 
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [router, pathname]);
+
+  // /login は常に表示（ここでは gate しない）
+  if (pathname === "/login") {
+    // 既ログインなら上の useEffect で即 "/" に飛ぶ
+    return <>{children}</>;
+  }
+
+  // それ以外のページは、認証確認が終わるまでローディング
   if (!ready) {
     return (
       <main style={{ display: "grid", placeItems: "center", height: "100vh" }}>
@@ -42,6 +59,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // 未ログインなら何も描画しない（useEffect が /login に飛ばす）
   if (!authed) return null;
+
   return <>{children}</>;
 }
