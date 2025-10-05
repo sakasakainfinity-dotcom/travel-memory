@@ -1,20 +1,9 @@
+// src/app/login/page.tsx
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import PairingButtons from "@/components/PairingButtons";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  // 既にログイン済みならトップへ
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace("/");
-    });
-  }, [router]);
-
   return (
     <main
       style={{
@@ -44,3 +33,4 @@ export default function LoginPage() {
     </main>
   );
 }
+
