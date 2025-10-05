@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -6,8 +7,15 @@ import { supabase } from "@/lib/supabaseClient";
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
+
   const router = useRouter();
   const pathname = usePathname();
+
+  // ★ /login と /auth/callback は必ず素通り（ゲート対象外）
+  const isPublic = pathname === "/login" || pathname === "/auth/callback";
+  if (isPublic) {
+    return <>{children}</>;
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -19,7 +27,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setAuthed(ok);
       setReady(true);
 
-      if (!ok && pathname !== "/login") router.replace("/login");
+      if (!ok && !isPublic) router.replace("/login");
       if (ok && pathname === "/login") router.replace("/");
     })();
 
@@ -27,16 +35,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       const ok = !!session?.user;
       setAuthed(ok);
       if (ok && pathname === "/login") router.replace("/");
-      if (!ok && pathname !== "/login") router.replace("/login");
+      if (!ok && !isPublic) router.replace("/login");
     });
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
-  }, [router, pathname]);
-
-  if (pathname === "/login") return <>{children}</>; // ログインページは素通り
+  }, [router, pathname, isPublic]);
 
   if (!ready) {
     return (
@@ -49,4 +55,5 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
 
