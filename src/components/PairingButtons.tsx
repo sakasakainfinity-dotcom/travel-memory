@@ -1,7 +1,6 @@
-// src/components/PairingButtons.tsx
 "use client";
-import { supabase } from "@/lib/supabaseClient";
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function PairingButtons() {
   const [email, setEmail] = useState("");
@@ -42,5 +41,7 @@ export default function PairingButtons() {
     </div>
   );
 }
+
+
 
 
