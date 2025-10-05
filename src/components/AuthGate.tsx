@@ -1,3 +1,4 @@
+// src/components/AuthGate.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,17 +6,15 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
+  // ★ どんなルートでも最初に必ずフックを呼ぶ（これが大事）
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
 
-  // ★ /login と /auth/callback は必ず素通り（ゲート対象外）
+  // 公開ページ（ゲート対象外）
   const isPublic = pathname === "/login" || pathname === "/auth/callback";
-  if (isPublic) {
-    return <>{children}</>;
-  }
 
   useEffect(() => {
     let mounted = true;
@@ -23,6 +22,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     (async () => {
       const { data } = await supabase.auth.getUser();
       if (!mounted) return;
+
       const ok = !!data.user;
       setAuthed(ok);
       setReady(true);
@@ -44,6 +44,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, [router, pathname, isPublic]);
 
+  // ★ ここから“描画”の分岐（フック呼んだ後）
+  if (isPublic) return <>{children}</>;
+
   if (!ready) {
     return (
       <main style={{ display: "grid", placeItems: "center", height: "100vh" }}>
@@ -51,6 +54,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       </main>
     );
   }
+
   if (!authed) return null;
 
   return <>{children}</>;
