@@ -1,4 +1,3 @@
-// src/app/auth/callback/page.tsx
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +20,7 @@ export default function AuthCallbackPage() {
   }, [router]);
   return <p style={{ padding: 16 }}>ログイン処理中…</p>;
 }
+
 
 
 
