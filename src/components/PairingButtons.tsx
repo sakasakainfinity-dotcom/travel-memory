@@ -1,18 +1,17 @@
 // src/components/PairingButtons.tsx
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function PairingButtons() {
   const [email, setEmail] = useState("");
   const [authed, setAuthed] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!mounted) return;
-      setAuthed(!!data.user);
-    });
+    supabase.auth.getUser().then(({ data }) => mounted && setAuthed(!!data.user));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setAuthed(!!session?.user);
     });
@@ -38,12 +37,18 @@ export default function PairingButtons() {
     alert("ログイン用リンクを送ったよ。メール確認してね。");
   };
 
+  // ★ここを変更：サインアウト後に /login へ即リダイレクト
   const logout = async () => {
-    await supabase.auth.signOut();
-    alert("ログアウトしたよ");
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // onAuthStateChange でも飛ぶけど、確実に押し出す
+      router.replace("/login");              // Next の遷移
+      // 念のためワンチャン：ハードリダイレクト（好みで片方だけでもOK）
+      // window.location.assign("/login");
+    }
   };
 
-  // ★ 未ログイン時はログインUIのみ、ログイン時はログアウトのみ
   if (!authed) {
     return (
       <div style={{ display: "grid", gap: 10 }}>
@@ -68,10 +73,13 @@ export default function PairingButtons() {
 
   return (
     <div>
-      <button onClick={logout} style={{ padding: "10px 14px" }}>ログアウト</button>
+      <button onClick={logout} style={{ padding: "10px 14px" }}>
+        ログアウト
+      </button>
     </div>
   );
 }
+
 
 
 
