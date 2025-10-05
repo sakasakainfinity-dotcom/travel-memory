@@ -1,9 +1,44 @@
-// src/app/login/page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import PairingButtons from "@/components/PairingButtons";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // 初回チェック：ログイン済みなら "/" へ
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return;
+      if (data.user) router.replace("/");
+      setChecking(false);
+    });
+
+    // 状態変化を購読：ログインした瞬間に "/" へ
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.user) router.replace("/");
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  if (checking) {
+    return (
+      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <div>読み込み中…</div>
+      </main>
+    );
+  }
+
+  // 未ログインならサインインUI
   return (
     <main
       style={{
@@ -33,4 +68,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
 
