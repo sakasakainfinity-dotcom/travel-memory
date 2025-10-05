@@ -10,35 +10,38 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // ★ /login はゲートを通さない（常に表示）
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   useEffect(() => {
-    // 初期ユーザー取得
+    // 初期状態
     supabase.auth.getUser().then(({ data }) => {
-      setAuthed(!!data.user);
+      const ok = !!data.user;
+      setAuthed(ok);
       setReady(true);
-      if (!data.user && pathname !== "/login") router.replace("/login");
+      if (!ok) router.replace("/login");
     });
-    // 状態変化購読（ログイン/ログアウトで即反映）
+
+    // 変化監視
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       const ok = !!session?.user;
       setAuthed(ok);
-      if (ok && pathname === "/login") router.replace("/");
-      if (!ok && pathname !== "/login") router.replace("/login");
+      if (ok) router.replace("/");
+      else router.replace("/login");
     });
     return () => sub.subscription.unsubscribe();
-  }, [router, pathname]);
+  }, [router]);
 
   if (!ready) {
     return (
-      <main style={{display:"grid",placeItems:"center",height:"100vh"}}>
+      <main style={{ display: "grid", placeItems: "center", height: "100vh" }}>
         <div>読み込み中…</div>
       </main>
     );
   }
 
-  if (!authed) {
-    // /login への遷移待ちで一瞬表示
-    return null;
-  }
-
+  if (!authed) return null;
   return <>{children}</>;
 }
