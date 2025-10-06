@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/";
   const router = useRouter();
+
+  // 末尾スラッシュ無視して判定（/auth/callback/ でもOK）
+  const isPublic = useMemo(() => {
+    const p = pathname.replace(/\/+$/, "");
+    return p === "/login" || p === "/auth/callback";
+  }, [pathname]);
+
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
   const redirected = useRef(false); // 多重リダイレクト防止
 
-  // ★一時ログ（不要になったら消してOK）
-  useEffect(() => {
-    console.log("[AuthGate] mount");
-  }, []);
-
+  // Hooks は常に実行（Rules of Hooks 厳守）
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      // 50ms 間隔で最大 20 回（約 1 秒）だけ様子を見る
+      // 50ms 間隔で最大 20 回（約 1 秒）様子見 → 初期 null を避ける
       for (let i = 0; i < 20; i++) {
         const { data } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -30,7 +34,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         }
         await new Promise((r) => setTimeout(r, 50));
       }
-      // だめなら最後の 1 回で判定
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setAuthed(!!data.session?.user);
@@ -46,6 +49,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // ★ /login と /auth/callback は必ず素通り（ここでは絶対リダイレクトしない）
+  if (isPublic) return <>{children}</>;
 
   if (checking) {
     return (
@@ -65,7 +71,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-
 
 
 
