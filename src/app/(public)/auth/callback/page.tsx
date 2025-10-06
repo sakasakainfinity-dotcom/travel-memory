@@ -2,6 +2,8 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+export const dynamic = "force-dynamic"; 
+
 export default function AuthCallbackPage() {
   useEffect(() => {
     (async () => {
