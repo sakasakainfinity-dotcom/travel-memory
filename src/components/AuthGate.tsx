@@ -1,28 +1,25 @@
 // src/components/AuthGate.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
-const PUBLIC_PATHS = new Set<string>([
-  "/login",
-  "/auth/callback",
-]);
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
 
-  // ★ 公開ページは常に素通り（/login, /auth/callback）
-  if ([...PUBLIC_PATHS].some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    return <>{children}</>;
-  }
+  // 末尾スラッシュを無視して判定（/auth/callback/ でもOK）
+  const isPublic = useMemo(() => {
+    const p = pathname.replace(/\/+$/, "");
+    return p === "/login" || p === "/auth/callback";
+  }, [pathname]);
 
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
-  const redirected = useRef(false); // ★ 多重リダイレクト防止
+  const redirected = useRef(false); // 多重リダイレクト防止
 
+  // ★ Hooks は常に実行（Rules of Hooks厳守）
   useEffect(() => {
     let mounted = true;
 
@@ -33,8 +30,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setChecking(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setAuthed(!!session?.user);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setAuthed(!!s?.user);
     });
 
     return () => {
@@ -42,6 +39,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // ★ /login と /auth/callback は常に素通り（ここで絶対リダイレクトしない）
+  if (isPublic) return <>{children}</>;
 
   if (checking) {
     return (
@@ -53,7 +53,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!authed) {
     if (!redirected.current) {
-      redirected.current = true;       // ★ 一回だけ飛ばす
+      redirected.current = true;
       router.replace("/login");
     }
     return null;
@@ -61,5 +61,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
 
 
