@@ -1,4 +1,3 @@
-// src/app/(public)/auth/callback/page.tsx
 "use client";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,7 +8,7 @@ export default function AuthCallbackPage() {
       try {
         const url = new URL(window.location.href);
 
-        // 1) メール（ハッシュ or クエリ）
+        // 1) メール（token系）
         const hp = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : "");
         const access_token  = hp.get("access_token")  ?? url.searchParams.get("access_token");
         const refresh_token = hp.get("refresh_token") ?? url.searchParams.get("refresh_token");
@@ -21,8 +20,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 2) OAuth(PKCE)（Google）
-        // v2はURLを渡すのが安定
+        // 2) Google OAuth (PKCE)
         const { error } = await (supabase.auth as any).exchangeCodeForSession(window.location.href);
         if (error) console.error("exchange error:", error);
       } catch (e) {
@@ -39,6 +37,7 @@ export default function AuthCallbackPage() {
     </main>
   );
 }
+
 
 
 
