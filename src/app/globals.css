@@ -33,15 +33,24 @@ html, body {
   padding: clamp(18px, 3.2vw, 28px);
   border-radius: 18px;
 
+  .login-bg{
+  position: fixed; inset: 0; z-index: -1;
+  background: url(/bg-map.jpg) center/cover no-repeat;
+  filter: blur(10px) brightness(.8) saturate(110%);
+  transform: scale(1.06);            /* ぼかしの端透け防止 */
+  pointer-events: none;
+}
+  
   /* ガラス感のキモ */
-  background: rgba(16, 24, 40, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-
-  box-shadow: 0 20px 60px rgba(0,0,0,.45);
-  isolation: isolate;
+    background:
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06)) padding-box;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(20px) saturate(160%) contrast(105%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%) contrast(105%);
+  box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.15);
+  isolation: isolate;                 /* 他のfilterの影響を隔離 */
   background-clip: padding-box;
+  will-change: backdrop-filter;
 }
 .login-logo{
   width: 48px; height: 48px; border-radius: 12px;
@@ -69,6 +78,28 @@ html, body {
 }
 .input:focus{ border-color:#60a5fa; box-shadow: 0 0 0 3px #60a5fa33; }
 
+.input{
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #2a3a55;
+  background: rgba(10,16,28,.7);
+  color:#e7eef7;
+}
+.btn{
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #2a3a55;
+  background: linear-gradient(180deg,#1a2334,#121a28);
+  color:#e7eef7; font-weight:700; cursor:pointer;
+  transition: transform .08s ease, box-shadow .2s ease, border-color .2s;
+}
+.btn-primary{
+  background: linear-gradient(180deg,#2b6be7,#1c4fb6);
+  border-color:#1f56ca;
+  box-shadow: 0 8px 20px rgba(34,114,255,.25);
+}
 .btn{
   padding: 10px 14px; font-weight:700; border-radius:12px; cursor:pointer;
   border: 1px solid #2a3a55; color:#e7eef7;
@@ -81,9 +112,12 @@ html, body {
 .btn-primary{ background: linear-gradient(180deg,#1f5fd1,#184eb3); border-color:#1c4fa8; }
 
 /* ===== Mobile tweaks ===== */
-@media (max-width: 420px){
+  .auth-row{ display:flex; gap:8px; align-items: stretch; }
+.auth-row > .input{ flex: 1 1 auto; min-width: 0; }   /* 入力が無限に広がらない */
+@media (max-width: 560px){                              /* ← 420px → 560px に拡張 */
   .auth-row{ flex-direction: column; }
-  .btn{ width:100%; }                 /* メールボタンも幅いっぱい */
+  .btn{ width:100%; }
   .login-card{ border-radius: 16px; }
   .login-footer{ position: static; margin-top: 16px; }
 }
+
