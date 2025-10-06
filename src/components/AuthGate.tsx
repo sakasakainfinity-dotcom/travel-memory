@@ -1,61 +1,63 @@
 // src/components/AuthGate.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+const PUBLIC_PATHS = new Set<string>([
+  "/login",
+  "/auth/callback",
+]);
+
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  // ★ どんなルートでも最初に必ずフックを呼ぶ（これが大事）
-  const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState(false);
-
+  const pathname = usePathname() || "/";
   const router = useRouter();
-  const pathname = usePathname();
 
-  // 公開ページ（ゲート対象外）
-  const isPublic = pathname === "/login" || pathname === "/auth/callback";
+  // ★ 公開ページは常に素通り（/login, /auth/callback）
+  if ([...PUBLIC_PATHS].some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return <>{children}</>;
+  }
+
+  const [checking, setChecking] = useState(true);
+  const [authed, setAuthed] = useState(false);
+  const redirected = useRef(false); // ★ 多重リダイレクト防止
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-
-      const ok = !!data.user;
-      setAuthed(ok);
-      setReady(true);
-
-      if (!ok && !isPublic) router.replace("/login");
-      if (ok && pathname === "/login") router.replace("/");
+      setAuthed(!!data.session?.user);
+      setChecking(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const ok = !!session?.user;
-      setAuthed(ok);
-      if (ok && pathname === "/login") router.replace("/");
-      if (!ok && !isPublic) router.replace("/login");
+      setAuthed(!!session?.user);
     });
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
-  }, [router, pathname, isPublic]);
+  }, []);
 
-  // ★ ここから“描画”の分岐（フック呼んだ後）
-  if (isPublic) return <>{children}</>;
-
-  if (!ready) {
+  if (checking) {
     return (
-      <main style={{ display: "grid", placeItems: "center", height: "100vh" }}>
+      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <div>読み込み中…</div>
       </main>
     );
   }
 
-  if (!authed) return null;
+  if (!authed) {
+    if (!redirected.current) {
+      redirected.current = true;       // ★ 一回だけ飛ばす
+      router.replace("/login");
+    }
+    return null;
+  }
 
   return <>{children}</>;
 }
