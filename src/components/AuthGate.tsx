@@ -1,11 +1,6 @@
-// ★一時ログ（必要なくなったら消す）
-useEffect(() => {
-  console.log("[AuthGate] mount");
-}, []);
-
-// src/components/AuthGate.tsx（置き換え）
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -13,12 +8,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
+  const redirected = useRef(false); // 多重リダイレクト防止
+
+  // ★一時ログ（不要になったら消してOK）
+  useEffect(() => {
+    console.log("[AuthGate] mount");
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      // 50ms間隔で最大20回（約1秒）だけ様子を見る
+      // 50ms 間隔で最大 20 回（約 1 秒）だけ様子を見る
       for (let i = 0; i < 20; i++) {
         const { data } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -29,7 +30,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         }
         await new Promise((r) => setTimeout(r, 50));
       }
-      // だめなら最後の1回で判定
+      // だめなら最後の 1 回で判定
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setAuthed(!!data.session?.user);
@@ -40,13 +41,28 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setAuthed(!!s?.user);
     });
 
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   if (checking) {
-    return <main style={{ minHeight:"100vh", display:"grid", placeItems:"center" }}>読み込み中…</main>;
+    return (
+      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <div>読み込み中…</div>
+      </main>
+    );
   }
-  if (!authed) { router.replace("/login"); return null; }
+
+  if (!authed) {
+    if (!redirected.current) {
+      redirected.current = true;
+      router.replace("/login");
+    }
+    return null;
+  }
+
   return <>{children}</>;
 }
 
