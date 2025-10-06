@@ -45,28 +45,47 @@ export default function PairingButtons() {
   };
 
   // メールでログイン（マジックリンク）
-  const loginEmail = async () => {
-    if (!email) {
-      alert("メールアドレスを入れてね");
+const loginEmail = async () => {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    alert("メールアドレスを入れてね");
+    return;
+  }
+  // ざっくりフォーマットチェック（任意）
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    alert("メールの形式がおかしいよ");
+    return;
+  }
+
+  try {
+    setSendingEmail(true);
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalized,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true, // まだユーザーが無くても作成OK
+      },
+    });
+
+    if (error) {
+      console.error(error);
+      alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
       return;
     }
-    try {
-      setSendingEmail(true);
-      await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      setSent(true);
-      alert(
-        "ログイン用リンクを送ったよ。\nメールアプリで開くと別ブラウザになることがあるけぇ、その場合は『ブラウザで開く』を選んでね。"
-      );
-    } catch (e) {
-      console.error(e);
-      alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
-    } finally {
-      setSendingEmail(false);
-    }
-  };
+
+    setSent(true);
+    alert(
+      "ログイン用リンクを送ったよ。\nメールアプリで開くと別ブラウザになることがあるけぇ、その場合は『ブラウザで開く』を選んでね。"
+    );
+  } catch (e) {
+    console.error(e);
+    alert("エラーが出たよ。時間を置いて再試行してね。");
+  } finally {
+    setSendingEmail(false);
+  }
+};
+
 
   // ログアウト → すぐ /login
   const logout = async () => {
@@ -123,6 +142,7 @@ export default function PairingButtons() {
     </div>
   );
 }
+
 
 
 
