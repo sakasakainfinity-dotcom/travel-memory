@@ -1,3 +1,8 @@
+// ★一時ログ（必要なくなったら消す）
+useEffect(() => {
+  console.log("[AuthGate] mount");
+}, []);
+
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
