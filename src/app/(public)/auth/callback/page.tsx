@@ -9,9 +9,9 @@ export default function AuthCallbackPage() {
       try {
         const url = new URL(window.location.href);
 
-        // --- まずはメール系（token） ---
+        // 1) メール（ハッシュ or クエリ）
         const hp = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : "");
-        const access_token = hp.get("access_token") ?? url.searchParams.get("access_token");
+        const access_token  = hp.get("access_token")  ?? url.searchParams.get("access_token");
         const refresh_token = hp.get("refresh_token") ?? url.searchParams.get("refresh_token");
 
         if (access_token && refresh_token) {
@@ -21,8 +21,8 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // --- 次にOAuth(PKCE)（Google） ---
-        // v2 は引数に現在URLを渡すのが安定
+        // 2) OAuth(PKCE)（Google）
+        // v2はURLを渡すのが安定
         const { error } = await (supabase.auth as any).exchangeCodeForSession(window.location.href);
         if (error) console.error("exchange error:", error);
       } catch (e) {
@@ -39,5 +39,6 @@ export default function AuthCallbackPage() {
     </main>
   );
 }
+
 
 
