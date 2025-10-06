@@ -7,7 +7,7 @@ export default function LoginPage() {
       {/* 背景の光 */}
       <div className="login-glow1" />
       <div className="login-glow2" />
-
+　　  <div className="login-bg" /> 
       <div className="login-card">
         <div className="login-logo">
           <svg viewBox="0 0 24 24" width={28} height={28} aria-hidden>
