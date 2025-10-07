@@ -1,4 +1,3 @@
-// src/components/PairingButtons.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,105 +6,94 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function PairingButtons() {
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [authed, setAuthed] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sent, setSent] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
-
   const router = useRouter();
 
-  // セッション監視
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setAuthed(!!data.user);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setAuthed(!!s?.user);
-    });
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    supabase.auth.getUser().then(({ data }) => mounted && setAuthed(!!data.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setAuthed(!!s?.user));
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
-  // Google でログイン
   const loginGoogle = async () => {
     try {
       setLoadingGoogle(true);
       await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
       });
     } catch (e) {
       console.error(e);
-      alert("Googleログインでエラーが出たよ。時間をおいて再試行してね。");
+      alert("Googleログインでエラー。時間をおいて再試行してね。");
       setLoadingGoogle(false);
     }
   };
 
-  // メールでログイン（マジックリンク）
-const loginEmail = async () => {
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) {
-    alert("メールアドレスを入れてね");
-    return;
-  }
-  // ざっくりフォーマットチェック（任意）
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    alert("メールの形式がおかしいよ");
-    return;
-  }
+  const loginEmail = async () => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return alert("メールアドレスを入れてね");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return alert("メールの形式がおかしいよ");
 
-  try {
-    setSendingEmail(true);
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalized,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        shouldCreateUser: true, // まだユーザーが無くても作成OK
-      },
-    });
-
-    if (error) {
-      console.error(error);
-      alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
-      return;
-    }
-
-    setSent(true);
-    alert(
-      "ログイン用リンクを送ったよ。\nメールアプリで開くと別ブラウザになることがあるけぇ、その場合は『ブラウザで開く』を選んでね。"
-    );
-  } catch (e) {
-    console.error(e);
-    alert("エラーが出たよ。時間を置いて再試行してね。");
-  } finally {
-    setSendingEmail(false);
-  }
-};
-
-
-  // ログアウト → すぐ /login
-  const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      setSendingEmail(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: normalized,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          shouldCreateUser: true,
+        },
+      });
+      if (error) throw error;
+      setSent(true);
+      alert("ログイン用メールを送ったよ。リンクでも6桁コードでもいけるけぇ。");
+    } catch (e) {
+      console.error(e);
+      alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
     } finally {
-      router.replace("/login");
+      setSendingEmail(false);
     }
   };
 
-  // 未ログイン時のUI
+  const verifyCode = async () => {
+    const normalized = email.trim().toLowerCase();
+    const t = code.trim();
+    if (!normalized) return alert("まずメールアドレスを入れて送信してね");
+    if (!/^\d{6}$/.test(t)) return alert("6桁のコードを入れてね");
+
+    try {
+      setVerifying(true);
+      const { error } = await supabase.auth.verifyOtp({
+        email: normalized,
+        token: t,
+        type: "email", // ←これ重要
+      });
+      if (error) throw error;
+      window.location.replace("/"); // ←ハード遷移で確実に反映
+    } catch (e) {
+      console.error(e);
+      alert("コードが違うか期限切れじゃ。メールを再送してやり直して。");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const logout = async () => {
+    try { await supabase.auth.signOut(); } finally { router.replace("/login"); }
+  };
+
   if (!authed) {
     return (
       <div className="auth-buttons">
-        <button
-          className="btn btn-primary w-full"
-          onClick={loginGoogle}
-          disabled={loadingGoogle}
-          aria-busy={loadingGoogle}
-        >
+        <button className="btn btn-primary w-full" onClick={loginGoogle} disabled={loadingGoogle} aria-busy={loadingGoogle}>
           {loadingGoogle ? "処理中…" : "Googleでログイン"}
         </button>
 
@@ -116,32 +104,42 @@ const loginEmail = async () => {
             placeholder="email@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={sent || sendingEmail}
+            disabled={sendingEmail || verifying}
             inputMode="email"
             autoComplete="email"
           />
-          <button
-            className="btn"
-            onClick={loginEmail}
-            disabled={sent || sendingEmail}
-            aria-busy={sendingEmail}
-          >
-            {sent ? "メールを送ったよ" : sendingEmail ? "送信中…" : "メールでログイン"}
+          <button className="btn" onClick={loginEmail} disabled={sendingEmail} aria-busy={sendingEmail}>
+            {sendingEmail ? "送信中…" : sent ? "メール再送" : "メールでログイン"}
           </button>
         </div>
+
+        {sent && (
+          <div className="auth-row" style={{ marginTop: 8 }}>
+            <input
+              className="input"
+              placeholder="6桁コード"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              disabled={verifying}
+            />
+            <button className="btn" onClick={verifyCode} disabled={verifying}>
+              {verifying ? "検証中…" : "コードでログイン"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
-  // ログイン済み時のUI（トップ右上などで出す）
   return (
     <div className="auth-buttons">
-      <button className="btn" onClick={logout}>
-        ログアウト
-      </button>
+      <button className="btn" onClick={logout}>ログアウト</button>
     </div>
   );
 }
+
 
 
 
