@@ -1,12 +1,32 @@
 "use client";
-
-const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-const inApp = /FBAN|FBAV|Instagram|Line|Twitter|TwitterLite|MicroMessenger|GSA|Gmail|YahooMobile/i.test(ua);
-
-
+import { useEffect, useState } from "react";
 import PairingButtons from "@/components/PairingButtons";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (data.session?.user) {
+        window.location.replace("/"); // ← 入ってたらマップへ
+        return;
+      }
+      setChecking(false);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s?.user) window.location.replace("/");
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  if (checking) {
+    return <main style={{ minHeight:"100vh", display:"grid", placeItems:"center" }}>読み込み中…</main>;
+  }
+
   return (
     <main className="login-wrap">
       <div className="login-bg" />
@@ -24,14 +44,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-{inApp && (
-  <div style={{
-    marginBottom: 12, padding: "10px 12px", borderRadius: 12,
-    background: "rgba(255,200,0,.12)", border: "1px solid rgba(255,200,0,.35)"
-  }}>
-    <b>アプリ内ブラウザを検出:</b> 正常にログインできん場合があるけぇ、右上メニューから
-    <b>「ブラウザで開く」</b> を選んでね（Safari/Chrome推奨）。<br/>
-    それか <b>6桁コード</b> でログインしてもOK。
-  </div>
-)}
