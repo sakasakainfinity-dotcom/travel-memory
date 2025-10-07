@@ -39,52 +39,50 @@ export default function PairingButtons() {
   };
 
   const loginEmail = async () => {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized) return alert("メールアドレスを入れてね");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return alert("メールの形式がおかしいよ");
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return alert("メールアドレスを入れてね");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return alert("メールの形式がおかしいよ");
 
-    try {
-      setSendingEmail(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email: normalized,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          shouldCreateUser: true,
-        },
-      });
-      if (error) throw error;
-      setSent(true);
-      alert("ログイン用メールを送ったよ。リンクでも6桁コードでもいけるけぇ。");
-    } catch (e) {
-      console.error(e);
-      alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
-    } finally {
-      setSendingEmail(false);
-    }
-  };
+  try {
+    setSendingEmail(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalized,
+      // ★コールバック不要：emailRedirectTo を渡さない
+      options: { shouldCreateUser: true },
+    });
+    if (error) throw error;
+    setSent(true);
+    alert("6桁コードを送ったよ。メールの本文の『コード』をここに入力してね。");
+  } catch (e) {
+    console.error(e);
+    alert("メール送信に失敗したみたい。アドレスを確認して、もう一度ためして。");
+  } finally {
+    setSendingEmail(false);
+  }
+};
 
-  const verifyCode = async () => {
-    const normalized = email.trim().toLowerCase();
-    const t = code.trim();
-    if (!normalized) return alert("まずメールアドレスを入れて送信してね");
-    if (!/^\d{6}$/.test(t)) return alert("6桁のコードを入れてね");
+const verifyCode = async () => {
+  const normalized = email.trim().toLowerCase();
+  const t = code.trim();
+  if (!normalized) return alert("まずメールアドレスを入れて送信してね");
+  if (!/^\d{6}$/.test(t)) return alert("6桁のコードを入れてね");
 
-    try {
-      setVerifying(true);
-      const { error } = await supabase.auth.verifyOtp({
-        email: normalized,
-        token: t,
-        type: "email", // ←これ重要
-      });
-      if (error) throw error;
-      window.location.replace("/"); // ←ハード遷移で確実に反映
-    } catch (e) {
-      console.error(e);
-      alert("コードが違うか期限切れじゃ。メールを再送してやり直して。");
-    } finally {
-      setVerifying(false);
-    }
-  };
+  try {
+    setVerifying(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: normalized,
+      token: t,
+      type: "email",       // ★これが大事
+    });
+    if (error) throw error;
+    window.location.replace("/");  // ハード遷移で確実に反映
+  } catch (e) {
+    console.error(e);
+    alert("コードが違うか期限切れじゃ。メールを再送してやり直して。");
+  } finally {
+    setVerifying(false);
+  }
+};
 
   const logout = async () => {
     try { await supabase.auth.signOut(); } finally { router.replace("/login"); }
@@ -139,6 +137,7 @@ export default function PairingButtons() {
     </div>
   );
 }
+
 
 
 
