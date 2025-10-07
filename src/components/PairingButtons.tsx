@@ -21,7 +21,7 @@ export default function PairingButtons() {
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
- const clearPkceResidue = () => {
+const clearPkceResidue = () => {
   try {
     localStorage.removeItem("sb-pkce-code-verifier");
     sessionStorage.removeItem("sb-pkce-code-verifier");
@@ -32,26 +32,26 @@ export default function PairingButtons() {
 
 const loginGoogle = async () => {
   try {
-    setLoadingGoogle(true);
-    await supabase.auth.signOut();   // 古いセッションを確実に捨てる
-    clearPkceResidue();              // PKCEの残骸も掃除
+    // ★ この2行で「意図」と「未リトライ」をマーク
+    sessionStorage.setItem("oauth_intent", "google");
+    sessionStorage.removeItem("oauth_retry_once");
+
+    await supabase.auth.signOut();
+    clearPkceResidue();
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?src=google`,
+        queryParams: { prompt: "select_account" },
         scopes: "openid email profile",
-        queryParams: { prompt: "select_account" }, // アカウント選択は毎回出す
       },
     });
   } catch (e) {
     console.error(e);
-    alert("Googleログインでエラー。少し間を置いてもう一度ためして。");
-  } finally {
-    setLoadingGoogle(false);
+    alert("Googleログインでエラー。少し待ってもう一度ためして。");
   }
 };
-
   const loginEmail = async () => {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return alert("メールアドレスを入れてね");
@@ -151,6 +151,7 @@ const verifyCode = async () => {
     </div>
   );
 }
+
 
 
 
