@@ -7,21 +7,52 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (data.session?.user) {
-        window.location.replace("/"); // ← 入ってたらマップへ
-        return;
-      }
+  let mounted = true;
+  (async () => {
+    // 既に入ってたら即TOPへ
+    const { data } = await supabase.auth.getSession();
+    if (!mounted) return;
+    if (data.session?.user) return window.location.replace("/");
+
+    // ここから自動リトライ：理由と意図をチェック
+    const params = new URLSearchParams(location.search);
+    const reason = params.get("reason");   // no-code / exchange / no-session / fatal など
+    const src = params.get("src");         // "google" が来る
+    const intent = sessionStorage.getItem("oauth_intent");     // "google" を期待
+    const retried = sessionStorage.getItem("oauth_retry_once") === "1";
+
+    if (src === "google" && intent === "google" && !retried && reason) {
+      // ★1回だけ自動でクリーン→再挑戦
+      sessionStorage.setItem("oauth_retry_once", "1");
+
+      await supabase.auth.signOut();
+      try {
+        localStorage.removeItem("sb-pkce-code-verifier");
+        sessionStorage.removeItem("sb-pkce-code-verifier");
+        Object.keys(localStorage).filter(k=>k.startsWith("sb-")).forEach(k=>localStorage.removeItem(k));
+        Object.keys(sessionStorage).filter(k=>k.startsWith("sb-")).forEach(k=>sessionStorage.removeItem(k));
+      } catch {}
+
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?src=google`,
+          queryParams: { prompt: "select_account" },
+          scopes: "openid email profile",
+        },
+      });
+    } else {
+      // 何もしない（ユーザーにボタンを見せる）
       setChecking(false);
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s?.user) window.location.replace("/");
-    });
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
-  }, []);
+    }
+  })();
+
+  const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    if (s?.user) window.location.replace("/");
+  });
+  return () => { mounted = false; sub.subscription.unsubscribe(); };
+}, []);
+
 
   if (checking) {
     return <main style={{ minHeight:"100vh", display:"grid", placeItems:"center" }}>読み込み中…</main>;
