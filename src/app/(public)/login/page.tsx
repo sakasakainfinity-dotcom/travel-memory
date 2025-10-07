@@ -1,5 +1,9 @@
 "use client";
 
+const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+const inApp = /FBAN|FBAV|Instagram|Line|Twitter|TwitterLite|MicroMessenger|GSA|Gmail|YahooMobile/i.test(ua);
+
+
 import PairingButtons from "@/components/PairingButtons";
 
 export default function LoginPage() {
@@ -21,3 +25,13 @@ export default function LoginPage() {
   );
 }
 
+{inApp && (
+  <div style={{
+    marginBottom: 12, padding: "10px 12px", borderRadius: 12,
+    background: "rgba(255,200,0,.12)", border: "1px solid rgba(255,200,0,.35)"
+  }}>
+    <b>アプリ内ブラウザを検出:</b> 正常にログインできん場合があるけぇ、右上メニューから
+    <b>「ブラウザで開く」</b> を選んでね（Safari/Chrome推奨）。<br/>
+    それか <b>6桁コード</b> でログインしてもOK。
+  </div>
+)}
