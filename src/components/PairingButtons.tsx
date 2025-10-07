@@ -21,22 +21,36 @@ export default function PairingButtons() {
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
-  const loginGoogle = async () => {
-    try {
-      setLoadingGoogle(true);
-      await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { prompt: "select_account" },
-        },
-      });
-    } catch (e) {
-      console.error(e);
-      alert("Googleログインでエラー。時間をおいて再試行してね。");
-      setLoadingGoogle(false);
-    }
-  };
+ const clearPkceResidue = () => {
+  try {
+    localStorage.removeItem("sb-pkce-code-verifier");
+    sessionStorage.removeItem("sb-pkce-code-verifier");
+    Object.keys(localStorage).filter(k=>k.startsWith("sb-")).forEach(k=>localStorage.removeItem(k));
+    Object.keys(sessionStorage).filter(k=>k.startsWith("sb-")).forEach(k=>sessionStorage.removeItem(k));
+  } catch {}
+};
+
+const loginGoogle = async () => {
+  try {
+    setLoadingGoogle(true);
+    await supabase.auth.signOut();   // 古いセッションを確実に捨てる
+    clearPkceResidue();              // PKCEの残骸も掃除
+
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: "openid email profile",
+        queryParams: { prompt: "select_account" }, // アカウント選択は毎回出す
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    alert("Googleログインでエラー。少し間を置いてもう一度ためして。");
+  } finally {
+    setLoadingGoogle(false);
+  }
+};
 
   const loginEmail = async () => {
   const normalized = email.trim().toLowerCase();
@@ -137,6 +151,7 @@ const verifyCode = async () => {
     </div>
   );
 }
+
 
 
 
