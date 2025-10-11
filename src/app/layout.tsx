@@ -1,13 +1,46 @@
 // src/app/layout.tsx
 import "./globals.css";
+import type { Metadata, Viewport } from "next";
+// ↓ 作ってあれば。まだならこの1行は削ってOK
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
-export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
-export const metadata = { title: "Travel Memory", description: "旅の記憶を地図で残す" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0ea5e9", // Lighthouse/PWAで効く
+};
+
+export const metadata: Metadata = {
+  title: { default: "Travel Memory", template: "%s | Travel Memory" },
+  description: "旅の思い出を地図に刻むPWA。家族・カップルで共有できる旅ログ。",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0ea5e9",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png" },
+      { url: "/icons/icon-512.png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Travel Memory",
+  },
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* 任意：ホーム画面追加の案内（iOSは手動案内） */}
+        {/* <PWAInstallPrompt /> */}
+      </body>
     </html>
   );
 }
