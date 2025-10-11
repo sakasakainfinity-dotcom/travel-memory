@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import SWRegister from "./sw-register";
 import PWAInstallPrompt from "../components/PWAInstallPrompt";
 
 export const viewport: Viewport = {
@@ -43,8 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
-import SWRegister from "./sw-register";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
