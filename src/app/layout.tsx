@@ -1,14 +1,12 @@
 // src/app/layout.tsx
-import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import SWRegister from "./sw-register";
-import PWAInstallPrompt from "../components/PWAInstallPrompt";
+import type { Metadata, Viewport } from "next";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0ea5e9", // Lighthouse/PWAで効く
+  themeColor: "#0ea5e9",
 };
 
 export const metadata: Metadata = {
@@ -19,41 +17,27 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
     apple: [
       { url: "/icons/icon-192.png" },
-      { url: "/icons/icon-512.png" },
-    ],
+      { url: "/icons/icon-512.png" }
+    ]
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Travel Memory",
-  },
+    title: "Travel Memory"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body>
-        {children}
-        {/* 任意：ホーム画面追加の案内（iOSは手動案内） */}
-        {/* <PWAInstallPrompt /> */}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="ja">
-      <body>
-        {children}
-        <SWRegister /> {/* ← これを追加 */}
-      </body>
-    </html>
-  );
-}
 
 
