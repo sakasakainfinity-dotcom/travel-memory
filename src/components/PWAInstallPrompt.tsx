@@ -7,12 +7,10 @@ export default function PWAInstallPrompt() {
 
   useEffect(() => {
     const handler = (e: any) => {
-      // Android系で出る beforeinstallprompt を横取り
-      e.preventDefault();
+      e.preventDefault();       // Android系の beforeinstallprompt を横取り
       setDeferred(e);
       setShow(true);
     };
-    // iOSはこのイベント自体が出ないのが仕様
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -41,3 +39,4 @@ export default function PWAInstallPrompt() {
     </div>
   );
 }
+
