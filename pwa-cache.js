@@ -22,12 +22,13 @@ export default [
   {
     urlPattern: ({ url }) => url.pathname.startsWith('/api'),
     handler: 'NetworkOnly',
+    options: {}, // ★これが無いと next-pwa 内部で undefined 参照して死ぬ
   },
   {
     urlPattern: /^https:\/\/([a-z0-9-]+\.)?supabase\.co\/.*/i,
     handler: 'NetworkFirst',
     options: { cacheName: 'supabase', networkTimeoutSeconds: 3, expiration: { maxEntries: 200, maxAgeSeconds: WEEK } },
   },
-  // 地図タイルはまず除外（規約＆破裂対策）。必要になったら個別検討。
+  // 地図タイルはまず除外（規約＆キャッシュ破裂対策）
 ];
 
