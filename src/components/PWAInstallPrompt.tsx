@@ -7,7 +7,7 @@ export default function PWAInstallPrompt() {
 
   useEffect(() => {
     const handler = (e: any) => {
-      e.preventDefault();       // Android系の beforeinstallprompt を横取り
+      e.preventDefault();
       setDeferred(e);
       setShow(true);
     };
@@ -39,4 +39,5 @@ export default function PWAInstallPrompt() {
     </div>
   );
 }
+
 
