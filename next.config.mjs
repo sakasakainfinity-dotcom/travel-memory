@@ -1,6 +1,6 @@
-// next.config.mjs （ESM）
+// next.config.mjs（ESM）
 import withPWA from 'next-pwa';
-import runtimeCaching from './pwa-cache.js'; // 下のファイルをESMで用意
+import runtimeCaching from './pwa-cache.js'; // ← この後作る
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -16,14 +16,13 @@ const nextConfig = {
   },
 };
 
-// PWAラッパーで包んでexport
 export default withPWA({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV !== 'production', // devでは無効でOK
+  disable: process.env.NODE_ENV !== 'production',
   runtimeCaching,
-  fallbacks: { document: '/offline' }, // 任意
+  fallbacks: { document: '/offline' } // 任意
 })(nextConfig);
 
 
