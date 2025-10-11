@@ -44,6 +44,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
+import SWRegister from "./sw-register";
 
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ja">
+      <body>
+        {children}
+        <SWRegister /> {/* ← これを追加 */}
+      </body>
+    </html>
+  );
+}
 
 
