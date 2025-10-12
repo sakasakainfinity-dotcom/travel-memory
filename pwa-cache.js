@@ -1,30 +1,41 @@
-// pwa-cache.js
-const WEEK = 7 * 24 * 60 * 60, MONTH = 30 * 24 * 60 * 60, YEAR = 365 * 24 * 60 * 60;
+// pwa-cache.js (CJSでもESMでも可。mjsなら export default を使う)
+const ONE_DAY = 24 * 60 * 60;
 
-module.exports = [
-  { // Nextのビルド静的
-    urlPattern: ({url}) => url.pathname.startsWith('/_next/static/'),
-    handler: 'CacheFirst',
-    options: { cacheName: 'next-static', expiration: { maxEntries: 512, maxAgeSeconds: YEAR } }
+const runtimeCaching = [
+  // ページ・リソース（Nextの静的/SSR）
+  {
+    urlPattern: ({ request }) => request.destination === 'document' || request.destination === 'script' || request.destination === 'style',
+    handler: 'NetworkFirst',
+    options: {
+      cacheName: 'next-doc-static',
+      expiration: { maxEntries: 100, maxAgeSeconds: 7 * ONE_DAY }
+    }
   },
-  { // 画像
-    urlPattern: ({request}) => request.destination === 'image',
+  // 画像
+  {
+    urlPattern: ({ request }) => request.destination === 'image',
     handler: 'StaleWhileRevalidate',
-    options: { cacheName: 'images', expiration: { maxEntries: 200, maxAgeSeconds: MONTH } }
+    options: {
+      cacheName: 'images',
+      expiration: { maxEntries: 200, maxAgeSeconds: 30 * ONE_DAY }
+    }
   },
-  { // ページ遷移
-    urlPattern: ({request}) => request.mode === 'navigate',
-    handler: 'NetworkFirst',
-    options: { cacheName: 'pages', networkTimeoutSeconds: 3, expiration: { maxEntries: 100, maxAgeSeconds: WEEK } }
+  // Supabase public storage
+  {
+    urlPattern: /^https:\/\/qszesvxgkowjxxhfprkr\.supabase\.co\/storage\/v1\/object\/public\//,
+    handler: 'StaleWhileRevalidate',
+    options: {
+      cacheName: 'supabase-public',
+      expiration: { maxEntries: 300, maxAgeSeconds: 30 * ONE_DAY }
+    }
   },
-  { // APIはキャッシュしない
-    urlPattern: ({url}) => url.pathname.startsWith('/api'),
-    handler: 'NetworkOnly'
-  },
-  { // SupabaseはNetworkFirst（必要なら）
-    urlPattern: /^https:\/\/([a-z0-9-]+\.)?supabase\.co\/.*/i,
-    handler: 'NetworkFirst',
-    options: { cacheName: 'supabase', networkTimeoutSeconds: 3, expiration: { maxEntries: 200, maxAgeSeconds: WEEK } }
+  // APIは都度取りに行く
+  {
+    urlPattern: ({ url }) => url.pathname.startsWith('/api'),
+    handler: 'NetworkOnly',
+    options: {} // ← 空でも options を必ず置く（これ無いとコケることがある）
   }
-  // ※地図タイルはまず除外（規約＆破裂対策）
 ];
+
+module.exports = runtimeCaching;
+// ESMなら: export default runtimeCaching;
