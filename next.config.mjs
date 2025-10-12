@@ -1,29 +1,28 @@
-// next.config.mjs （ESM）
+// next.config.mjs (ESM)
 import withPWA from 'next-pwa';
-import runtimeCaching from './pwa-cache.js'; // 下のファイルをESMで用意
+import runtimeCaching from './pwa-cache.js'; // あるなら。無ければ後述の最小版を使ってOK
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'qszesvxgkowjxxhfprkr.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
-  },
+      { protocol: 'https', hostname: 'qszesvxgkowjxxhfprkr.supabase.co', pathname: '/storage/v1/object/public/**' }
+    ]
+  }
 };
 
-// PWAラッパーで包んでexport
+// ★ ここがポイント：fallbacks を必ず入れる（/_offline はページ作ったやつ）
 export default withPWA({
   dest: 'public',
-  register: true,
+  sw: 'sw.js',
+  register: false,                // 手動登録するなら false（自動にしたいなら true にして <SWRegister/> は削除）
   skipWaiting: true,
-  disable: process.env.NODE_ENV !== 'production', // devでは無効でOK
-  runtimeCaching,
-  fallbacks: { document: '/offline' }, // 任意
+  disable: process.env.NODE_ENV !== 'production', // Preview/本番で有効
+  fallbacks: { document: '/_offline' },          // ← これが無いと precacheFallback が undefined になることがある
+  runtimeCaching,                                  // 無い場合は一旦消してもOK
+  buildExcludes: [/app-build-manifest\.json$/, /middleware-manifest\.json$/]
 })(nextConfig);
+
 
 
