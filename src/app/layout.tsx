@@ -1,14 +1,12 @@
-// src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-// ↓ 作ってあれば。まだならこの1行は削ってOK
-import PWAInstallPrompt from "../components/PWAInstallPrompt";
+import SWRegister from "./sw-register";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0ea5e9", // Lighthouse/PWAで効く
+  themeColor: "#0ea5e9",
 };
 
 export const metadata: Metadata = {
@@ -19,18 +17,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
-    apple: [
-      { url: "/icons/icon-192.png" },
-      { url: "/icons/icon-512.png" },
-    ],
+    apple: [{ url: "/icons/icon-192.png" }]
   },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Travel Memory",
-  },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Travel Memory" },
+  other: { "mobile-web-app-capable": "yes" }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -38,12 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {children}
-        {/* 任意：ホーム画面追加の案内（iOSは手動案内） */}
-        {/* <PWAInstallPrompt /> */}
+        <SWRegister /> {/* 自動登録に変えるなら next.config.mjs を register:true にして、この行は削除 */}
       </body>
     </html>
   );
 }
+
+
 
 
 
