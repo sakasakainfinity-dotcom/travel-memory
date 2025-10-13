@@ -1,9 +1,8 @@
 export default function OfflinePage() {
   return (
-    <main style={{ padding: 24 }}>
-      <h1>オフラインです</h1>
-      <p>ネットに繋がったら自動で再読込するけぇ、ちょい待ってね。</p>
-      <button onClick={() => location.reload()}>再読み込み</button>
+    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <h1 style={{ fontSize: 24, marginBottom: 8 }}>オフラインです</h1>
+      <p style={{ color: "#555" }}>ネットに繋がったら自動で再読み込みします。</p>
     </main>
   );
 }
