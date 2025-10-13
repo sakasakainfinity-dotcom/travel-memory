@@ -12,7 +12,7 @@ const nextConfig = {
 export default withPWA({
   dest: 'public',
   sw: 'sw.js',
-  register: false,               // ← 手動登録で統一（後で変えたくなったら true にして SWRegister を外す）
+  register: true,               // ← 手動登録で統一（後で変えたくなったら true にして SWRegister を外す）
   skipWaiting: true,
   disable: process.env.NODE_ENV !== 'production',
   fallbacks: { document: '/_offline' },     // ← これ超大事（precacheFallbackエラー潰し）
