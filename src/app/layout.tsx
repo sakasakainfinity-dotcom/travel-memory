@@ -2,7 +2,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 // ↓ 作ってあれば。まだならこの1行は削ってOK
-import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import PWAInstallPrompt from "../components/PWAInstallPrompt";
 
 export const viewport: Viewport = {
   width: "device-width",
