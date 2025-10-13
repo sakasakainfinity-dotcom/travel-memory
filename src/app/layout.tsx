@@ -30,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {children}
-        <SWRegister /> {/* 自動登録に変えるなら next.config.mjs を register:true にして、この行は削除 */}
       </body>
     </html>
   );
