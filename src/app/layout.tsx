@@ -1,8 +1,7 @@
 // src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-// ↓ 作ってあれば。まだならこの1行は削ってOK
-import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -39,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         {/* 任意：ホーム画面追加の案内（iOSは手動案内） */}
-        {/* <PWAInstallPrompt /> */}
+        <PWAInstallPrompt />
       </body>
     </html>
   );
