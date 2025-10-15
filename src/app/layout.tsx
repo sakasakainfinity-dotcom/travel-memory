@@ -1,8 +1,11 @@
+
+// src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+
 import SWRegister from "./sw-register";
-import InstallCTA from '@/components/InstallCTA';
-import SWUpdater from '@/components/SWUpdater';
+import InstallCTA from "@/components/InstallCTA";
+import SWUpdater from "@/components/SWUpdater";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -21,9 +24,14 @@ export const metadata: Metadata = {
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
-    apple: [{ url: "/icons/icon-192.png" }]
+    // 180x180 を public/ に置いた場合はこちらを推奨
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   },
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Travel Memory" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Travel Memory"
+  },
   other: { "mobile-web-app-capable": "yes" }
 };
 
@@ -32,33 +40,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {children}
+        {/* SW登録（既存の実装を尊重） */}
         <SWRegister />
-      </body>
-    </html>
-  );
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="ja">
-      <head>
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#000000" />
-        {/* Plausible を使うなら↓（ドメインは差し替え） */}
-        {/* <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> */}
-      </head>
-      <body>
-        {children}
+        {/* SW更新トースト & A2HSボタン */}
         <SWUpdater />
         <InstallCTA />
       </body>
     </html>
   );
 }
-
 
 
 
