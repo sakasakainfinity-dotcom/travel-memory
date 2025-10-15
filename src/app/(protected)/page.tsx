@@ -515,7 +515,7 @@ export default function Page() {
       />
 
     
-     {/* 検索（中央・幅をクランプ、ノッチ対応） */}
+{/* 検索（中央・幅クランプ、ノッチ対応） */}
 <div
   style={{
     position: "fixed",
@@ -562,15 +562,14 @@ export default function Page() {
     e.stopPropagation();
     try {
       await supabase.auth.signOut();
-   　 } finally {
-    　  router.replace("/login");
-   　　 }
-　　  }}
-　　>
-　　  ログアウト
-　　</button>
-  </div>
-</div>
+    } finally {
+      router.replace("/login");
+    }
+  }}
+>
+  ログアウト
+</button>
+
 
       {/* 右下＋投稿 */}
       <button
