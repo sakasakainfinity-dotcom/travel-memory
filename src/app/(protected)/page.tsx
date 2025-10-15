@@ -8,6 +8,7 @@ import SearchBox from "@/components/SearchBox";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { useRouter } from "next/navigation";
+import { compress } from "@/lib/image";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -212,9 +213,15 @@ function EditModal({
         if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
         for (const f of newFiles) {
-          const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
-          const path = `${place.id}/${crypto.randomUUID()}.${ext}`;
-          const up = await supabase.storage.from("photos").upload(path, f, { upsert: false, cacheControl: "3600" });
+  const blob = await compress(f, 1600, 0.8);
+  const toUpload = new File([blob], f.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+
+  const path = `${place.id}/${crypto.randomUUID()}.jpg`;
+  const up = await supabase.storage.from("photos").upload(
+    path,
+    toUpload,
+    { upsert: false, cacheControl: "3600" }
+  );
           if (up.error) throw new Error(`[STORAGE] ${up.error.message}`);
           const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
           const publicUrl = pub.publicUrl;
@@ -394,10 +401,16 @@ async function insertPlace({
   // photos
   const urls: string[] = [];
   for (const f of files ?? []) {
-    const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `${placeRow.id}/${crypto.randomUUID()}.${ext}`;
+  const blob = await compress(f, 1600, 0.8);
+  const toUpload = new File([blob], f.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
 
-    const { error: eUp } = await supabase.storage.from("photos").upload(path, f, { upsert: false, cacheControl: "3600" });
+  const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
+  const { error: eUp } = await supabase.storage.from("photos").upload(
+    path,
+    toUpload,
+    { upsert: false, cacheControl: "3600" }
+  );
+
     if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
 
     const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
