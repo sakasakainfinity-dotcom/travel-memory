@@ -516,48 +516,60 @@ export default function Page() {
 
     
       {/* 検索ヘッダ（最前面） */}
-      <div
-        style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 10000, pointerEvents: "auto" }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            maxWidth: 960,
-            margin: "10px auto",
-            padding: "0 12px",
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 12
-          }}
-        >
-          <SearchBox onPick={(p) => setFlyTo(p)} />
+<div
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 8px)",        // ← ノッチぶん下げる
+    left: 0,
+    right: 0,
+    zIndex: 10000,
+    pointerEvents: "auto",
+    paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",  // ← 左右の安全域も考慮
+    paddingRight: "max(12px, env(safe-area-inset-right, 0px))",
+  }}
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => e.stopPropagation()}
+  onWheel={(e) => e.stopPropagation()}
+  onTouchStart={(e) => e.stopPropagation()}
+>
+  <div
+    style={{
+      maxWidth: 960,
+      margin: "0 auto",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+    }}
+  >
+    {/* 検索ボックスを広く取る */}
+    <div style={{ flex: 1 }}>
+      <SearchBox onPick={(p) => setFlyTo(p)} />
+    </div>
 
-          {/* ★ 「仮」を撤去して正式ログアウトに差し替え */}
-          <button
-            style={{
-              background: "rgba(255,255,255,0.9)",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: "8px 12px",
-              cursor: "pointer"
-            }}
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                await supabase.auth.signOut();
-              } finally {
-                router.replace("/login"); // ← 即ログイン画面へ
-                // 必要なら物理遷移でもOK: window.location.replace("/login");
-              }
-            }}
-          >
-            ログアウト
-          </button>
-        </div>
-      </div>
+    {/* ログアウトはボックスの右、指で押しやすい余白付き */}
+    <button
+      style={{
+        background: "rgba(255,255,255,0.9)",
+        border: "1px solid #ddd",
+        borderRadius: 10,
+        padding: "10px 14px",
+        cursor: "pointer",
+        boxShadow: "0 4px 16px rgba(0,0,0,.08)",
+        backdropFilter: "saturate(120%) blur(6px)",
+      }}
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await supabase.auth.signOut();
+        } finally {
+          router.replace("/login");
+        }
+      }}
+    >
+      ログアウト
+    </button>
+  </div>
+</div>
 
       {/* 右下＋投稿 */}
       <button
@@ -571,54 +583,114 @@ export default function Page() {
       </button>
 
       {/* 下プレビュー（1/4固定） */}
-      {selected && (
-        <div
-          style={{
-            position: "fixed",
-            left: "50%", transform: "translateX(-50%)",
-            bottom: 10, width: "min(980px, 96vw)", height: "28vh",
-            background: "rgba(255,255,255,0.98)", border: "1px solid #e5e7eb", borderRadius: 14,
-            boxShadow: "0 18px 50px rgba(0,0,0,.25)", zIndex: 9000, display: "grid",
-            gridTemplateColumns: "2fr 3fr", gap: 12, padding: 12, pointerEvents: "auto",
-          }}
-          onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {selected.name || "無題"}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setEditOpen(true)}
-                  style={{ border: "1px solid #111827", background: "#111827", color: "#fff", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}
-                >
-                  編集
-                </button>
-                <button
-                  onClick={() => setSelectedId(null)}
-                  style={{ border: "1px solid #ddd", background: "#fff", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: "#374151", lineHeight: 1.5, maxHeight: "18vh", overflow: "auto" }}>
-              {selected.memo || "（メモなし）"}
-            </div>
-          </div>
+{selected && (
+  <div
+    style={{
+      position: "fixed",
+      left: "50%",
+      transform: "translateX(-50%)",
+      bottom: 10,
+      width: "min(980px, 96vw)",
+      background: "rgba(255,255,255,0.98)",
+      border: "1px solid #e5e7eb",
+      borderRadius: 14,
+      boxShadow: "0 18px 50px rgba(0,0,0,.25)",
+      zIndex: 9000,
+      display: "grid",
+      gridTemplateColumns: "2fr 3fr",
+      gridAutoRows: "auto",
+      gap: 12,
+      padding: 12,
+      pointerEvents: "auto",
+    }}
+    onMouseDown={(e) => e.stopPropagation()}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* ✨ タイトル（カード最上部・中央／2カラム分を専有） */}
+    <div style={{ gridColumn: "1 / -1", textAlign: "center" }}>
+      <div
+        style={{
+          fontWeight: 900,
+          fontSize: 18,
+          lineHeight: 1.2,
+          maxWidth: "90%",
+          margin: "0 auto",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          letterSpacing: "0.02em",
+        }}
+        title={selected.name || "無題"}
+      >
+        {selected.name || "無題"}
+      </div>
+    </div>
 
-          <div style={{ overflow: "hidden" }}>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>写真</div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-              {(selected.photos ?? []).length === 0 && <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>}
-              {(selected.photos ?? []).map((u) => (
-                <img key={u} src={u} style={{ height: "20vh", width: "auto", borderRadius: 10, border: "1px solid #eee", objectFit: "cover" }} alt="" />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+    {/* × クローズ（左上） */}
+    <button
+      onClick={() => setSelectedId(null)}
+      style={{
+        position: "absolute",
+        top: 10,
+        left: 12,
+        border: "1px solid #ddd",
+        background: "#fff",
+        borderRadius: 8,
+        padding: "6px 10px",
+        cursor: "pointer",
+      }}
+      aria-label="閉じる"
+    >
+      ×
+    </button>
+
+    {/* ✏️ 編集（右上・画面端寄せ） */}
+    <button
+      onClick={() => setEditOpen(true)}
+      style={{
+        position: "absolute",
+        top: 10,
+        right: 12,
+        border: "1px solid #111827",
+        background: "#111827",
+        color: "#fff",
+        borderRadius: 8,
+        padding: "6px 10px",
+        cursor: "pointer",
+        fontWeight: 700,
+      }}
+    >
+      編集
+    </button>
+
+    {/* 左カラム：メモ */}
+    <div style={{ overflow: "hidden" }}>
+      <div style={{ marginTop: 4, fontSize: 13, color: "#374151", lineHeight: 1.5, maxHeight: "18vh", overflow: "auto" }}>
+        {selected.memo || "（メモなし）"}
+      </div>
+    </div>
+
+    {/* 右カラム：写真スライド */}
+    <div style={{ overflow: "hidden" }}>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>写真</div>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+        {(selected.photos ?? []).length === 0 && (
+          <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+        )}
+        {(selected.photos ?? []).map((u) => (
+          <img
+            key={u}
+            src={u}
+            loading="lazy"
+            style={{ height: "20vh", width: "auto", borderRadius: 10, border: "1px solid #eee", objectFit: "cover" }}
+            alt=""
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* 投稿モーダル */}
       <PostModal
