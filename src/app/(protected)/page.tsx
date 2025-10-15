@@ -515,16 +515,16 @@ export default function Page() {
       />
 
     
-      {/* 検索ヘッダ（最前面） */}
+     {/* 検索（中央・幅をクランプ、ノッチ対応） */}
 <div
   style={{
     position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 8px)",        // ← ノッチぶん下げる
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
     left: 0,
     right: 0,
     zIndex: 10000,
     pointerEvents: "auto",
-    paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",  // ← 左右の安全域も考慮
+    paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",
     paddingRight: "max(12px, env(safe-area-inset-right, 0px))",
   }}
   onMouseDown={(e) => e.stopPropagation()}
@@ -534,40 +534,41 @@ export default function Page() {
 >
   <div
     style={{
-      maxWidth: 960,
+      // 画面中央に固定。幅は 240px〜520px の間で画面比で可変
+      width: "clamp(240px, 70vw, 520px)",
       margin: "0 auto",
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
     }}
   >
-    {/* 検索ボックスを広く取る */}
-    <div style={{ flex: 1 }}>
-      <SearchBox onPick={(p) => setFlyTo(p)} />
-    </div>
+    <SearchBox onPick={(p) => setFlyTo(p)} />
+  </div>
+</div>
 
-    {/* ログアウトはボックスの右、指で押しやすい余白付き */}
-    <button
-      style={{
-        background: "rgba(255,255,255,0.9)",
-        border: "1px solid #ddd",
-        borderRadius: 10,
-        padding: "10px 14px",
-        cursor: "pointer",
-        boxShadow: "0 4px 16px rgba(0,0,0,.08)",
-        backdropFilter: "saturate(120%) blur(6px)",
-      }}
-      onClick={async (e) => {
-        e.stopPropagation();
-        try {
-          await supabase.auth.signOut();
-        } finally {
-          router.replace("/login");
-        }
-      }}
-    >
-      ログアウト
-    </button>
+{/* ログアウト（右上に独立配置。検索に押し出されない） */}
+<button
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    right: "max(12px, env(safe-area-inset-right, 0px))",
+    zIndex: 10001,
+    background: "rgba(255,255,255,0.9)",
+    border: "1px solid #ddd",
+    borderRadius: 10,
+    padding: "10px 14px",
+    cursor: "pointer",
+    boxShadow: "0 4px 16px rgba(0,0,0,.08)",
+    backdropFilter: "saturate(120%) blur(6px)",
+  }}
+  onClick={async (e) => {
+    e.stopPropagation();
+    try {
+      await supabase.auth.signOut();
+   　 } finally {
+    　  router.replace("/login");
+   　　 }
+　　  }}
+　　>
+　　  ログアウト
+　　</button>
   </div>
 </div>
 
