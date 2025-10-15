@@ -1,4 +1,3 @@
-
 // src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
@@ -24,14 +23,9 @@ export const metadata: Metadata = {
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
-    // 180x180 を public/ に置いた場合はこちらを推奨
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Travel Memory"
-  },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Travel Memory" },
   other: { "mobile-web-app-capable": "yes" }
 };
 
@@ -40,15 +34,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {children}
-        {/* SW登録（既存の実装を尊重） */}
+        {/* SW登録（あるなら残す。無ければこの行は消してOK） */}
         <SWRegister />
         {/* SW更新トースト & A2HSボタン */}
         <SWUpdater />
         <InstallCTA />
+
+        {/* ← ここが未クローズだった。`/>` で閉じる */}
         <Script
           defer
           data-domain="travel-memory-1rem-hses9teyi-kisimoto-kazukis-projects.vercel.app"
           src="https://plausible.io/js/script.js"
+        />
       </body>
     </html>
   );
