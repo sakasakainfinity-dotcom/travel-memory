@@ -72,6 +72,10 @@ export default function SearchBox({
       onTouchStart={stopAll}
     >
       <input
+        className="tm-search-input"
+        type="search"
+        inputMode="search"
+        autoComplete="off"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => list.length && setOpen(true)}
@@ -133,4 +137,5 @@ export default function SearchBox({
     </div>
   );
 }
+
 
