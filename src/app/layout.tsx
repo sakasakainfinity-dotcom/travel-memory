@@ -2,7 +2,7 @@
 // src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-
+import Script from "next/script";
 import SWRegister from "./sw-register";
 import InstallCTA from "@/components/InstallCTA";
 import SWUpdater from "@/components/SWUpdater";
@@ -45,6 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* SW更新トースト & A2HSボタン */}
         <SWUpdater />
         <InstallCTA />
+        <Script
+          defer
+          data-domain="travel-memory-1rem-hses9teyi-kisimoto-kazukis-projects.vercel.app"
+          src="https://plausible.io/js/script.js"
       </body>
     </html>
   );
