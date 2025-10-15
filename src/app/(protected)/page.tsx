@@ -419,12 +419,20 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
 
+    useEffect(() => {
+    if (localStorage.getItem('first_open_sent')) return;
+    // @ts-ignore
+    window.plausible?.('first_open');
+    localStorage.setItem('first_open_sent', '1');
+  }, []);
+  
   const [editOpen, setEditOpen] = useState(false);
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 9 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
 
+  
   // 起動時ロード
   useEffect(() => {
     (async () => {
