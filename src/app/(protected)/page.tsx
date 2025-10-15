@@ -515,17 +515,14 @@ export default function Page() {
       />
 
     
-{/* 検索（中央・幅クランプ、ノッチ対応） */}
+{/* 検索（左寄せ・小さめ・ノッチ対応） */}
 <div
   style={{
     position: "fixed",
     top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-    left: 0,
-    right: 0,
+    left: "max(12px, env(safe-area-inset-left, 0px))", // ← 左に寄せる
     zIndex: 10000,
     pointerEvents: "auto",
-    paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",
-    paddingRight: "max(12px, env(safe-area-inset-right, 0px))",
   }}
   onMouseDown={(e) => e.stopPropagation()}
   onClick={(e) => e.stopPropagation()}
@@ -534,15 +531,17 @@ export default function Page() {
 >
   <div
     style={{
-      // 画面中央に固定。幅は 240px〜520px の間で画面比で可変
-      width: "clamp(240px, 70vw, 520px)",
-      margin: "0 auto",
+      /* 幅を抑えめに（最小220px〜最大340px、画面幅に応じて伸縮） */
+      width: "clamp(220px, 60vw, 340px)",
+      marginRight: 12,                 // 右側に少し余白
     }}
   >
-    <SearchBox onPick={(p) => setFlyTo(p)} />
+    <div style={{ position: "relative" }}>
+      <SearchBox onPick={(p) => setFlyTo(p)} />
+    </div>
   </div>
 </div>
-
+      
 {/* ログアウト（右上に独立配置。検索に押し出されない） */}
 <button
   style={{
