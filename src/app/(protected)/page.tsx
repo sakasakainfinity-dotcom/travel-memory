@@ -582,7 +582,7 @@ export default function Page() {
         ＋ 投稿
       </button>
 
-      {/* 下プレビュー（1/4固定） */}
+     {/* 下プレビュー（縦レイアウト：タイトル → メモ → 写真 全幅） */}
 {selected && (
   <div
     style={{
@@ -591,23 +591,23 @@ export default function Page() {
       transform: "translateX(-50%)",
       bottom: 10,
       width: "min(980px, 96vw)",
+      maxHeight: "72vh",
       background: "rgba(255,255,255,0.98)",
       border: "1px solid #e5e7eb",
       borderRadius: 14,
       boxShadow: "0 18px 50px rgba(0,0,0,.25)",
       zIndex: 9000,
-      display: "grid",
-      gridTemplateColumns: "2fr 3fr",
-      gridAutoRows: "auto",
-      gap: 12,
       padding: 12,
       pointerEvents: "auto",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
     }}
     onMouseDown={(e) => e.stopPropagation()}
     onClick={(e) => e.stopPropagation()}
   >
-    {/* ✨ タイトル（カード最上部・中央／2カラム分を専有） */}
-    <div style={{ gridColumn: "1 / -1", textAlign: "center" }}>
+    {/* ✨ タイトル（中央・ぶち抜き） */}
+    <div style={{ textAlign: "center" }}>
       <div
         style={{
           fontWeight: 900,
@@ -644,7 +644,7 @@ export default function Page() {
       ×
     </button>
 
-    {/* ✏️ 編集（右上・画面端寄せ） */}
+    {/* ✏️ 編集（右上） */}
     <button
       onClick={() => setEditOpen(true)}
       style={{
@@ -663,33 +663,51 @@ export default function Page() {
       編集
     </button>
 
-    {/* 左カラム：メモ */}
-    <div style={{ overflow: "hidden" }}>
-      <div style={{ marginTop: 4, fontSize: 13, color: "#374151", lineHeight: 1.5, maxHeight: "18vh", overflow: "auto" }}>
-        {selected.memo || "（メモなし）"}
-      </div>
+    {/* 📝 メモ（全幅） */}
+    <div
+      style={{
+        fontSize: 13,
+        color: "#374151",
+        lineHeight: 1.5,
+        maxHeight: "16vh",
+        overflow: "auto",
+      }}
+    >
+      {selected.memo || "（メモなし）"}
     </div>
 
-    {/* 右カラム：写真スライド */}
-    <div style={{ overflow: "hidden" }}>
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>写真</div>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-        {(selected.photos ?? []).length === 0 && (
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
-        )}
-        {(selected.photos ?? []).map((u) => (
-          <img
-            key={u}
-            src={u}
-            loading="lazy"
-            style={{ height: "20vh", width: "auto", borderRadius: 10, border: "1px solid #eee", objectFit: "cover" }}
-            alt=""
-          />
-        ))}
-      </div>
+    {/* 🖼️ 写真（全幅・残り高さを全部使う） */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+        gap: 8,
+        overflowY: "auto",
+        flex: 1, // ← 残り高さぜんぶ
+      }}
+    >
+      {(selected.photos ?? []).length === 0 && (
+        <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+      )}
+      {(selected.photos ?? []).map((u) => (
+        <img
+          key={u}
+          src={u}
+          loading="lazy"
+          style={{
+            width: "100%",
+            height: "24vh",
+            objectFit: "cover",
+            borderRadius: 10,
+            border: "1px solid #eee",
+          }}
+          alt=""
+        />
+      ))}
     </div>
   </div>
 )}
+
 
 
       {/* 投稿モーダル */}
