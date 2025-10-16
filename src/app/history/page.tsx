@@ -24,12 +24,18 @@ export default function HistoryPage() {
         const ids = (ps ?? []).map((p) => p.id);
         let photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
-          const { data: phs } = await supabase.from('photos').select('place_id, file_url').in('place_id', ids);
-          for (const ph of phs ?? []) {
-            const k = (ph as any).place_id as string;
-            const u = (ph as any).file_url as string;
-            (photosBy[k] ||= []).push(u);
-          }
+          const { data: phs } = await supabase
+ 　　　　　 .from('photos')
+　　　　　  .select('place_id, file_url, created_at')
+　　　　　  .in('place_id', ids)
+　　　　　  .order('created_at', { ascending: false });   // ★投稿ごとに新しい順
+
+　　　　　　const photosBy: Record<string, string[]> = {};
+　　　　　　for (const ph of phs ?? []) {
+　　　　　  const k = (ph as any).place_id as string;
+　　　　　  const u = (ph as any).file_url as string;
+　　　　　  (photosBy[k] ||= []).push(u);
+　　　　　}　　
         }
         setItems(
           (ps ?? []).map((p: any) => ({
