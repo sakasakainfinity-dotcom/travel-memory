@@ -22,31 +22,35 @@ export default function HistoryPage() {
           .order('created_at', { ascending: false });
 
         const ids = (ps ?? []).map((p) => p.id);
-        let photosBy: Record<string, string[]> = {};
-        if (ids.length > 0) {
-          const { data: phs } = await supabase
- 　　　　　 .from('photos')
-　　　　　  .select('place_id, file_url, created_at')
-　　　　　  .in('place_id', ids)
-　　　　　  .order('created_at', { ascending: false });   // ★投稿ごとに新しい順
 
-　　　　　　const photosBy: Record<string, string[]> = {};
-　　　　　　for (const ph of phs ?? []) {
-　　　　　  const k = (ph as any).place_id as string;
-　　　　　  const u = (ph as any).file_url as string;
-　　　　　  (photosBy[k] ||= []).push(u);
-　　　　　}　　
-        }
-        setItems(
-          (ps ?? []).map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            memo: p.memo,
-            lat: p.lat,
-            lng: p.lng,
-            photos: photosBy[p.id] ?? [],
-          }))
-        );
+// ★ 外側で1回だけ宣言（ここを残す！）
+let photosBy: Record<string, string[]> = {};
+
+if (ids.length > 0) {
+  const { data: phs, error: ePh } = await supabase
+    .from('photos')
+    .select('place_id, file_url, created_at')
+    .in('place_id', ids)
+    .order('created_at', { ascending: false }); // 新しい順（1枚目=最新）
+
+  if (!ePh) {
+    for (const ph of (phs ?? []) as { place_id: string; file_url: string }[]) {
+      (photosBy[ph.place_id] ||= []).push(ph.file_url);
+    }
+  }
+}
+
+// ↓ ここで外側の photosBy を使う（再宣言しない！）
+　　　　　setItems(
+　　　　　  (ps ?? []).map((p) => ({
+  　　　　  id: p.id,
+   　　　　 title: p.title,
+   　　　　 memo: p.memo,
+   　　　　 lat: p.lat,
+   　　　　 lng: p.lng,
+   　　　　 photos: photosBy[p.id] ?? [],  // ← サムネは photos[0]
+　　　　  }))
+　　　　);
       } finally {
         setLoading(false);
       }
