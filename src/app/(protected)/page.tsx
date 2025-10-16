@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { useRouter } from "next/navigation";
 import { compress } from "@/lib/image";
+import KebabMenu from "@/components/KebabMenu";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -566,9 +567,8 @@ export default function Page() {
     }
   }}
 >
-  ログアウト
-</button>
-
+  <>
+  <KebabMenu />
 
       {/* 右下＋投稿 */}
       <button
