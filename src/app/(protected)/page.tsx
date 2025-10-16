@@ -543,32 +543,10 @@ export default function Page() {
   </div>
 </div>
       
-{/* ログアウト（右上に独立配置。検索に押し出されない） */}
-<button
-  style={{
-    position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-    right: "max(12px, env(safe-area-inset-right, 0px))",
-    zIndex: 10001,
-    background: "rgba(255,255,255,0.9)",
-    border: "1px solid #ddd",
-    borderRadius: 10,
-    padding: "10px 14px",
-    cursor: "pointer",
-    boxShadow: "0 4px 16px rgba(0,0,0,.08)",
-    backdropFilter: "saturate(120%) blur(6px)",
-  }}
-  onClick={async (e) => {
-    e.stopPropagation();
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      router.replace("/login");
-    }
-  }}
->
+return (
   <>
-  <KebabMenu />
+    {/* 右上メニュー（三点リーダー） */}
+    <KebabMenu />
 
       {/* 右下＋投稿 */}
       <button
