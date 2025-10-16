@@ -1,11 +1,19 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 type Pair = { id: string; owner_id: string };
 
 export default function PairPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: 16 }}>読み込み中…</main>}>
+      <PairInner />
+    </Suspense>
+  );
+}
+
+function PairInner() {
   const [pair, setPair] = useState<Pair | null>(null);
   const [joining, setJoining] = useState(false);
   const sp = useSearchParams();
@@ -17,17 +25,20 @@ export default function PairPage() {
       const uid = ses.session?.user.id;
       if (!uid) return;
 
-      // すでに所属しているペアを取得
+      // 既に所属しているペア
       const { data } = await supabase
         .from('pair_members')
         .select('pair_id, pairs!inner(id, owner_id)')
         .eq('user_id', uid)
         .maybeSingle();
 
-      if (data) setPair({ id: (data as any).pairs.id, owner_id: (data as any).pairs.owner_id });
+      if (data) {
+        setPair({ id: (data as any).pairs.id, owner_id: (data as any).pairs.owner_id });
+        return;
+      }
 
-      // 招待リンク経由で参加
-      if (!data && joinId) {
+      // 招待リンク参加
+      if (joinId) {
         setJoining(true);
         const { error } = await supabase.from('pair_members').insert({ pair_id: joinId, user_id: uid, role: 'member' });
         setJoining(false);
@@ -98,3 +109,4 @@ const btnPrimary: React.CSSProperties = {
 const btnLight: React.CSSProperties = {
   padding: '10px 14px', borderRadius: 10, background: '#fff', color: '#111827', fontWeight: 800, border: '1px solid #ddd', cursor: 'pointer'
 };
+
