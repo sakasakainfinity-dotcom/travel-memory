@@ -543,149 +543,262 @@ export default function Page() {
   </div>
 </div>
       
-return (
-  <>
-    {/* 右上メニュー（三点リーダー） */}
-    <KebabMenu />
+  // ↑ この行の直後から ↓ を丸ごと貼り替え
+  return (
+    <>
+      {/* 右上メニュー（三点リーダー） */}
+      <KebabMenu />
 
-      {/* 右下＋投稿 */}
+      {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          zIndex: 10000,
+          pointerEvents: "auto",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+          <div style={{ position: "relative" }}>
+            <SearchBox onPick={(p) => setFlyTo(p)} />
+          </div>
+        </div>
+      </div>
+
+      {/* 🗺 マップ */}
+      <MapView
+        places={places}
+        onRequestNew={openModalAt}
+        onSelect={(p) => setSelectedId(p.id)}
+        selectedId={selectedId}
+        flyTo={flyTo}
+        bindGetView={(fn) => { getViewRef.current = fn; }}
+        bindSetView={(fn) => { setViewRef.current = fn; }}
+        initialView={initialView}
+      />
+
+      {/* ➕ 投稿フローティングボタン（カードと被らないよう少し上げる） */}
       <button
         onClick={() => {
           const c = getViewRef.current();
           openModalAt({ lat: c.lat, lng: c.lng });
         }}
-        style={{ position: "fixed", right: 20, bottom: 20, zIndex: 10000, background: "#000", color: "#fff", borderRadius: 999, padding: "12px 16px", boxShadow: "0 8px 24px rgba(0,0,0,.25)", cursor: "pointer" }}
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 90,
+          zIndex: 10000,
+          background: "#000",
+          color: "#fff",
+          borderRadius: 999,
+          padding: "12px 16px",
+          boxShadow: "0 8px 24px rgba(0,0,0,.25)",
+          cursor: "pointer",
+        }}
       >
         ＋ 投稿
       </button>
 
-     {/* 下プレビュー（縦レイアウト：タイトル → メモ → 写真 全幅） */}
-{selected && (
-  <div
-    style={{
-      position: "fixed",
-      left: "50%",
-      transform: "translateX(-50%)",
-      bottom: 10,
-      width: "min(980px, 96vw)",
-      maxHeight: "72vh",
-      background: "rgba(255,255,255,0.98)",
-      border: "1px solid #e5e7eb",
-      borderRadius: 14,
-      boxShadow: "0 18px 50px rgba(0,0,0,.25)",
-      zIndex: 9000,
-      padding: 12,
-      pointerEvents: "auto",
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-    }}
-    onMouseDown={(e) => e.stopPropagation()}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* ✨ タイトル（中央・ぶち抜き） */}
-    <div style={{ textAlign: "center" }}>
-      <div
-        style={{
-          fontWeight: 900,
-          fontSize: 18,
-          lineHeight: 1.2,
-          maxWidth: "90%",
-          margin: "0 auto",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          letterSpacing: "0.02em",
-        }}
-        title={selected.name || "無題"}
-      >
-        {selected.name || "無題"}
-      </div>
-    </div>
-
-    {/* × クローズ（左上） */}
-    <button
-      onClick={() => setSelectedId(null)}
-      style={{
-        position: "absolute",
-        top: 10,
-        left: 12,
-        border: "1px solid #ddd",
-        background: "#fff",
-        borderRadius: 8,
-        padding: "6px 10px",
-        cursor: "pointer",
-      }}
-      aria-label="閉じる"
-    >
-      ×
-    </button>
-
-    {/* ✏️ 編集（右上） */}
-    <button
-      onClick={() => setEditOpen(true)}
-      style={{
-        position: "absolute",
-        top: 10,
-        right: 12,
-        border: "1px solid #111827",
-        background: "#111827",
-        color: "#fff",
-        borderRadius: 8,
-        padding: "6px 10px",
-        cursor: "pointer",
-        fontWeight: 700,
-      }}
-    >
-      編集
-    </button>
-
-    {/* 📝 メモ（全幅） */}
-    <div
-      style={{
-        fontSize: 13,
-        color: "#374151",
-        lineHeight: 1.5,
-        maxHeight: "16vh",
-        overflow: "auto",
-      }}
-    >
-      {selected.memo || "（メモなし）"}
-    </div>
-
-    {/* 🖼️ 写真（全幅・残り高さを全部使う） */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-        gap: 8,
-        overflowY: "auto",
-        flex: 1, // ← 残り高さぜんぶ
-      }}
-    >
-      {(selected.photos ?? []).length === 0 && (
-        <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
-      )}
-      {(selected.photos ?? []).map((u) => (
-        <img
-          key={u}
-          src={u}
-          loading="lazy"
+      {/* 🔎 下プレビュー（縦レイアウト：タイトル → メモ → 写真 全幅） */}
+      {selected && (
+        <div
           style={{
-            width: "100%",
-            height: "24vh",
-            objectFit: "cover",
-            borderRadius: 10,
-            border: "1px solid #eee",
+            position: "fixed",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: 10,
+            width: "min(980px, 96vw)",
+            maxHeight: "72vh",
+            background: "rgba(255,255,255,0.98)",
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            boxShadow: "0 18px 50px rgba(0,0,0,.25)",
+            zIndex: 9000,
+            padding: 12,
+            pointerEvents: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
           }}
-          alt=""
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* タイトル（中央） */}
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontWeight: 900,
+                fontSize: 18,
+                lineHeight: 1.2,
+                maxWidth: "90%",
+                margin: "0 auto",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                letterSpacing: "0.02em",
+              }}
+              title={selected.name || "無題"}
+            >
+              {selected.name || "無題"}
+            </div>
+          </div>
+
+          {/* 閉じる（左上） */}
+          <button
+            onClick={() => setSelectedId(null)}
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+              borderRadius: 8,
+              padding: "6px 10px",
+              cursor: "pointer",
+            }}
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+
+          {/* 編集（右上） */}
+          <button
+            onClick={() => setEditOpen(true)}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 12,
+              border: "1px solid #111827",
+              background: "#111827",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "6px 10px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            編集
+          </button>
+
+          {/* メモ（全幅） */}
+          <div
+            style={{
+              fontSize: 13,
+              color: "#374151",
+              lineHeight: 1.5,
+              maxHeight: "16vh",
+              overflow: "auto",
+            }}
+          >
+            {selected.memo || "（メモなし）"}
+          </div>
+
+          {/* 写真（全幅・残り高さ） */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 8,
+              overflowY: "auto",
+              flex: 1,
+            }}
+          >
+            {(selected.photos ?? []).length === 0 && (
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+            )}
+            {(selected.photos ?? []).map((u) => (
+              <img
+                key={u}
+                src={u}
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  height: "24vh",
+                  objectFit: "cover",
+                  borderRadius: 10,
+                  border: "1px solid #eee",
+                }}
+                alt=""
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 📝 投稿モーダル */}
+      <PostModal
+        open={!!newAt}
+        place={{ lat: newAt?.lat ?? 0, lng: newAt?.lng ?? 0 }}
+        onClose={() => {
+          setNewAt(null);
+          const snap = initialView ?? getViewRef.current();
+          setTimeout(() => setViewRef.current(snap), 0);
+        }}
+        onSubmit={async (d) => {
+          try {
+            const created = await insertPlace({
+              title: d.title,
+              memo: d.memo,
+              lat: d.lat,
+              lng: d.lng,
+              visitedAt: d.visitedAt,
+              files: d.photos,
+            });
+            setPlaces((prev) => [
+              {
+                id: created.id,
+                name: created.title ?? "新規",
+                memo: created.memo ?? undefined,
+                lat: created.lat,
+                lng: created.lng,
+                photos: created.photos ?? [],
+              },
+              ...prev,
+            ]);
+            setNewAt(null);
+            const snap = initialView ?? getViewRef.current();
+            setTimeout(() => setViewRef.current(snap), 0);
+          } catch (e: any) {
+            alert(`保存に失敗しました: ${e?.message ?? e}`);
+            console.error(e);
+          }
+        }}
+      />
+
+      {/* ✏️ 編集モーダル */}
+      {selected && (
+        <EditModal
+          open={editOpen}
+          place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
+          onClose={() => setEditOpen(false)}
+          onSaved={({ title, memo, addPhotos }) => {
+            setPlaces((prev) =>
+              prev.map((p) =>
+                p.id === selected.id
+                  ? {
+                      ...p,
+                      name: title ?? p.name,
+                      memo: memo ?? p.memo,
+                      photos: [...(p.photos ?? []), ...(addPhotos ?? [])],
+                    }
+                  : p
+              )
+            );
+          }}
+          onDeleted={() => {
+            setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
+            setSelectedId(null);
+          }}
         />
-      ))}
-    </div>
-  </div>
-)}
-
-
+      )}
+    </>
+  );
+  // 
 
       {/* 投稿モーダル */}
       <PostModal
