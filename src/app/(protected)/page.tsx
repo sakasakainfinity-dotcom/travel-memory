@@ -10,6 +10,7 @@ import { ensureMySpace } from "@/lib/ensureMySpace";
 import { useRouter } from "next/navigation";
 import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
+import { useSearchParams } from "next/navigation";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -445,6 +446,39 @@ export default function Page() {
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 9 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
+
+  const sp = useSearchParams();
+const focusId = sp.get("focus");
+const wantOpen = sp.get("open") === "1";
+const qLat = sp.get("lat");
+const qLng = sp.get("lng");
+const didApplyRef = useRef(false);
+
+// 1) URLに座標が来てたら、placesが揃う前でも即ジャンプ
+useEffect(() => {
+  if (didApplyRef.current) return;
+  if (!qLat || !qLng) return;
+  const lat = parseFloat(qLat);
+  const lng = parseFloat(qLng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  setFlyTo({ lat, lng, zoom: 15 });    // ← 初期ジャンプ
+}, [qLat, qLng]);
+
+// 2) places が揃ったら、IDでピンを特定してプレビューも開く
+useEffect(() => {
+  if (!focusId || didApplyRef.current) return;
+  const target = places.find((p) => p.id === focusId);
+  if (!target) return;
+
+  didApplyRef.current = true;
+
+  setFlyTo({ lat: target.lat, lng: target.lng, zoom: 15 });
+  if (wantOpen) setSelectedId(target.id);
+
+  // URLをクリーンに（履歴→戻るでも邪魔せんように）
+  router.replace("/", { scroll: false });
+}, [focusId, wantOpen, places, router]);
 
   
   // 起動時ロード
