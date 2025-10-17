@@ -1,10 +1,18 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { ensureMySpace } from '@/lib/ensureMySpace';
 
-type Row = { id: string; title: string | null; memo: string | null; lat: number; lng: number; photos: string[] };
+type Row = {
+  id: string;
+  title: string | null;
+  memo: string | null;
+  lat: number;
+  lng: number;
+  photos: string[];
+};
 
 export default function HistoryPage() {
   const [items, setItems] = useState<Row[]>([]);
@@ -14,43 +22,59 @@ export default function HistoryPage() {
     (async () => {
       try {
         const sp = await ensureMySpace();
-        if (!sp?.id) return;
-        const { data: ps } = await supabase
+        if (!sp?.id) {
+          setItems([]);
+          return;
+        }
+
+        // 投稿本体
+        const { data: ps, error: ePlaces } = await supabase
           .from('places')
           .select('id, title, memo, lat, lng, created_at')
           .eq('space_id', sp.id)
           .order('created_at', { ascending: false });
 
-        const ids = (ps ?? []).map((p) => p.id);
+        if (ePlaces || !ps) {
+          console.error(ePlaces);
+          setItems([]);
+          return;
+        }
 
-// ★ 外側で1回だけ宣言（ここを残す！）
-let photosBy: Record<string, string[]> = {};
+        const ids = ps.map((p) => p.id);
 
-if (ids.length > 0) {
-  const { data: phs, error: ePh } = await supabase
-    .from('photos')
-    .select('place_id, file_url, created_at')
-    .in('place_id', ids)
-    .order('created_at', { ascending: false }); // 新しい順（1枚目=最新）
+        // ★ ここで一度だけ宣言（外側）
+        let photosBy: Record<string, string[]> = {};
 
-  if (!ePh) {
-    for (const ph of (phs ?? []) as { place_id: string; file_url: string }[]) {
-      (photosBy[ph.place_id] ||= []).push(ph.file_url);
-    }
-  }
-}
+        if (ids.length > 0) {
+          const { data: phs, error: ePh } = await supabase
+            .from('photos')
+            .select('place_id, file_url, created_at')
+            .in('place_id', ids)
+            .order('created_at', { ascending: false }); // 最新→先頭
 
-// ↓ ここで外側の photosBy を使う（再宣言しない！）
-　　　　　setItems(
-　　　　　  (ps ?? []).map((p) => ({
-  　　　　  id: p.id,
-   　　　　 title: p.title,
-   　　　　 memo: p.memo,
-   　　　　 lat: p.lat,
-   　　　　 lng: p.lng,
-   　　　　 photos: photosBy[p.id] ?? [],  // ← サムネは photos[0]
-　　　　  }))
-　　　　);
+          if (!ePh && phs) {
+            for (const ph of phs as { place_id: string; file_url: string }[]) {
+              (photosBy[ph.place_id] ||= []).push(ph.file_url);
+            }
+          } else {
+            console.error(ePh);
+          }
+        }
+
+        // 投稿 + サムネ配列を結合
+        setItems(
+          ps.map((p) => ({
+            id: p.id,
+            title: p.title,
+            memo: p.memo,
+            lat: p.lat,
+            lng: p.lng,
+            photos: photosBy[p.id] ?? [], // サムネは photos[0]
+          }))
+        );
+      } catch (err) {
+        console.error(err);
+        setItems([]);
       } finally {
         setLoading(false);
       }
@@ -66,14 +90,46 @@ if (ids.length > 0) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 12 }}>
         {items.map((it) => (
-          <article key={it.id} style={{ border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+          <article
+            key={it.id}
+            style={{
+              border: '1px solid #eee',
+              borderRadius: 12,
+              overflow: 'hidden',
+              background: '#fff',
+            }}
+          >
             {it.photos[0] ? (
-              <img src={it.photos[0]} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+              <img
+                src={it.photos[0]}
+                alt=""
+                loading="lazy"
+                style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
+              />
             ) : (
-              <div style={{ height: 160, background: '#f3f4f6', display: 'grid', placeItems: 'center', color: '#9ca3af' }}>No photo</div>
+              <div
+                style={{
+                  height: 160,
+                  background: '#f3f4f6',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#9ca3af',
+                }}
+              >
+                No photo
+              </div>
             )}
             <div style={{ padding: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 16,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={it.title || '無題'}
+              >
                 {it.title || '無題'}
               </div>
               <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', height: 40, overflow: 'hidden' }}>
@@ -89,3 +145,4 @@ if (ids.length > 0) {
     </main>
   );
 }
+
