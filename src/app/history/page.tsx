@@ -108,9 +108,12 @@ export default function HistoryPage() {
               <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', height: 40, overflow: 'hidden' }}>
                 {it.memo || '（メモなし）'}
               </div>
-              <Link href={`/?focus=${it.id}`} style={{ display: 'inline-block', marginTop: 8, fontWeight: 700 }}>
-                地図で見る →
-              </Link>
+              <Link
+　　　　　　　　  href={`/?focus=${it.id}&open=1`}   // ← 追加: open=1 でプレビューも開く合図
+　　　　　　　　  style={{ display: 'inline-block', marginTop: 8, fontWeight: 700 }}
+　　　　　　　　>
+　　　　　　　　  地図で見る →
+　　　　　　　</Link>
             </div>
           </article>
         ))}
