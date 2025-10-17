@@ -91,31 +91,72 @@ export default function HistoryPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 12 }}>
         {items.map((it) => (
-          <article key={it.id} style={{ border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
-            {it.thumbnail ? (
-              <img src={it.thumbnail} alt="" loading="lazy"
-                   style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
-            ) : (
-              <div style={{ height: 160, background: '#f3f4f6', display: 'grid', placeItems: 'center', color: '#9ca3af' }}>
-                No photo
-              </div>
-            )}
-            <div style={{ padding: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                   title={it.title || '無題'}>
-                {it.title || '無題'}
-              </div>
-              <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', height: 40, overflow: 'hidden' }}>
-                {it.memo || '（メモなし）'}
-              </div>
-              <Link
-　　　　　　　　  href={`/?focus=${it.id}&open=1`}   // ← 追加: open=1 でプレビューも開く合図
-　　　　　　　　  style={{ display: 'inline-block', marginTop: 8, fontWeight: 700 }}
-　　　　　　　　>
-　　　　　　　　  地図で見る →
-　　　　　　　</Link>
-            </div>
-          </article>
+          <article
+  key={it.id}
+  style={{ border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', background: '#fff' }}
+>
+  {it.thumbnail ? (
+    <img
+      src={it.thumbnail}
+      alt=""
+      loading="lazy"
+      style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
+    />
+  ) : (
+    <div
+      style={{
+        height: 160,
+        background: '#f3f4f6',
+        display: 'grid',
+        placeItems: 'center',
+        color: '#9ca3af',
+      }}
+    >
+      No photo
+    </div>
+  )}
+
+  <div style={{ padding: 10 }}>
+    <div
+      style={{
+        fontWeight: 800,
+        fontSize: 16,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      title={it.title || '無題'}
+    >
+      {it.title || '無題'}
+    </div>
+    <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', height: 40, overflow: 'hidden' }}>
+      {it.memo || '（メモなし）'}
+    </div>
+
+    {/* ★ これが新しい半透明ボタン */}
+    <a
+      href={`/?focus=${it.id}&open=1&lat=${it.lat}&lng=${it.lng}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 8,
+        fontWeight: 800,
+        textDecoration: 'none',
+        padding: '8px 12px',
+        borderRadius: 999,
+        border: '1px solid rgba(0,0,0,.08)',
+        background: 'rgba(255,255,255,0.85)',
+        boxShadow: '0 6px 20px rgba(0,0,0,.08)',
+        backdropFilter: 'saturate(120%) blur(6px)',
+      }}
+      role="button"
+      aria-label="地図で見る"
+  　　  >
+    　　　  地図で見る →
+ 　　　   </a>
+ 　　　 </div>
+　　　</article>
         ))}
       </div>
     </main>
