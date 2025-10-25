@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import maplibregl, { Map } from "maplibre-gl";
+import maplibregl, { Map, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type Place = {
@@ -30,13 +30,16 @@ export default function MapView({
   onRequestNew: (p: { lat: number; lng: number }) => void;
   onSelect?: (p: Place) => void;
   selectedId?: string | null;
-  flyTo?: { lat: number; lng: number; zoom?: number } | null;
+  flyTo?: { lat: number; lng: number; zoom?: number; label?: string } | null; // ← label 追加OK
   bindGetView?: (fn: () => View) => void;
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
+
+  // 検索一時ピン（毎回置き換え）
+  const searchMarkerRef = useRef<Marker | null>(null);
 
   // ★ 最新の places を常に参照するための ref
   const placesRef = useRef<Place[]>(places);
@@ -134,15 +137,21 @@ export default function MapView({
         if (!f) return;
         const id = String((f.properties as any)?.id);
 
-        const latest = placesRef.current; // ここがミソ
+        const latest = placesRef.current;
         const p = latest.find((x) => x.id === id);
 
-        // 見つからん場合でも最低限座標から生成して渡せるよう保険
         if (p) {
           onSelect?.(p);
         } else if (f.geometry?.type === "Point") {
           const coords = (f.geometry as any).coordinates as [number, number];
-          onSelect?.({ id, name: (f.properties as any)?.title ?? "", memo: "", lng: coords[0], lat: coords[1], photos: [] });
+          onSelect?.({
+            id,
+            name: (f.properties as any)?.title ?? "",
+            memo: "",
+            lng: coords[0],
+            lat: coords[1],
+            photos: [],
+          });
         }
       });
 
@@ -157,6 +166,9 @@ export default function MapView({
     });
 
     return () => {
+      // 片付け
+      searchMarkerRef.current?.remove();
+      searchMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -170,15 +182,38 @@ export default function MapView({
     if (src) src.setData(geojson);
   }, [geojson]);
 
-  // flyTo
+  // ★ 検索ジャンプ（強めに寄る＋一時ピン＋ポップアップ）
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !flyTo) return;
+
+    const targetZoom = flyTo.zoom ?? 17; // ← 建物が見えるくらい
     map.easeTo({
       center: [flyTo.lng, flyTo.lat],
-      zoom: flyTo.zoom ?? Math.max(map.getZoom(), 12),
-      duration: 450,
+      zoom: targetZoom,
+      duration: 600,
     });
+
+    // 既存の検索ピンを消してから新規追加
+    if (searchMarkerRef.current) {
+      searchMarkerRef.current.remove();
+      searchMarkerRef.current = null;
+    }
+
+    const popup = new maplibregl.Popup({ offset: 12 }).setText(flyTo.label ?? "検索地点");
+    const marker = new maplibregl.Marker({ color: "#E11D48" })
+      .setLngLat([flyTo.lng, flyTo.lat])
+      .setPopup(popup)
+      .addTo(map);
+
+    searchMarkerRef.current = marker;
+
+    // 視覚フィードバックとして少し遅らせて開く
+    const t = window.setTimeout(() => {
+      marker.togglePopup();
+    }, 650);
+
+    return () => window.clearTimeout(t);
   }, [flyTo]);
 
   // 選択リング
