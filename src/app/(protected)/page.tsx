@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
+import SafeFilePicker from '@/components/SafeFilePicker';
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -118,20 +119,27 @@ function PostModal({
           <textarea value={memo} onChange={(e) => setMemo(e.target.value)} style={{ width: "100%", height: 120, border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
         </div>
 
-        <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
-          <input type="file" multiple accept="image/*" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} style={{ display: "block", marginTop: 6 }} />
-          {previews.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 8 }}>
-              {previews.map((p) => (
-                <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
-                  <img src={p.url} alt={p.name} style={{ width: "100%", height: 120, objectFit: "cover" }} />
-                  <div style={{ fontSize: 11, color: "#666", padding: "4px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                </div>
-              ))}
-            </div>
-          )}
+       <div style={{ marginTop: 10 }}>
+  <label style={{ fontSize: 12, color: '#555' }}>写真（複数可）</label>
+  <div style={{ marginTop: 6 }}>
+    <SafeFilePicker label="写真を追加" onPick={(files) => setFiles(files)} />
+  </div>
+
+  {previews.length > 0 && (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 8 }}>
+      {/* 既存のプレビューはそのまま */}
+      {previews.map((p) => (
+        <div key={p.url} style={{ border: '1px solid #eee', borderRadius: 10, overflow: 'hidden' }}>
+          <img src={p.url} alt={p.name} style={{ width: '100%', height: 120, objectFit: 'cover' }} />
+          <div style={{ fontSize: 11, color: '#666', padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {p.name}
+          </div>
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           <button onClick={onClose} style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}>閉じる</button>
@@ -336,19 +344,46 @@ function EditModal({
           </div>
         </div>
 
-        <div style={{ marginTop: 16 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>写真を追加</label>
-          <input type="file" multiple accept="image/*" onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))} style={{ display: "block", marginTop: 6 }} />
-          {newPreviews.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-              {newPreviews.map((p) => (
-                <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
-                  <img src={p.url} style={{ width: 160, height: 120, objectFit: "cover" }} />
-                </div>
-              ))}
-            </div>
-          )}
+        {/* 追加アップロード */}
+<div style={{ marginTop: 16 }}>
+  <div style={{ fontSize: 12, color: '#555' }}>写真を追加</div>
+
+  <div style={{ marginTop: 6 }}>
+    <SafeFilePicker
+      label="写真を追加"
+      onPick={(files) => setNewFiles(files)}
+    />
+  </div>
+
+  {newPreviews.length > 0 && (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginTop: 8,
+      }}
+    >
+      {newPreviews.map((p) => (
+        <div
+          key={p.url}
+          style={{
+            border: "1px solid #eee",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={p.url}
+            alt=""
+            style={{ width: 160, height: 120, objectFit: "cover", display: "block" }}
+          />
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button onClick={save} disabled={loading} style={{ padding: "10px 14px", borderRadius: 10, background: "#111827", color: "#fff", fontWeight: 800 }}>
