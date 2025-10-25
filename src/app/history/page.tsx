@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { ensureMySpace } from '@/lib/ensureMySpace';
+import Link from "next/link";
 
 type Row = {
   id: string;
@@ -170,4 +171,21 @@ function makePlaceKey(title: string | null, lat: number, lng: number) {
   return `${normTitle}|${r(lat)}|${r(lng)}`;
 }
 
+export default function HistoryPage() {
+  return (
+    <div className="mx-auto max-w-3xl p-4">
+      {/* 上部バー */}
+      <div className="mb-4 flex items-center gap-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          ← マップに戻る
+        </Link>
+      </div>
 
+      {/* 以下いつもの履歴リスト */}
+      {/* ... */}
+    </div>
+  );
+}
