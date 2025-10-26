@@ -119,50 +119,37 @@ function PostModal({
           <textarea value={memo} onChange={(e) => setMemo(e.target.value)} style={{ width: "100%", height: 120, border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
         </div>
 
-       <div style={{ marginTop: 10 }}>
+      {/* 写真（複数可） */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
   <label style={{ display: "inline-block", marginTop: 6 }}>
-  <span style={{
-    display: "inline-block",
-    padding: "10px 14px",
-    borderRadius: 10,
-    border: "1px solid #ddd",
-    background: "#fff",
-    cursor: "pointer",
-    fontWeight: 700
-  }}>
-    写真を追加
-  </span>
-  <input
-    type="file"
-    accept="image/*,image/heic,image/heif"
-    multiple
-    // capture は“カメラ起動優先”したければ 'environment' を付けてもOK（任意）
-    // capture="environment"
-    onChange={(e) => {
-      const fs = Array.from(e.target.files ?? []);
-      // 端末の未取得ファイルを弾く最低限チェック（10KB未満は怪しい）
-      const good = fs.filter(f => f.type.startsWith("image/") && f.size >= 10000);
-      if (good.length === 0) {
-        alert("写真の読み込みが完了する前に選択された可能性があります。数秒置いてからもう一度お試しください。");
-        (e.target as HTMLInputElement).value = "";
-        return;
-      }
-      // PostModal: setFiles(good)
-      // EditModal: setNewFiles(good)
-    }}
-    style={{ display: "none" }}
-  />
-</label>
+    <span
+      style={{
+        display: "inline-block",
+        padding: "10px 14px",
+        borderRadius: 10,
+        border: "1px solid #ddd",
+        background: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+      }}
+    >
+      写真を追加
+    </span>
+    <input
+      type="file"
+      accept="image/*,image/heic,image/heif"
+      multiple
+      onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+      style={{ display: "none" }}
+    />
+  </label>
 
   {previews.length > 0 && (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 8 }}>
-      {/* 既存のプレビューはそのまま */}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 8 }}>
       {previews.map((p) => (
-        <div key={p.url} style={{ border: '1px solid #eee', borderRadius: 10, overflow: 'hidden' }}>
-          <img src={p.url} alt={p.name} style={{ width: '100%', height: 120, objectFit: 'cover' }} />
-          <div style={{ fontSize: 11, color: '#666', padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {p.name}
-          </div>
+        <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
+          <img src={p.url} alt={p.name} style={{ width: "100%", height: 120, objectFit: "cover" }} />
         </div>
       ))}
     </div>
@@ -254,13 +241,9 @@ if (newFiles.length > 0) {
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
   for (const f of newFiles) {
-    // ① かならず JPEG に再エンコード（HEIC/HDRでも確実に通る）
     const jpegBlob = await compress(f);
-
-    // ② .jpg 固定で保存
     const path = `${place.id}/${crypto.randomUUID()}.jpg`;
 
-    // ③ Blob をそのままアップロード（Fileに包み直さない）
     const { error: eUp } = await supabase.storage
       .from("photos")
       .upload(path, jpegBlob, {
@@ -270,7 +253,6 @@ if (newFiles.length > 0) {
       });
     if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
 
-    // ④ 公開URL取得 → DBへ登録
     const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
     const publicUrl = pub.publicUrl;
 
@@ -282,12 +264,13 @@ if (newFiles.length > 0) {
     });
     if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
 
+    // 画面の即時反映（呼び出し側の onSaved へ渡す）
     addedUrls.push(publicUrl);
   }
 
-  // 入力リセット（同じ写真を続けて選べるように）
   setNewFiles([]);
 }
+
 
 
       onSaved({ title, memo, addPhotos: addedUrls });
@@ -459,15 +442,16 @@ async function insertPlace({
   visitedAt?: string;
   files: File[];
 }) {
-  // 認証 & space
+  // 認証
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
   if (!uid) throw new Error("ログインが必要です（sessionなし）");
 
+  // 自分のスペース
   const sp = await ensureMySpace();
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
-  // places
+  // 1) places行を先に作る
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
@@ -483,17 +467,13 @@ async function insertPlace({
     .single();
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
-// photos
-const urls: string[] = [];
-for (const f of files ?? []) {
-  try {
-    // ① HEIC/HDRでもJPEG化してBlob化
+  // 2) 写真（HEIC/HDRでも必ずJPEG化→.jpgで保存）
+  const urls: string[] = [];
+  for (const f of files ?? []) {
+    // ← ここで “必ずJPEG化” （image.ts の compress は <img>→canvas→JPEG で再エンコード）
     const jpegBlob = await compress(f);
 
-    // ② パス名（拡張子を.jpgに固定）
     const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
-
-    // ③ Blobをそのままアップロード
     const { error: eUp } = await supabase.storage
       .from("photos")
       .upload(path, jpegBlob, {
@@ -501,14 +481,11 @@ for (const f of files ?? []) {
         cacheControl: "3600",
         contentType: "image/jpeg",
       });
-
     if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
 
-    // ④ 公開URL取得
     const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-    const publicUrl = pub?.publicUrl;
+    const publicUrl = pub.publicUrl;
 
-    // ⑤ DBに保存
     const { error: ePhoto } = await supabase.from("photos").insert({
       place_id: placeRow.id,
       space_id: sp.id,
@@ -518,12 +495,19 @@ for (const f of files ?? []) {
     if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
 
     urls.push(publicUrl);
-  } catch (err) {
-    console.error("Upload failed:", err);
   }
+
+  // 呼び出し側でUIに即反映できるよう返す
+  return {
+    id: placeRow.id,
+    title: placeRow.title,
+    memo: placeRow.memo,
+    lat: placeRow.lat,
+    lng: placeRow.lng,
+    photos: urls,
+  };
 }
-  return { id: placeRow.id, title: placeRow.title, memo: placeRow.memo, lat: placeRow.lat, lng: placeRow.lng, photos: urls };
-}
+
 
 /* ================== ページ本体 ================== */
 export default function Page() {
