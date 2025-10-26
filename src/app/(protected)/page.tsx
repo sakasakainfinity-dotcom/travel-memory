@@ -375,45 +375,42 @@ if (newFiles.length > 0) {
         </div>
 
         {/* 追加アップロード */}
+{/* 写真を追加 */}
 <div style={{ marginTop: 16 }}>
-  <div style={{ fontSize: 12, color: '#555' }}>写真を追加</div>
-
-  <div style={{ marginTop: 6 }}>
-    <SafeFilePicker
-      label="写真を追加"
-      multiple
-      onPick={(files) => setNewFiles(files)}
-    />
-  </div>
-
-  {newPreviews.length > 0 && (
-    <div
+  <label style={{ fontSize: 12, color: "#555" }}>写真を追加</label>
+  <label style={{ display: "inline-block", marginTop: 6 }}>
+    <span
       style={{
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        marginTop: 8,
+        display: "inline-block",
+        padding: "10px 14px",
+        borderRadius: 10,
+        border: "1px solid #ddd",
+        background: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
       }}
     >
+      写真を追加
+    </span>
+    <input
+      type="file"
+      accept="image/*,image/heic,image/heif"
+      multiple
+      onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))}
+      style={{ display: "none" }}
+    />
+  </label>
+  {newPreviews.length > 0 && (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
       {newPreviews.map((p) => (
-        <div
-          key={p.url}
-          style={{
-            border: "1px solid #eee",
-            borderRadius: 10,
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={p.url}
-            alt=""
-            style={{ width: 160, height: 120, objectFit: "cover", display: "block" }}
-          />
+        <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
+          <img src={p.url} style={{ width: 160, height: 120, objectFit: "cover" }} />
         </div>
       ))}
     </div>
   )}
 </div>
+
 
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
