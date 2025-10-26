@@ -1,64 +1,87 @@
-'use client';
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+// src/components/SafeFilePicker.tsx
+"use client";
+import { useRef } from "react";
 
-type Props = {
-  onPick: (files: File[]) => void;
-  multiple?: boolean;
+export default function SafeFilePicker({
+  label = "写真を追加",
+  multiple = true,
+  onPick,
+}: {
   label?: string;
-  style?: React.CSSProperties;
-};
+  multiple?: boolean;
+  onPick: (files: File[]) => void;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
 
-export type SafeFilePickerRef = { open: () => void };
-
-const SafeFilePicker = forwardRef<SafeFilePickerRef, Props>(function SafeFilePicker(
-  { onPick, multiple = true, label = '写真を追加', style },
-  ref
-) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useImperativeHandle(ref, () => ({
-    open() {
-      // 同じファイルを選び直しても change を発火させる
-      if (inputRef.current) inputRef.current.value = '';
-      inputRef.current?.click();
-    },
-  }));
+  function handleFiles(fs: FileList | null) {
+    const arr = Array.from(fs ?? []);
+    if (arr.length === 0) {
+      alert("写真が選べてません。もう一度お試しください。");
+      return;
+    }
+    // iOS白丸中だと size が極小or0のことがある。最低10KBでチェック
+    const bad = arr.find((f) => !f.type.startsWith("image/") || f.size < 10_000);
+    if (bad) {
+      alert(
+        "写真データの読み込みが終わっていない可能性があります。\n" +
+          "・数秒待ってからもう一度選ぶ\n" +
+          "・または「ファイルから選ぶ」ボタンを使う（確実）\n" +
+          "で解決できます。"
+      );
+      // 同じファイルを選び直せるようにリセット
+      if (ref.current) ref.current.value = "";
+      return;
+    }
+    onPick(arr);
+    if (ref.current) ref.current.value = "";
+  }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          if (inputRef.current) inputRef.current.value = '';
-          inputRef.current?.click();
-        }}
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <label
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '10px 14px',
+          display: "inline-block",
+          padding: "10px 14px",
           borderRadius: 10,
-          border: '1px solid #ddd',
-          background: '#fff',
-          fontWeight: 800,
-          cursor: 'pointer',
-          ...style,
+          border: "1px solid #ddd",
+          background: "#fff",
+          cursor: "pointer",
+          fontWeight: 700,
         }}
       >
         {label}
-      </button>
+        <input
+          ref={ref}
+          type="file"
+          accept="image/*,image/heic,image/heif"
+          multiple={multiple}
+          onChange={(e) => handleFiles(e.target.files)}
+          style={{ display: "none" }}
+        />
+      </label>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple={multiple}
-        onChange={(e) => onPick(Array.from(e.target.files ?? []))}
-        // 画面外＆不可視に（label重ね方式をやめて、click() で開く）
-        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
-      />
-    </>
+      {/* 代替ルート：Files（白丸対策の“確実”ボタン） */}
+      <label
+        style={{
+          display: "inline-block",
+          padding: "10px 14px",
+          borderRadius: 10,
+          border: "1px solid #ddd",
+          background: "rgba(17,24,39,0.04)",
+          cursor: "pointer",
+          fontWeight: 700,
+        }}
+      >
+        ファイルから選ぶ
+        <input
+          type="file"
+          accept="image/*,image/heic,image/heif"
+          multiple={multiple}
+          onChange={(e) => handleFiles(e.target.files)}
+          style={{ display: "none" }}
+        />
+      </label>
+    </div>
   );
-});
+}
 
-export default SafeFilePicker;
