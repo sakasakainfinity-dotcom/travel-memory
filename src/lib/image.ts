@@ -1,17 +1,24 @@
-// src/lib/image.ts （例）
-import { convertToUploadableImage } from "./convertToUploadableImage";
+// src/lib/image.ts
+// 画像アップロード＆圧縮ユーティリティ（ブラウザ安全設計）
+
 import { createClient } from "@supabase/supabase-js";
 
+// Supabase クライアント（公開キーでOK）
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+/**
+ * Storage へアップロードする前に、
+ * - HEIC/HEIF は JPEG へ変換（端末差潰しの二重ガード）
+ * - contentType は変換後のものを渡す
+ */
 export async function uploadToStorage(raw: File) {
-  // ★ 二重ガード
+  // convertToUploadableImage はブラウザ前提のため、動的 import に統一
+  const { convertToUploadableImage } = await import("./convertToUploadableImage");
   const f = await convertToUploadableImage(raw);
 
-  // 画面に出すログが欲しければ、呼び出し側で表示
   const path = `photos/${crypto.randomUUID()}-${f.name}`;
   const { data, error } = await supabase.storage.from("photos").upload(path, f, {
     contentType: f.type, // ← "image/jpeg" になってるはず
@@ -30,20 +37,20 @@ export type CompressOptions = {
 };
 
 /**
- * 画像を「HEICならJPEGへ変換 → 必要なら縮小 → JPEG出力」するユーティリティ。
- * ブラウザ専用（SSRではそのまま返す）にして安全側に倒しとる。
+ * 画像を「HEICならJPEGへ変換 → 必要なら縮小 → JPEG出力」する。
+ * ブラウザ専用（SSR/ビルド時は安全に素通し）。
  */
 export async function compress(file: File, opts: CompressOptions = {}): Promise<File> {
   const { maxSide = 2048, quality = 0.9 } = opts;
 
-  // まず HEIC/HEIF を JPEG に揃える（convertToUploadableImage はクライアント専用想定）
+  // まず HEIC/HEIF を JPEG に揃える（※動的 import）
   const { convertToUploadableImage } = await import("./convertToUploadableImage");
   let f = await convertToUploadableImage(file);
 
-  // SSR安全装置：サーバ側/ビルド時はここで返す（windowが無い）
+  // SSR/ビルド時はここで返す（window, canvas が無い）
   if (typeof window === "undefined") return f;
 
-  // 画像サイズを見て、必要なら縮小
+  // 画像サイズを見て、必要なら縮小（createImageBitmap 優先）
   try {
     const bitmap = await createImageBitmap(f);
     const max = Math.max(bitmap.width, bitmap.height);
@@ -52,25 +59,100 @@ export async function compress(file: File, opts: CompressOptions = {}): Promise<
 
     const w = Math.round(bitmap.width * scale);
     const h = Math.round(bitmap.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob = await drawToJpegBlob(bitmap, w, h, quality);
 
-    const blob: Blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", quality);
-    });
-
-    return new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", {
+    return new File([blob], ensureJpegName(f.name), {
       type: "image/jpeg",
       lastModified: Date.now(),
     });
   } catch {
-    // 縮小に失敗したら、変換だけで返す（安全優先）
-    return f;
+    // createImageBitmap 非対応などのフォールバック（<img> 経由）
+    try {
+      const blob = await drawViaImageElement(f, maxSide, quality);
+      return new File([blob], ensureJpegName(f.name), {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+    } catch {
+      // 縮小できなくても、変換済みだけ返す（安全優先）
+      return f;
+    }
   }
 }
+
+/* -------------------- 小さなヘルパー群 -------------------- */
+
+function ensureJpegName(name: string) {
+  const base = name?.replace(/\.\w+$/, "") || "image";
+  return `${base}.jpg`;
+}
+
+function drawToCanvas(
+  source: CanvasImageSource,
+  width: number,
+  height: number
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(source, 0, 0, width, height);
+  return canvas;
+}
+
+function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+      "image/jpeg",
+      quality
+    );
+  });
+}
+
+async function drawToJpegBlob(
+  bitmap: ImageBitmap,
+  width: number,
+  height: number,
+  quality: number
+): Promise<Blob> {
+  const canvas = drawToCanvas(bitmap, width, height);
+  return await canvasToJpegBlob(canvas, quality);
+}
+
+async function drawViaImageElement(
+  file: File,
+  maxSide: number,
+  quality: number
+): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const max = Math.max(img.width, img.height);
+    const scale = Math.min(1, maxSide / max);
+    if (scale >= 1) {
+      // 縮小不要でも JPEG で吐き直す（互換性のため）
+      const canvas = drawToCanvas(img, img.width, img.height);
+      return await canvasToJpegBlob(canvas, quality);
+    }
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = drawToCanvas(img, w, h);
+    return await canvasToJpegBlob(canvas, quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = url;
+  });
+}
+
 
 
 
