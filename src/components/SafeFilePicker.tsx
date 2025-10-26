@@ -1,7 +1,7 @@
 // src/components/SafeFilePicker.tsx
 "use client";
 import { useRef } from "react";
-import { convertToUploadableImage } from "@/lib/convertToUploadableImage"; // ←★これを追加
+import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
 
 export default function SafeFilePicker({
   label = "写真を追加",
@@ -21,6 +21,13 @@ export default function SafeFilePicker({
       return;
     }
 
+    // 入り口ログ：選ばれたファイル一覧
+    console.groupCollapsed("[SafeFilePicker] selected files");
+    for (const f of arr) {
+      console.log("RAW  ->", { name: f.name, type: f.type, size: f.size });
+    }
+    console.groupEnd();
+
     // iOS白丸中だと size が極小or0のことがある。最低10KBでチェック
     const bad = arr.find((f) => !f.type.startsWith("image/") || f.size < 10_000);
     if (bad) {
@@ -30,16 +37,22 @@ export default function SafeFilePicker({
           "・または「ファイルから選ぶ」ボタンを使う（確実）\n" +
           "で解決できます。"
       );
-      // 同じファイルを選び直せるようにリセット
       if (ref.current) ref.current.value = "";
       return;
     }
 
-    // ★★ここが追加部分（HEIC→JPEG 変換）★★
+    // ★ HEIC→JPEG 変換（前後ログ付き）
     const convertedArr: File[] = [];
     for (const file of arr) {
       try {
+        console.groupCollapsed("[SafeFilePicker] convert");
+        console.log("before", { name: file.name, type: file.type, size: file.size });
+
         const converted = await convertToUploadableImage(file);
+
+        console.log("after ", { name: converted.name, type: converted.type, size: converted.size });
+        console.groupEnd();
+
         convertedArr.push(converted);
       } catch (err) {
         console.error("変換失敗:", err);
@@ -47,10 +60,16 @@ export default function SafeFilePicker({
       }
     }
 
-    // 変換済みファイルを渡す
+    // 下流へ渡す直前の確認ログ
+    console.groupCollapsed("[SafeFilePicker] passing to onPick");
+    for (const f of convertedArr) {
+      console.log("PASS ->", { name: f.name, type: f.type, size: f.size });
+    }
+    console.groupEnd();
+
     onPick(convertedArr);
 
-    // 選択リセット
+    // 同じファイルを選び直せるようにリセット
     if (ref.current) ref.current.value = "";
   }
 
@@ -102,5 +121,6 @@ export default function SafeFilePicker({
     </div>
   );
 }
+
 
 
