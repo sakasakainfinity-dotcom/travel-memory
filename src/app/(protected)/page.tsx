@@ -513,54 +513,50 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
 
-    useEffect(() => {
+  // 初回起動イベント（Plausible）
+  useEffect(() => {
     if (localStorage.getItem('first_open_sent')) return;
     // @ts-ignore
     window.plausible?.('first_open');
     localStorage.setItem('first_open_sent', '1');
   }, []);
-  
+
   const [editOpen, setEditOpen] = useState(false);
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 9 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
 
+  // /?focus=... /?open=1 /?lat=..&lng=.. を解釈
   const sp = useSearchParams();
-const focusId = sp.get("focus");
-const wantOpen = sp.get("open") === "1";
-const qLat = sp.get("lat");
-const qLng = sp.get("lng");
-const didApplyRef = useRef(false);
+  const focusId = sp.get("focus");
+  const wantOpen = sp.get("open") === "1";
+  const qLat = sp.get("lat");
+  const qLng = sp.get("lng");
+  const didApplyRef = useRef(false);
 
-// 1) URLに座標が来てたら、placesが揃う前でも即ジャンプ
-useEffect(() => {
-  if (didApplyRef.current) return;
-  if (!qLat || !qLng) return;
-  const lat = parseFloat(qLat);
-  const lng = parseFloat(qLng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  // 1) 座標が来てたら先にジャンプ
+  useEffect(() => {
+    if (didApplyRef.current) return;
+    if (!qLat || !qLng) return;
+    const lat = parseFloat(qLat);
+    const lng = parseFloat(qLng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setFlyTo({ lat, lng, zoom: 15 });
+  }, [qLat, qLng]);
 
-  setFlyTo({ lat, lng, zoom: 15 });    // ← 初期ジャンプ
-}, [qLat, qLng]);
+  // 2) places 揃ってから focusId を反映
+  useEffect(() => {
+    if (!focusId || didApplyRef.current) return;
+    const target = places.find((p) => p.id === focusId);
+    if (!target) return;
+    didApplyRef.current = true;
+    setFlyTo({ lat: target.lat, lng: target.lng, zoom: 15 });
+    if (wantOpen) setSelectedId(target.id);
+    router.replace("/", { scroll: false });
+  }, [focusId, wantOpen, places, router]);
 
-// 2) places が揃ったら、IDでピンを特定してプレビューも開く
-useEffect(() => {
-  if (!focusId || didApplyRef.current) return;
-  const target = places.find((p) => p.id === focusId);
-  if (!target) return;
-
-  didApplyRef.current = true;
-
-  setFlyTo({ lat: target.lat, lng: target.lng, zoom: 15 });
-  if (wantOpen) setSelectedId(target.id);
-
-  // URLをクリーンに（履歴→戻るでも邪魔せんように）
-  router.replace("/", { scroll: false });
-}, [focusId, wantOpen, places, router]);
-
-  
-  // 起動時ロード
+  // 起動時ロード：places & photos
   useEffect(() => {
     (async () => {
       try {
@@ -578,12 +574,14 @@ useEffect(() => {
         const ids = (ps ?? []).map((p) => p.id);
         let photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
-          const { data: phs } = await supabase.from("photos").select("place_id, file_url").in("place_id", ids);
+          const { data: phs } = await supabase
+            .from("photos")
+            .select("place_id, file_url")
+            .in("place_id", ids);
           for (const ph of phs ?? []) {
             const k = (ph as any).place_id as string;
             const u = (ph as any).file_url as string;
-            if (!photosBy[k]) photosBy[k] = [];
-            photosBy[k].push(u);
+            (photosBy[k] ||= []).push(u);
           }
         }
 
@@ -603,7 +601,7 @@ useEffect(() => {
     })();
   }, []);
 
-  // モーダル開く前にビューを保持（初期位置戻りを抑制）
+  // モーダルを開く前にビューを保持
   const openModalAt = (p: { lat: number; lng: number }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
@@ -612,28 +610,14 @@ useEffect(() => {
     setTimeout(() => setViewRef.current(snap), 0);
   };
 
-  const selected = useMemo(() => places.find((x) => x.id === selectedId) || null, [places, selectedId]);
+  const selected = useMemo(
+    () => places.find((x) => x.id === selectedId) || null,
+    [places, selectedId]
+  );
 
   return (
     <>
-      {/* マップ */}
-      <MapView
-        places={places}
-        onRequestNew={openModalAt}
-        onSelect={(p) => setSelectedId(p.id)}
-        selectedId={selectedId}
-        flyTo={flyTo}
-        bindGetView={(fn) => { getViewRef.current = fn; }}
-        bindSetView={(fn) => { setViewRef.current = fn; }}
-        initialView={initialView}
-      />
-
-    
-{/* 検索（左寄せ・小さめ・ノッチ対応） */}
-  // ↑ この行の直後から ↓ を丸ごと貼り替え
-  return (
-    <>
-      {/* 右上メニュー（三点リーダー） */}
+      {/* 右上メニュー（三点） */}
       <KebabMenu />
 
       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
@@ -657,7 +641,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* 🗺 マップ */}
+      {/* 🗺 マップ（1つだけ） */}
       <MapView
         places={places}
         onRequestNew={openModalAt}
@@ -669,7 +653,7 @@ useEffect(() => {
         initialView={initialView}
       />
 
-      {/* ➕ 投稿フローティングボタン（カードと被らないよう少し上げる） */}
+      {/* ➕ 投稿フローティングボタン */}
       <button
         onClick={() => {
           const c = getViewRef.current();
@@ -691,7 +675,7 @@ useEffect(() => {
         ＋ 投稿
       </button>
 
-      {/* 🔎 下プレビュー（縦レイアウト：タイトル → メモ → 写真 全幅） */}
+      {/* 下プレビュー（タイトル→メモ→写真） */}
       {selected && (
         <div
           style={{
@@ -735,7 +719,7 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* 閉じる（左上） */}
+          {/* 閉じる */}
           <button
             onClick={() => setSelectedId(null)}
             style={{
@@ -753,7 +737,7 @@ useEffect(() => {
             ×
           </button>
 
-          {/* 編集（右上） */}
+          {/* 編集 */}
           <button
             onClick={() => setEditOpen(true)}
             style={{
@@ -772,7 +756,7 @@ useEffect(() => {
             編集
           </button>
 
-          {/* メモ（全幅） */}
+          {/* メモ */}
           <div
             style={{
               fontSize: 13,
@@ -785,7 +769,7 @@ useEffect(() => {
             {selected.memo || "（メモなし）"}
           </div>
 
-          {/* 写真（全幅・残り高さ） */}
+          {/* 写真 */}
           <div
             style={{
               display: "grid",
@@ -816,3 +800,73 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      {/* 📝 投稿モーダル */}
+      <PostModal
+        open={!!newAt}
+        place={{ lat: newAt?.lat ?? 0, lng: newAt?.lng ?? 0 }}
+        onClose={() => {
+          setNewAt(null);
+          const snap = initialView ?? getViewRef.current();
+          setTimeout(() => setViewRef.current(snap), 0);
+        }}
+        onSubmit={async (d) => {
+          try {
+            const created = await insertPlace({
+              title: d.title,
+              memo: d.memo,
+              lat: d.lat,
+              lng: d.lng,
+              visitedAt: d.visitedAt,
+              files: d.photos,
+            });
+            setPlaces((prev) => [
+              {
+                id: created.id,
+                name: created.title ?? "新規",
+                memo: created.memo ?? undefined,
+                lat: created.lat,
+                lng: created.lng,
+                photos: created.photos ?? [],
+              },
+              ...prev,
+            ]);
+            setNewAt(null);
+            const snap = initialView ?? getViewRef.current();
+            setTimeout(() => setViewRef.current(snap), 0);
+          } catch (e: any) {
+            alert(`保存に失敗しました: ${e?.message ?? e}`);
+            console.error(e);
+          }
+        }}
+      />
+
+      {/* ✏️ 編集モーダル */}
+      {selected && (
+        <EditModal
+          open={editOpen}
+          place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
+          onClose={() => setEditOpen(false)}
+          onSaved={({ title, memo, addPhotos }) => {
+            setPlaces((prev) =>
+              prev.map((p) =>
+                p.id === selected.id
+                  ? {
+                      ...p,
+                      name: title ?? p.name,
+                      memo: memo ?? p.memo,
+                      photos: [...(p.photos ?? []), ...(addPhotos ?? [])],
+                    }
+                  : p
+              )
+            );
+          }}
+          onDeleted={() => {
+            setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
+            setSelectedId(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
