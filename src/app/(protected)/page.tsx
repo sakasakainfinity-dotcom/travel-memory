@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
-import SafeFilePicker from '@/components/SafeFilePicker';
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -631,32 +630,6 @@ useEffect(() => {
 
     
 {/* 検索（左寄せ・小さめ・ノッチ対応） */}
-<div
-  style={{
-    position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-    left: "max(12px, env(safe-area-inset-left, 0px))", // ← 左に寄せる
-    zIndex: 10000,
-    pointerEvents: "auto",
-  }}
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => e.stopPropagation()}
-  onWheel={(e) => e.stopPropagation()}
-  onTouchStart={(e) => e.stopPropagation()}
->
-  <div
-    style={{
-      /* 幅を抑えめに（最小220px〜最大340px、画面幅に応じて伸縮） */
-      width: "clamp(220px, 60vw, 340px)",
-      marginRight: 12,                 // 右側に少し余白
-    }}
-  >
-    <div style={{ position: "relative" }}>
-      <SearchBox onPick={(p) => setFlyTo(p)} />
-    </div>
-  </div>
-</div>
-      
   // ↑ この行の直後から ↓ を丸ごと貼り替え
   return (
     <>
@@ -843,132 +816,3 @@ useEffect(() => {
           </div>
         </div>
       )}
-
-      {/* 📝 投稿モーダル */}
-      <PostModal
-        open={!!newAt}
-        place={{ lat: newAt?.lat ?? 0, lng: newAt?.lng ?? 0 }}
-        onClose={() => {
-          setNewAt(null);
-          const snap = initialView ?? getViewRef.current();
-          setTimeout(() => setViewRef.current(snap), 0);
-        }}
-        onSubmit={async (d) => {
-          try {
-            const created = await insertPlace({
-              title: d.title,
-              memo: d.memo,
-              lat: d.lat,
-              lng: d.lng,
-              visitedAt: d.visitedAt,
-              files: d.photos,
-            });
-            setPlaces((prev) => [
-              {
-                id: created.id,
-                name: created.title ?? "新規",
-                memo: created.memo ?? undefined,
-                lat: created.lat,
-                lng: created.lng,
-                photos: created.photos ?? [],
-              },
-              ...prev,
-            ]);
-            setNewAt(null);
-            const snap = initialView ?? getViewRef.current();
-            setTimeout(() => setViewRef.current(snap), 0);
-          } catch (e: any) {
-            alert(`保存に失敗しました: ${e?.message ?? e}`);
-            console.error(e);
-          }
-        }}
-      />
-
-      {/* ✏️ 編集モーダル */}
-      {selected && (
-        <EditModal
-          open={editOpen}
-          place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
-          onClose={() => setEditOpen(false)}
-          onSaved={({ title, memo, addPhotos }) => {
-            setPlaces((prev) =>
-              prev.map((p) =>
-                p.id === selected.id
-                  ? {
-                      ...p,
-                      name: title ?? p.name,
-                      memo: memo ?? p.memo,
-                      photos: [...(p.photos ?? []), ...(addPhotos ?? [])],
-                    }
-                  : p
-              )
-            );
-          }}
-          onDeleted={() => {
-            setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
-            setSelectedId(null);
-          }}
-        />
-      )}
-    </>
-  );
-  // 
-
-      {/* 投稿モーダル */}
-      <PostModal
-        open={!!newAt}
-        place={{ lat: newAt?.lat ?? 0, lng: newAt?.lng ?? 0 }}
-        onClose={() => {
-          setNewAt(null);
-          const snap = initialView ?? getViewRef.current();
-          setTimeout(() => setViewRef.current(snap), 0);
-        }}
-        onSubmit={async (d) => {
-          try {
-            const created = await insertPlace({
-              title: d.title, memo: d.memo, lat: d.lat, lng: d.lng, visitedAt: d.visitedAt, files: d.photos,
-            });
-            setPlaces((prev) => [
-              { id: created.id, name: created.title ?? "新規", memo: created.memo ?? undefined, lat: created.lat, lng: created.lng, photos: created.photos ?? [] },
-              ...prev,
-            ]);
-            setNewAt(null);
-            const snap = initialView ?? getViewRef.current();
-            setTimeout(() => setViewRef.current(snap), 0);
-          } catch (e: any) {
-            alert(`保存に失敗しました: ${e?.message ?? e}`);
-            console.error(e);
-          }
-        }}
-      />
-
-      {/* 編集モーダル */}
-      {selected && (
-        <EditModal
-          open={editOpen}
-          place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
-          onClose={() => setEditOpen(false)}
-          onSaved={({ title, memo, addPhotos }) => {
-            // 画面側の即時反映
-            setPlaces((prev) =>
-              prev.map((p) =>
-                p.id === selected.id
-                  ? {
-                      ...p,
-                      name: title ?? p.name,
-                      memo: memo ?? p.memo,
-                      photos: [...(p.photos ?? []), ...(addPhotos ?? [])],
-                    }
-                  : p
-              )
-            );
-          }}
-          onDeleted={() => {
-            setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
-            setSelectedId(null);
-          }}
-        />
-      )}
-    </>
-  );
-}
