@@ -1,53 +1,40 @@
 // src/lib/image.ts
-// iOS HEIC/HDR/Liveでも落ちない圧縮（Safari/PWA対応）
+// iOSのHEIC/HDR/Liveでも確実に通すため、常に <img>→canvas→JPEG で再エンコード
 
-export async function compress(file: File, maxW = 1600, quality = 0.8): Promise<Blob> {
-  // HEIC/HEIFは最終JPEG化
-  const forceJPEG =
-    file.type.includes("heic") ||
-    file.type.includes("heif") ||
-    file.name.toLowerCase().endsWith(".heic") ||
-    file.name.toLowerCase().endsWith(".heif");
+export async function compress(file: File, maxW = 1600, quality = 0.82): Promise<Blob> {
+  // ① File を dataURL に読み込む（iOSはこれが一番安定）
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file); // HEIC/HEIF/HDR でも通る
+  });
 
-  // まず高速ルート
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, maxW / Math.max(bmp.width, bmp.height));
-    // SafariでもOKなように OffscreenCanvas 非依存へ
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bmp.width * scale));
-    canvas.height = Math.max(1, Math.round(bmp.height * scale));
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    bmp.close?.();
-    return await new Promise<Blob>((res) =>
-      canvas.toBlob((b) => res(b!), forceJPEG ? "image/jpeg" : "image/jpeg", quality)
-    );
-  } catch (e) {
-    console.warn("createImageBitmap失敗→fallback:", e);
-  }
+  // ② <img> に食わせて、decode 完了を待つ
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = dataUrl;
+  });
 
-  // 失敗時：blob URL → <img> 経由で再エンコード（Live/HDR/10bit対策）
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = reject;
-      im.src = url;
-    });
-    const scale = Math.min(1, maxW / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((res) =>
-      canvas.toBlob((b) => res(b!), "image/jpeg", quality)
-    );
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  // ③ リサイズ（長辺 maxW）＆ JPEG で再エンコード
+  const scale = Math.min(1, maxW / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // ④ JPEG化（PNGにしたいなら 'image/png' に）※ここはJPEG固定でOK
+  const jpegBlob = await new Promise<Blob>((resolve) =>
+    canvas.toBlob((b) => resolve(b!), "image/jpeg", quality)
+  );
+
+  return jpegBlob;
 }
 
 
