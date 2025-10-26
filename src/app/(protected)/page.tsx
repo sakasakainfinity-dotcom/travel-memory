@@ -120,14 +120,39 @@ function PostModal({
         </div>
 
        <div style={{ marginTop: 10 }}>
-  <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
-  <div style={{ marginTop: 6 }}>
-    <SafeFilePicker
-      label="写真を追加"
-      multiple
-      onPick={(files) => setFiles(files)}
-    />
-  </div>
+  <label style={{ display: "inline-block", marginTop: 6 }}>
+  <span style={{
+    display: "inline-block",
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid #ddd",
+    background: "#fff",
+    cursor: "pointer",
+    fontWeight: 700
+  }}>
+    写真を追加
+  </span>
+  <input
+    type="file"
+    accept="image/*,image/heic,image/heif"
+    multiple
+    // capture は“カメラ起動優先”したければ 'environment' を付けてもOK（任意）
+    // capture="environment"
+    onChange={(e) => {
+      const fs = Array.from(e.target.files ?? []);
+      // 端末の未取得ファイルを弾く最低限チェック（10KB未満は怪しい）
+      const good = fs.filter(f => f.type.startsWith("image/") && f.size >= 10000);
+      if (good.length === 0) {
+        alert("写真の読み込みが完了する前に選択された可能性があります。数秒置いてからもう一度お試しください。");
+        (e.target as HTMLInputElement).value = "";
+        return;
+      }
+      // PostModal: setFiles(good)
+      // EditModal: setNewFiles(good)
+    }}
+    style={{ display: "none" }}
+  />
+</label>
 
   {previews.length > 0 && (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 8 }}>
@@ -441,28 +466,41 @@ async function insertPlace({
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
   // photos
-  const urls: string[] = [];
-  for (const f of files ?? []) {
-  const blob = await compress(f, 1600, 0.8);
-  const toUpload = new File([blob], f.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
 
+
+    if (eUp) throw new Error(`[Sconst urls: string[] = [];
+for (const f of files ?? []) {
+  // ① HEIC/HDRでも必ずJPEG化（Blobが返る）
+  const jpegBlob = await compress(f);
+
+  // ② 保存先パス（拡張子は.jpgで固定）
   const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
-  const { error: eUp } = await supabase.storage.from("photos").upload(
-    path,
-    toUpload,
-    { upsert: false, cacheControl: "3600" }
-  );
 
-    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
+  // ③ そのままアップロード（Fileに包み直さない）
+  const { error: eUp } = await supabase.storage
+    .from("photos")
+    .upload(path, jpegBlob, {
+      upsert: false,
+      cacheControl: "3600",
+      contentType: "image/jpeg",
+    });
+  if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
 
-    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-    const publicUrl = pub.publicUrl;
-    urls.push(publicUrl);
+  // ④ 公開URL取得 → DB登録
+  const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
+  const publicUrl = pub.publicUrl;
 
-    const { error: ePhoto } = await supabase.from("photos").insert({ place_id: placeRow.id, space_id: sp.id, file_url: publicUrl, storage_path: path });
-    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message || ePhoto.code}`);
-  }
+  const { error: ePhoto } = await supabase.from("photos").insert({
+    place_id: placeRow.id,
+    space_id: sp.id,
+    file_url: publicUrl,
+    storage_path: path,
+  });
+  if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
 
+  urls.push(publicUrl);
+}
+  
   return { id: placeRow.id, title: placeRow.title, memo: placeRow.memo, lat: placeRow.lat, lng: placeRow.lng, photos: urls };
 }
 
