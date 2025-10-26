@@ -1,6 +1,7 @@
 // src/components/SafeFilePicker.tsx
 "use client";
 import { useRef } from "react";
+import { convertToUploadableImage } from "@/lib/convertToUploadableImage"; // ←★これを追加
 
 export default function SafeFilePicker({
   label = "写真を追加",
@@ -13,12 +14,13 @@ export default function SafeFilePicker({
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
 
-  function handleFiles(fs: FileList | null) {
+  async function handleFiles(fs: FileList | null) {
     const arr = Array.from(fs ?? []);
     if (arr.length === 0) {
       alert("写真が選べてません。もう一度お試しください。");
       return;
     }
+
     // iOS白丸中だと size が極小or0のことがある。最低10KBでチェック
     const bad = arr.find((f) => !f.type.startsWith("image/") || f.size < 10_000);
     if (bad) {
@@ -32,7 +34,23 @@ export default function SafeFilePicker({
       if (ref.current) ref.current.value = "";
       return;
     }
-    onPick(arr);
+
+    // ★★ここが追加部分（HEIC→JPEG 変換）★★
+    const convertedArr: File[] = [];
+    for (const file of arr) {
+      try {
+        const converted = await convertToUploadableImage(file);
+        convertedArr.push(converted);
+      } catch (err) {
+        console.error("変換失敗:", err);
+        alert("HEIC画像の変換に失敗しました。別の写真を選んでください。");
+      }
+    }
+
+    // 変換済みファイルを渡す
+    onPick(convertedArr);
+
+    // 選択リセット
     if (ref.current) ref.current.value = "";
   }
 
@@ -84,4 +102,5 @@ export default function SafeFilePicker({
     </div>
   );
 }
+
 
