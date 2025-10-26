@@ -120,9 +120,13 @@ function PostModal({
         </div>
 
        <div style={{ marginTop: 10 }}>
-  <label style={{ fontSize: 12, color: '#555' }}>写真（複数可）</label>
+  <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
   <div style={{ marginTop: 6 }}>
-    <SafeFilePicker label="写真を追加" onPick={(files) => setFiles(files)} />
+    <SafeFilePicker
+      label="写真を追加"
+      multiple
+      onPick={(files) => setFiles(files)}
+    />
   </div>
 
   {previews.length > 0 && (
@@ -351,6 +355,7 @@ function EditModal({
   <div style={{ marginTop: 6 }}>
     <SafeFilePicker
       label="写真を追加"
+      multiple
       onPick={(files) => setNewFiles(files)}
     />
   </div>
