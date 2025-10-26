@@ -465,42 +465,45 @@ async function insertPlace({
     .single();
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
-  // photos
-
-
-    if (eUp) throw new Error(`[Sconst urls: string[] = [];
+// photos
+const urls: string[] = [];
 for (const f of files ?? []) {
-  // ① HEIC/HDRでも必ずJPEG化（Blobが返る）
-  const jpegBlob = await compress(f);
+  try {
+    // ① HEIC/HDRでもJPEG化してBlob化
+    const jpegBlob = await compress(f);
 
-  // ② 保存先パス（拡張子は.jpgで固定）
-  const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
+    // ② パス名（拡張子を.jpgに固定）
+    const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
 
-  // ③ そのままアップロード（Fileに包み直さない）
-  const { error: eUp } = await supabase.storage
-    .from("photos")
-    .upload(path, jpegBlob, {
-      upsert: false,
-      cacheControl: "3600",
-      contentType: "image/jpeg",
+    // ③ Blobをそのままアップロード
+    const { error: eUp } = await supabase.storage
+      .from("photos")
+      .upload(path, jpegBlob, {
+        upsert: false,
+        cacheControl: "3600",
+        contentType: "image/jpeg",
+      });
+
+    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
+
+    // ④ 公開URL取得
+    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
+    const publicUrl = pub?.publicUrl;
+
+    // ⑤ DBに保存
+    const { error: ePhoto } = await supabase.from("photos").insert({
+      place_id: placeRow.id,
+      space_id: sp.id,
+      file_url: publicUrl,
+      storage_path: path,
     });
-  if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
+    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
 
-  // ④ 公開URL取得 → DB登録
-  const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-  const publicUrl = pub.publicUrl;
-
-  const { error: ePhoto } = await supabase.from("photos").insert({
-    place_id: placeRow.id,
-    space_id: sp.id,
-    file_url: publicUrl,
-    storage_path: path,
-  });
-  if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
-
-  urls.push(publicUrl);
+    urls.push(publicUrl);
+  } catch (err) {
+    console.error("Upload failed:", err);
+  }
 }
-  
   return { id: placeRow.id, title: placeRow.title, memo: placeRow.memo, lat: placeRow.lat, lng: placeRow.lng, photos: urls };
 }
 
