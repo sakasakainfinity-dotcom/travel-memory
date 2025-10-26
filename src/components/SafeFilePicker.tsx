@@ -1,7 +1,9 @@
 // src/components/SafeFilePicker.tsx
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
+
+type LogLine = { tag: string; name: string; type: string; size: number };
 
 export default function SafeFilePicker({
   label = "写真を追加",
@@ -13,6 +15,9 @@ export default function SafeFilePicker({
   onPick: (files: File[]) => void;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
+  const [logs, setLogs] = useState<LogLine[]>([]);
+
+  const addLog = (l: LogLine) => setLogs((old) => [...old, l]);
 
   async function handleFiles(fs: FileList | null) {
     const arr = Array.from(fs ?? []);
@@ -21,12 +26,8 @@ export default function SafeFilePicker({
       return;
     }
 
-    // 入り口ログ：選ばれたファイル一覧
-    console.groupCollapsed("[SafeFilePicker] selected files");
-    for (const f of arr) {
-      console.log("RAW  ->", { name: f.name, type: f.type, size: f.size });
-    }
-    console.groupEnd();
+    // 入り口ログ（変換前）
+    arr.forEach((f) => addLog({ tag: "RAW", name: f.name, type: f.type || "(empty)", size: f.size }));
 
     // iOS白丸中だと size が極小or0のことがある。最低10KBでチェック
     const bad = arr.find((f) => !f.type.startsWith("image/") || f.size < 10_000);
@@ -41,18 +42,12 @@ export default function SafeFilePicker({
       return;
     }
 
-    // ★ HEIC→JPEG 変換（前後ログ付き）
+    // HEIC→JPEG 変換
     const convertedArr: File[] = [];
     for (const file of arr) {
       try {
-        console.groupCollapsed("[SafeFilePicker] convert");
-        console.log("before", { name: file.name, type: file.type, size: file.size });
-
         const converted = await convertToUploadableImage(file);
-
-        console.log("after ", { name: converted.name, type: converted.type, size: converted.size });
-        console.groupEnd();
-
+        addLog({ tag: "AFTER", name: converted.name, type: converted.type || "(empty)", size: converted.size });
         convertedArr.push(converted);
       } catch (err) {
         console.error("変換失敗:", err);
@@ -60,21 +55,15 @@ export default function SafeFilePicker({
       }
     }
 
-    // 下流へ渡す直前の確認ログ
-    console.groupCollapsed("[SafeFilePicker] passing to onPick");
-    for (const f of convertedArr) {
-      console.log("PASS ->", { name: f.name, type: f.type, size: f.size });
-    }
-    console.groupEnd();
-
+    // 下流へ渡す直前
+    convertedArr.forEach((f) => addLog({ tag: "PASS", name: f.name, type: f.type || "(empty)", size: f.size }));
     onPick(convertedArr);
 
-    // 同じファイルを選び直せるようにリセット
     if (ref.current) ref.current.value = "";
   }
 
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
       <label
         style={{
           display: "inline-block",
@@ -97,7 +86,6 @@ export default function SafeFilePicker({
         />
       </label>
 
-      {/* 代替ルート：Files（白丸対策の“確実”ボタン） */}
       <label
         style={{
           display: "inline-block",
@@ -118,9 +106,29 @@ export default function SafeFilePicker({
           style={{ display: "none" }}
         />
       </label>
+
+      {/* 画面内デバッグ窓（スマホでも見える） */}
+      <div style={{
+        maxHeight: 120,
+        overflow: "auto",
+        border: "1px dashed #bbb",
+        padding: 8,
+        borderRadius: 8,
+        background: "#fafafa",
+        fontSize: 12,
+        width: "100%"
+      }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Upload Debug</div>
+        {logs.length === 0 ? (
+          <div style={{ color: "#666" }}>ここに変換ログが出ます（RAW → AFTER → PASS）</div>
+        ) : (
+          logs.map((l, i) => (
+            <div key={i}>
+              <code>{l.tag}</code> name="{l.name}" • type="{l.type}" • size={l.size}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
-
-
-
