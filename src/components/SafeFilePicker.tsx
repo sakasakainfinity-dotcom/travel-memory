@@ -47,7 +47,12 @@ export default function SafeFilePicker({
     for (const file of arr) {
       try {
         const converted = await convertToUploadableImage(file);
-        addLog({ tag: "AFTER", name: converted.name, type: converted.type || "(empty)", size: converted.size });
+　　　　alert(
+  `RAW: ${file.name} (${file.type || "empty"})\n` +
+  `AFTER: ${converted.name} (${converted.type || "empty"})`
+);
+
+         addLog({ tag: "AFTER", name: converted.name, type: converted.type || "(empty)", size: converted.size });
         convertedArr.push(converted);
       } catch (err) {
         console.error("変換失敗:", err);
