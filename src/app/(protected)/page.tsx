@@ -243,34 +243,52 @@ function EditModal({
       }
 
       const addedUrls: string[] = [];
-      // 2) 追加アップロード
-      if (newFiles.length > 0) {
-        const { data: ses } = await supabase.auth.getSession();
-        const uid = ses.session?.user.id;
-        if (!uid) throw new Error("ログインが必要です（sessionなし）");
-        const sp = await ensureMySpace();
-        if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
-        for (const f of newFiles) {
-  const blob = await compress(f, 1600, 0.8);
-  const toUpload = new File([blob], f.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+// 2) 追加アップロード（HEIC/HDRでも必ずJPEG化）
+if (newFiles.length > 0) {
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) throw new Error("ログインが必要です（sessionなし）");
 
-  const path = `${place.id}/${crypto.randomUUID()}.jpg`;
-  const up = await supabase.storage.from("photos").upload(
-    path,
-    toUpload,
-    { upsert: false, cacheControl: "3600" }
-  );
-          if (up.error) throw new Error(`[STORAGE] ${up.error.message}`);
-          const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-          const publicUrl = pub.publicUrl;
-          const ins = await supabase.from("photos").insert({ place_id: place.id, space_id: sp.id, file_url: publicUrl, storage_path: path }).select("id, place_id, file_url, storage_path").single();
-          if (ins.error) throw new Error(`[PHOTOS] ${ins.error.message}`);
-          setPhotos((prev) => [...prev, ins.data as PhotoRow]);
-          addedUrls.push(publicUrl);
-        }
-        setNewFiles([]);
-      }
+  const sp = await ensureMySpace();
+  if (!sp?.id) throw new Error("スペースが取得できませんでした");
+
+  for (const f of newFiles) {
+    // ① かならず JPEG に再エンコード（HEIC/HDRでも確実に通る）
+    const jpegBlob = await compress(f);
+
+    // ② .jpg 固定で保存
+    const path = `${place.id}/${crypto.randomUUID()}.jpg`;
+
+    // ③ Blob をそのままアップロード（Fileに包み直さない）
+    const { error: eUp } = await supabase.storage
+      .from("photos")
+      .upload(path, jpegBlob, {
+        upsert: false,
+        cacheControl: "3600",
+        contentType: "image/jpeg",
+      });
+    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
+
+    // ④ 公開URL取得 → DBへ登録
+    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
+    const publicUrl = pub.publicUrl;
+
+    const { error: ePhoto } = await supabase.from("photos").insert({
+      place_id: place.id,
+      space_id: sp.id,
+      file_url: publicUrl,
+      storage_path: path,
+    });
+    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
+
+    addedUrls.push(publicUrl);
+  }
+
+  // 入力リセット（同じ写真を続けて選べるように）
+  setNewFiles([]);
+}
+
 
       onSaved({ title, memo, addPhotos: addedUrls });
       onClose();
