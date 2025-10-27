@@ -52,6 +52,12 @@ export async function uploadWithOptionalThumb(raw: File, thumb: File | null) {
   return { original: orig, thumbnail: th };
 }
 
-
+// --- compatibility shim: old API ---
+// もう使わんけど、既存コードが import している場合に備えたダミー。
+// 将来的には呼び出し元から完全撤去してOK。
+export type CompressOptions = { maxSide?: number; quality?: number };
+export async function compress(file: File, _opts?: CompressOptions): Promise<File> {
+  return file; // 変換はしない（新方針: 原本保存＋サムネ別保存）
+}
 
 
