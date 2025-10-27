@@ -127,7 +127,7 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
         <div style={{ fontWeight: 700, marginBottom: 6 }}>写真（複数OK）</div>
         <SafeFilePicker
           multiple
-          label="写真を追加"
+          label="写真を追加HEIC対応・サムネ生成"
           onPick={(items) => setPicked(items)}
         />
         <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
