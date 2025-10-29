@@ -1,128 +1,61 @@
 // src/lib/thumbnail.ts
-// クライアントで「表示用の小さなJPEGサムネイル」を作る。
-// 原本は一切変換しない。HEICは heic2any で JPEG にしてから縮小。
-// RAW(DNG/TIFFなど)は非対応（nullを返す）。
-
 import { inferMimeFromName } from "./mime";
 
-export type ThumbOptions = {
-  maxSide?: number;   // 長辺の最大px（既定 1280）
-  quality?: number;   // JPEG品質 0..1（既定 0.8）
-};
+export type ThumbOptions = { maxSide?: number; quality?: number };
 
-export async function generateThumbnail(
-  file: File,
-  opts: ThumbOptions = {}
-): Promise<File | null> {
+export async function generateThumbnail(file: File, opts: ThumbOptions = {}): Promise<File | null> {
   const { maxSide = 1280, quality = 0.8 } = opts;
   const name = file.name || "image";
-  const ext = (inferMimeFromName(name) || "").split("/").pop();
 
-  // RAWは非対応（null返し）
-  if (/^(image\/(tiff))$/.test(file.type) || /(dng|tif|tiff)$/i.test(name)) {
-    return null;
-  }
+  // RAW系はスキップ（必要なら対応拡張）
+  if (/(dng|tif|tiff)$/i.test(name) || /image\/tiff/i.test(file.type)) return null;
 
-  // まず表示可能なbitmapを用意（HEICは heic2any で一旦JPEG化）
-  let bitmap: ImageBitmap | null = null;
-  let baseForCanvas: Blob | File = file;
-
-  const isHeicLike =
+  const isHeic =
     /image\/hei[cf]/i.test(file.type) ||
-    /\.(hei[cf])$/i.test(name);
+    /\.(hei[cf])$/i.test(name) ||
+    (await looksLikeHeicByMagic(file));
 
-  if (isHeicLike) {
+  let base: Blob | File = file;
+
+  // HEICはheic2any → 失敗してもサムネだけ諦める（原本保存は続行）
+  if (isHeic) {
     try {
       const heic2any = (await import("heic2any")).default as any;
-      const jpegBlob = (await heic2any({
-        blob: file,
-        toType: "image/jpeg",
-        quality,
-      })) as Blob;
-      baseForCanvas = jpegBlob;
-    } catch {
-      // heic2any失敗ならサムネ生成を諦める（原本は保存できる）
-      return null;
-    }
+      base = (await heic2any({ blob: file, toType: "image/jpeg", quality })) as Blob;
+    } catch { return null; }
   }
 
+  // bitmap経由（失敗したら<img>フォールバック）
   try {
-    bitmap = await createImageBitmap(baseForCanvas);
+    const bitmap = await createImageBitmap(base);
+    const [w, h] = fit(bitmap.width, bitmap.height, maxSide);
+    const blob = await drawToJpegBlob(bitmap, w, h, quality);
+    return new File([blob], ensureJpegName(name, "-thumb"), { type: "image/jpeg", lastModified: Date.now() });
   } catch {
-    // createImageBitmap 非対応の場合は <img> 経由
-    const url = URL.createObjectURL(baseForCanvas);
     try {
-      const img = await loadImage(url);
-      return await drawToJpegFile(img, name, maxSide, quality);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+      const url = URL.createObjectURL(base);
+      const img = await loadImage(url); URL.revokeObjectURL(url);
+      const [w, h] = fit(img.width, img.height, maxSide);
+      const blob = await drawToJpegBlob(img, w, h, quality);
+      return new File([blob], ensureJpegName(name, "-thumb"), { type: "image/jpeg", lastModified: Date.now() });
+    } catch { return null; }
   }
-
-  if (!bitmap) return null;
-
-  const max = Math.max(bitmap.width, bitmap.height);
-  const scale = Math.min(1, maxSide / max);
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bitmap, 0, 0, w, h);
-
-  const blob: Blob = await canvasToJpegBlob(canvas, quality);
-  return new File([blob], ensureJpegName(name, "-thumb"), {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
 }
 
-/* ------------ helpers ------------ */
-
-function ensureJpegName(name: string, suffix = ""): string {
-  const base = name?.replace(/\.\w+$/, "") || "image";
-  return `${base}${suffix}.jpg`;
+/* helpers */
+function fit(w: number, h: number, maxSide: number): [number, number] {
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  return [Math.round(w * scale), Math.round(h * scale)];
 }
-
-function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-      "image/jpeg",
-      quality
-    );
-  });
+function ensureJpegName(name: string, suffix = "") { return (name.replace(/\.\w+$/, "") || "image") + `${suffix}.jpg`; }
+function drawToJpegBlob(src: CanvasImageSource, w: number, h: number, q: number): Promise<Blob> {
+  const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d")!; ctx.drawImage(src, 0, 0, w, h);
+  return new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/jpeg", q));
 }
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = url;
-  });
-}
-
-async function drawToJpegFile(
-  img: HTMLImageElement,
-  name: string,
-  maxSide: number,
-  quality: number
-): Promise<File> {
-  const max = Math.max(img.width, img.height);
-  const scale = Math.min(1, maxSide / max);
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, w, h);
-
-  const blob: Blob = await canvasToJpegBlob(canvas, quality);
-  return new File([blob], ensureJpegName(name, "-thumb"), {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
+function loadImage(url: string) { return new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }); }
+async function looksLikeHeicByMagic(file: File) {
+  try { const head = new Uint8Array(await file.slice(0, 32).arrayBuffer()); const a = new TextDecoder().decode(head);
+    return a.includes("ftypheic") || a.includes("ftypheif") || a.includes("ftyphevc");
+  } catch { return false; }
 }
