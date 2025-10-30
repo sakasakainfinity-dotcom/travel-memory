@@ -1,112 +1,136 @@
-'use client';
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+// src/app/pair/page.tsx
+"use client";
 
-type Pair = { id: string; owner_id: string };
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+
+type Pair = { id: string; name: string | null; owner_id: string; invite_token: string | null };
 
 export default function PairPage() {
-  return (
-    <Suspense fallback={<main style={{ padding: 16 }}>読み込み中…</main>}>
-      <PairInner />
-    </Suspense>
-  );
-}
-
-function PairInner() {
-  const [pair, setPair] = useState<Pair | null>(null);
-  const [joining, setJoining] = useState(false);
   const sp = useSearchParams();
-  const joinId = sp.get('join'); // 例: /pair?join=PAIR_UUID
+  const token = sp.get("token");
+  const [me, setMe] = useState<string | null>(null);
+  const [pairs, setPairs] = useState<Pair[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState("");
 
   useEffect(() => {
-    (async () => {
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return;
+    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
+  }, []);
 
-      // 既に所属しているペア
-      const { data } = await supabase
-        .from('pair_members')
-        .select('pair_id, pairs!inner(id, owner_id)')
-        .eq('user_id', uid)
-        .maybeSingle();
+  async function refresh() {
+    const { data } = await supabase
+      .from("pair_members")
+      .select("pair_id, pair_groups:pair_id(id, name, owner_id, invite_token)")
+      .order("joined_at", { ascending: false });
 
-      if (data) {
-        setPair({ id: (data as any).pairs.id, owner_id: (data as any).pairs.owner_id });
-        return;
-      }
+    const list = (data || []).map((r: any) => r.pair_groups as Pair);
+    // uniq by id
+    const map = new Map(list.map((p: Pair) => [p.id, p]));
+    setPairs(Array.from(map.values()));
+  }
 
-      // 招待リンク参加
-      if (joinId) {
-        setJoining(true);
-        const { error } = await supabase.from('pair_members').insert({ pair_id: joinId, user_id: uid, role: 'member' });
-        setJoining(false);
-        if (!error) {
-          const { data: p } = await supabase.from('pairs').select('id, owner_id').eq('id', joinId).single();
-          if (p) setPair(p as any);
-        } else {
-          alert('参加に失敗しました。リンクが無効かもしれません。');
-        }
-      }
-    })();
-  }, [joinId]);
+  useEffect(() => { refresh(); }, []);
+
+  // token が来てたら参加ボタンを出す
+  const hasToken = useMemo(() => !!token, [token]);
 
   async function createPair() {
-    const { data: ses } = await supabase.auth.getSession();
-    const uid = ses.session?.user.id;
-    if (!uid) return;
+    if (!me) return alert("ログインが必要です。");
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("pair_groups")
+        .insert({
+          owner_id: me,
+          name: newName || null,
+          invite_token: crypto.randomUUID(),
+        })
+        .select()
+        .single();
+      if (error) throw error;
 
-    const { data: p, error } = await supabase.from('pairs').insert({ owner_id: uid }).select('id, owner_id').single();
-    if (error) { alert(error.message); return; }
-    await supabase.from('pair_members').insert({ pair_id: p!.id, user_id: uid, role: 'owner' });
-    setPair(p as Pair);
+      // 自分をメンバーに
+      await supabase.from("pair_members").insert({ pair_id: data.id, user_id: me, role: "owner" });
+
+      setNewName("");
+      await refresh();
+      alert("ペアを作成しました。招待リンクを相手に送ってください。");
+    } catch (e:any) {
+      alert(e.message || "作成に失敗しました");
+    } finally { setLoading(false); }
   }
 
-  if (!pair) {
-    return (
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: 16 }}>
-        <h1 style={{ fontWeight: 900, fontSize: 20, marginBottom: 12 }}>ペア連携</h1>
-        {joining ? <div>参加処理中…</div> : (
-          <>
-            <p style={{ color: '#4b5563', marginBottom: 12 }}>まだペアがありません。作成して、相手に招待リンクを送ってください。</p>
-            <button onClick={createPair} style={btnPrimary}>ペアを作成</button>
-          </>
-        )}
-      </main>
-    );
+  async function joinByToken() {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("pair_join_with_token", { p_token: token });
+      if (error) throw error;
+      await refresh();
+      alert("ペアに参加しました！");
+    } catch (e:any) {
+      alert(e.message || "参加に失敗しました");
+    } finally { setLoading(false); }
   }
 
-  const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pair?join=${pair.id}`;
+  function inviteUrl(p: Pair) {
+    if (!p.invite_token) return "(招待コード未発行)";
+    return `${location.origin}/pair?token=${p.invite_token}`;
+  }
 
   return (
-    <main style={{ maxWidth: 720, margin: '0 auto', padding: 16 }}>
-      <h1 style={{ fontWeight: 900, fontSize: 20, marginBottom: 12 }}>ペア連携</h1>
-      <div style={{ border: '1px solid #eee', borderRadius: 12, padding: 12, background: '#fff' }}>
-        <div style={{ marginBottom: 8 }}>ペアID：<code>{pair.id}</code></div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input readOnly value={inviteUrl} style={{ flex: 1, minWidth: 240, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd' }} />
-          <button
-            onClick={async () => {
-              try { await navigator.clipboard.writeText(inviteUrl); alert('招待リンクをコピーしました'); }
-              catch { /* noop */ }
-            }}
-            style={btnLight}
-          >コピー</button>
-          <a href={`mailto:?subject=Travel%20Memory%20招待&body=${encodeURIComponent(inviteUrl)}`} style={{ ...btnLight as any, display: 'inline-grid', placeItems: 'center' }}>
-            メールで送る
-          </a>
+    <div style={{ maxWidth: 800, margin: "24px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 800 }}>ペア管理</h1>
+
+      {hasToken && (
+        <div style={{ margin: "12px 0", padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+          <b>招待リンクからアクセスしています。</b>
+          <div style={{ marginTop: 8 }}>
+            <button onClick={joinByToken} disabled={loading} style={{ padding: "8px 12px", fontWeight: 700 }}>
+              {loading ? "参加中…" : "このペアに参加する"}
+            </button>
+          </div>
         </div>
-        <p style={{ color: '#6b7280', marginTop: 8 }}>相手がこのリンクでアクセス→「参加」を押すとペアに入ります。</p>
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <h2 style={{ fontWeight: 700 }}>新しくペアを作る</h2>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <input
+            placeholder="ペア名（任意）"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            style={{ padding: 8, flex: 1 }}
+          />
+          <button onClick={createPair} disabled={loading} style={{ padding: "8px 12px", fontWeight: 700 }}>
+            {loading ? "作成中…" : "作成"}
+          </button>
+        </div>
       </div>
-    </main>
+
+      <div style={{ marginTop: 24 }}>
+        <h2 style={{ fontWeight: 700 }}>あなたが入っているペア</h2>
+        <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
+          {pairs.length === 0 ? (
+            <div style={{ color: "#666" }}>まだペアがありません。</div>
+          ) : (
+            pairs.map((p) => (
+              <div key={p.id} style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{p.name ?? "（無題ペア）"}</div>
+                <div style={{ fontSize: 12, color: "#555" }}>
+                  招待リンク：{" "}
+                  <a href={inviteUrl(p)} style={{ textDecoration: "underline" }}>
+                    {inviteUrl(p)}
+                  </a>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
-
-const btnPrimary: React.CSSProperties = {
-  padding: '10px 14px', borderRadius: 10, background: '#111827', color: '#fff', fontWeight: 800, border: '1px solid #111827', cursor: 'pointer'
-};
-const btnLight: React.CSSProperties = {
-  padding: '10px 14px', borderRadius: 10, background: '#fff', color: '#111827', fontWeight: 800, border: '1px solid #ddd', cursor: 'pointer'
-};
 
