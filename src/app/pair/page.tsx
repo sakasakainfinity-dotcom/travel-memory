@@ -1,10 +1,7 @@
-// src/app/pair/page.tsx
-"use client";
-
 import { Suspense } from "react";
 import PairPageInner from "./pair-page-inner";
 
-// 👇 これで静的プリレンダーを止める（プレビュー/本番どっちもOK）
+// ← これらはサーバー側のファイルでだけ書ける
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -15,5 +12,4 @@ export default function PairPage() {
     </Suspense>
   );
 }
-
 
