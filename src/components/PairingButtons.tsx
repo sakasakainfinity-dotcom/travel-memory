@@ -1,10 +1,20 @@
+// src/components/PairingButtons.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function PairingButtons({ pairId, inviteToken }: { pairId?: string; inviteToken?: string }) {
   const [busy, setBusy] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setSignedIn(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  if (!signedIn) return null; // ★ 未ログインなら一切出さない
 
   async function copyInvite() {
     if (!inviteToken) return alert("招待リンクがありません。ペアページで作成してください。");
@@ -24,18 +34,25 @@ export default function PairingButtons({ pairId, inviteToken }: { pairId?: strin
       await supabase.from("pair_members").delete().eq("pair_id", pairId).eq("user_id", uid);
       alert("退出しました。");
       location.reload();
-    } catch (e:any) {
+    } catch (e: any) {
       alert(e.message || "失敗しました");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div style={{ display: "flex", gap: 8 }}>
-      <button onClick={copyInvite} disabled={busy} style={{ padding: "8px 12px" }}>招待リンクをコピー</button>
-      <button onClick={leavePair} disabled={busy || !pairId} style={{ padding: "8px 12px" }}>ペアを退出</button>
+      <button onClick={copyInvite} disabled={busy} style={{ padding: "8px 12px" }}>
+        招待リンクをコピー
+      </button>
+      <button onClick={leavePair} disabled={busy || !pairId} style={{ padding: "8px 12px" }}>
+        ペアを退出
+      </button>
     </div>
   );
 }
+
 
 
 
