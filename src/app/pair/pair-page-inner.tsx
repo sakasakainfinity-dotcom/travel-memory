@@ -42,31 +42,21 @@ export default function PairPageInner() {
   const hasToken = useMemo(() => !!token, [token]);
 
   async function createPair() {
-    if (!me) return alert("ログインが必要です。");
-    setLoading(true);
-    try {
-      const invite_token = crypto.randomUUID();
-      const { data, error } = await supabase
-        .from("pair_groups")
-        .insert({ owner_id: me, name: newName || null, invite_token })
-        .select()
-        .single();
-      if (error) throw error;
+  if (!me) return alert("ログインが必要です。");
+  setLoading(true);
+  try {
+    const { data, error } = await supabase.rpc("create_pair_group", { p_name: newName || null });
+    if (error) throw error;
 
-      const { error: e2 } = await supabase
-        .from("pair_members")
-        .insert({ pair_id: data.id, user_id: me, role: "owner" });
-      if (e2) throw e2;
-
-      setNewName("");
-      await refresh();
-      alert("ペアを作成したよ。招待リンクを相手に送ってね。");
-    } catch (e: any) {
-      alert(e?.message || "作成に失敗しました");
-    } finally {
-      setLoading(false);
-    }
+    setNewName("");
+    await refresh();
+    alert("ペアを作成したよ。招待リンクを相手に送ってね。");
+  } catch (e:any) {
+    alert(e?.message || "作成に失敗しました");
+  } finally {
+    setLoading(false);
   }
+}
 
   async function joinByToken() {
     if (!token) return;
