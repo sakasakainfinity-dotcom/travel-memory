@@ -1,3 +1,4 @@
+// src/app/(protected)/pair/pair-page-inner.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type PairGroup = {
-  id: string;
+  id: string;                 // RPCの pair_group_id をここに詰め替えて使う
   name: string | null;
   owner_id: string;
   invite_token: string | null;
@@ -19,53 +20,42 @@ export default function PairPageInner() {
   const [newName, setNewName] = useState("");
   const [pairs, setPairs] = useState<PairGroup[]>([]);
 
-  // 初回＆参加後の一覧取得
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ RPCだけで一覧を取得（JOINなし・列名固定）
   async function refresh() {
-    const { data: me } = await supabase.auth.getUser();
-    const uid = me?.user?.id;
-    if (!uid) {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session) {
+        setPairs([]);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_my_pairs");
+      if (error) {
+        console.warn("get_my_pairs error:", error);
+        setPairs([]);
+        return;
+      }
+
+      setPairs(
+        (data ?? []).map((r: any) => ({
+          id: r.pair_group_id,          // ← 列名マッピング
+          name: r.name,
+          owner_id: r.owner_id,
+          invite_token: r.invite_token,
+        }))
+      );
+    } catch (e) {
+      console.warn(e);
       setPairs([]);
-      return;
     }
-
-    // 1) 自分の membership だけ拾う（JOINしない＝曖昧id回避）
-    const { data: mem, error: e1 } = await supabase
-      .from("pair_members")
-      .select("pair_id")
-      .eq("user_id", uid);
-
-    if (e1) {
-      console.warn(e1);
-      setPairs([]);
-      return;
-    }
-
-    const ids = (mem ?? []).map((r: any) => r.pair_id);
-    if (ids.length === 0) {
-      setPairs([]);
-      return;
-    }
-
-    // 2) その id 群で pair_groups を取得
-    const { data: groups, error: e2 } = await supabase
-      .from("pair_groups")
-      .select("id, name, owner_id, invite_token")
-      .in("id", ids);
-
-    if (e2) {
-      console.warn(e2);
-      setPairs([]);
-      return;
-    }
-    setPairs((groups ?? []) as PairGroup[]);
   }
 
-  // ペア作成（RPC：親→自分をownerで追加をトランザクション実行）
+  // ペア作成（サーバー側のトランザクションRPCを想定）
   async function createPair() {
     setLoading(true);
     try {
@@ -87,7 +77,7 @@ export default function PairPageInner() {
     }
   }
 
-  // 招待リンクから参加
+  // 招待リンクから参加（RPC呼び出し）
   async function joinByToken() {
     if (!token) return;
     setLoading(true);
@@ -103,7 +93,8 @@ export default function PairPageInner() {
 
       await refresh();
       alert("ペアに参加したよ！");
-      // URLの?tokenを消しておく（履歴は残さず置換）
+
+      // URLの ?token を消しておく（履歴は置換）
       const u = new URL(location.href);
       u.searchParams.delete("token");
       history.replaceState(null, "", u.toString());
@@ -129,7 +120,7 @@ export default function PairPageInner() {
     <div style={{ maxWidth: 720, margin: "24px auto", padding: "0 16px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>ペア管理</h1>
 
-      {/* 招待リンクから参加（URLに?token=...がある時だけ出す） */}
+      {/* 招待リンクから参加（URLに?token=...がある時だけ） */}
       {token && (
         <div
           style={{
@@ -140,7 +131,9 @@ export default function PairPageInner() {
             background: "#fffbe6",
           }}
         >
-          <div style={{ marginBottom: 8 }}>招待リンクが開かれとるけぇ、参加できるよ。</div>
+          <div style={{ marginBottom: 8 }}>
+            招待リンクが開かれとるけぇ、参加できるよ。
+          </div>
           <button onClick={joinByToken} disabled={loading} style={{ padding: "8px 12px", fontWeight: 700 }}>
             {loading ? "参加中…" : "このペアに参加する"}
           </button>
