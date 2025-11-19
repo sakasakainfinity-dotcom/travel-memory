@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { ensureMySpace } from '@/lib/ensureMySpace';
+import { useRouter } from "next/navigation";
 
 type Row = {
   id: string;
@@ -23,6 +24,7 @@ function makePlaceKey(title: string | null, lat: number, lng: number) {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,16 +102,37 @@ export default function HistoryPage() {
   if (loading) return <div style={{ padding: 16 }}>読み込み中…</div>;
 
   return (
-    <main style={{ maxWidth: 960, margin: '0 auto', padding: '16px 12px 80px' }}>
-      {/* 上部バー：マップに戻る */}
-      <div className="mb-4 flex items-center gap-2">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
-        >
-          ← マップに戻る
-        </Link>
-      </div>
+  <div style={{ position: "relative", minHeight: "100vh" }}>
+    {/* ここに元からある履歴リストとかいろいろ */}
+
+    {/* 右下フローティング「マップに戻る」ボタン */}
+    <button
+      type="button"
+      onClick={() => router.push("/")}
+      style={{
+        position: "fixed",
+        right: 16,
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+        zIndex: 50,
+        padding: "12px 18px",
+        borderRadius: 9999,
+        border: "none",
+        background: "rgba(37,99,235,0.95)",
+        boxShadow: "0 10px 24px rgba(15,23,42,0.35)",
+        fontSize: 14,
+        fontWeight: 800,
+        color: "#fff",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      ← マップに戻る
+    </button>
+  </div>
+);
+
 
       <h1 style={{ fontWeight: 900, fontSize: 20, marginBottom: 12 }}>投稿履歴</h1>
       {items.length === 0 && <div style={{ color: '#6b7280' }}>まだ投稿がありません</div>}
