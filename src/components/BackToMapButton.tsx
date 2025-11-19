@@ -1,24 +1,39 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import type { CSSProperties } from "react";
+
 export default function BackToMapButton() {
+  const router = useRouter();
+
+  const btnStyle: CSSProperties = {
+    position: "fixed",
+    // ★ 画面の一番上から少し下げる＋ノッチぶんも考慮
+    top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+    left: 16,
+    zIndex: 50,
+    padding: "8px 12px",
+    borderRadius: 9999,
+    border: "1px solid rgba(15,23,42,0.12)",
+    background: "rgba(255,255,255,0.92)",
+    boxShadow: "0 6px 18px rgba(15,23,42,0.18)",
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#0f172a",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+  };
+
   return (
-    <a
-      href="/"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        marginTop: 16,
-        fontWeight: 800,
-        textDecoration: "none",
-        padding: "10px 14px",
-        borderRadius: 999,
-        border: "1px solid rgba(0,0,0,.08)",
-        background: "rgba(255,255,255,0.85)",
-        boxShadow: "0 6px 20px rgba(0,0,0,.08)",
-        backdropFilter: "saturate(120%) blur(6px)",
-      }}
-      aria-label="地図に戻る"
+    <button
+      type="button"
+      style={btnStyle}
+      onClick={() => router.push("/")}
     >
-      地図に戻る →
-    </a>
+      ← マップに戻る
+    </button>
   );
 }
+
