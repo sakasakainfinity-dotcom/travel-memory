@@ -9,7 +9,7 @@ export default function BackToMapButton() {
   const btnStyle: CSSProperties = {
     position: "fixed",
     // ★ 画面の一番上から少し下げる＋ノッチぶんも考慮
-    top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+    top: "calc(env(safe-area-inset-top, 0px) + 32px)",
     left: 16,
     zIndex: 50,
     padding: "8px 12px",
