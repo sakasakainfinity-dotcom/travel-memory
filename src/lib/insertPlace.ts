@@ -11,6 +11,7 @@ export type NewPlaceInput = {
   lng: number;
   visitedAt?: string;
   files: File[]; // 写真
+  visibility?: "public" | "private" | "pair"; // ★追加
 };
 
 export type InsertedPlace = {
@@ -21,9 +22,14 @@ export type InsertedPlace = {
   lng: number;
   visited_at: string | null;
   photos: string[]; // 公開URL（地図プレビュー用）
+  visibility: "public" | "private" | "pair"; // ★追加
 };
 
 export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> {
+  // 0) visibility が来てなかったら private 扱い
+  const visibility: "public" | "private" | "pair" =
+    input.visibility ?? "private";
+
   // 1) セッション & space
   const { data: ses, error: eSess } = await supabase.auth.getSession();
   if (eSess) throw eSess;
@@ -44,8 +50,9 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
       lng: input.lng,
       visited_at: input.visitedAt ?? null,
       created_by: uid,
+      visibility, // ★追加
     })
-    .select("id, title, memo, lat, lng, visited_at")
+    .select("id, title, memo, lat, lng, visited_at, visibility") // ★追加
     .single();
 
   if (ePlace) throw ePlace;
@@ -79,6 +86,7 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
     lng: placeRow.lng,
     visited_at: placeRow.visited_at,
     photos: urls,
+    visibility: placeRow.visibility, // ★追加
   };
 }
 
