@@ -9,6 +9,7 @@ export type Place = {
   space_id: string;
   created_by: string;
   created_at: string;
+  visibility: "public" | "private" | "pair"; 
 };
 
 export type Photo = {
