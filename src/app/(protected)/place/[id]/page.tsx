@@ -28,7 +28,7 @@ export default function PlaceDetailPage() {
 
         const { data, error } = await supabase
           .from("places")
-          .select("id, title, lat, lng, address, visibility")
+          .select("*") // ★ Place に必要なカラムを全部取る
           .eq("id", placeId)
           .single();
 
@@ -63,7 +63,6 @@ export default function PlaceDetailPage() {
 
         const ids = ms.map((m) => m.id);
 
-        // PhotoGrid が期待しているのは url / storage_path / place_id を持つDB型
         const { data: ph2, error: ep } = await supabase
           .from("photos")
           .select("id, url, storage_path, place_id, created_at, memory_id")
@@ -129,7 +128,7 @@ export default function PlaceDetailPage() {
         {`(${Number((place as any).lat).toFixed(4)}, ${Number((place as any).lng).toFixed(4)})`}
       </div>
 
-      {/* 公開状態の簡易表示（お好みで消してOK） */}
+      {/* 公開状態の簡易表示 */}
       <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>
         公開状態:{" "}
         {place.visibility === "public"
@@ -141,3 +140,4 @@ export default function PlaceDetailPage() {
     </main>
   );
 }
+
