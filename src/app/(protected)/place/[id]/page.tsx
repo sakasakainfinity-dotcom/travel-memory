@@ -22,11 +22,11 @@ export default function PlaceDetailPage() {
       try {
         setLoading(true);
         setErr(null);
-        const { data: p, error: e1 } = await supabase
-          .from("places")
-          .select("*")
-          .eq("id", placeId)
-          .single();
+        const { data: place } = await supabase
+　　　　  .from("places")
+　　　　  .select("id, title, lat, lng, address, visibility") // ★ visibility を含める
+　　　　  .eq("id", id)
+ 　　　　 .single();
         if (e1) throw e1;
         setPlace(p as Place);
       } catch (e: any) {
