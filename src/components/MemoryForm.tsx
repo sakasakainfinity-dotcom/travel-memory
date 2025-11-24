@@ -20,6 +20,7 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<FileList | null>(null);
   const [loading, setLoading] = useState(false);
+  const [placeVisibility, setPlaceVisibility] = useState<"public" | "private">("private");
 
   // 追加：公開先（非公開 or ペア）
   const [pairs, setPairs] = useState<UPair[]>([]);
@@ -51,6 +52,25 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
     })();
   }, []);
 
+  useEffect(() => {
+  (async () => {
+    const { data, error } = await supabase
+      .from("places")
+      .select("visibility")
+      .eq("id", placeId)
+      .single();
+
+    if (error) {
+      console.warn("places visibility load error:", error.message);
+      return;
+    }
+
+    if (data?.visibility === "public" || data?.visibility === "private") {
+      setPlaceVisibility(data.visibility);
+    }
+  })();
+}, [placeId]);
+  
   async function submit() {
     try {
       setLoading(true);
@@ -70,6 +90,17 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
         .select()
         .single();
       if (e1) throw e1;
+
+      // ★ 1.5) 場所(place)の公開/非公開を更新
+      const { error: eVis } = await supabase
+        .from("places")
+        .update({ visibility: placeVisibility })
+        .eq("id", placeId);
+
+      if (eVis) {
+        console.warn("update place visibility error:", eVis.message);
+        // メモ自体は保存できてるので、ここでは throw しないで警告だけでもOK
+      }
 
       // 2) 写真アップロード（あれば）※12MB超はスキップ
       const tasks: Promise<any>[] = [];
@@ -131,6 +162,40 @@ export default function MemoryForm({ spaceId, placeId }: { spaceId: string; plac
         />
       </label>
 
+            {/* 場所（place）の公開範囲 */}
+      <fieldset style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
+        <legend style={{ padding: "0 6px", fontWeight: 800 }}>場所の公開範囲</legend>
+
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="radio"
+              name="placeVisibility"
+              value="public"
+              checked={placeVisibility === "public"}
+              onChange={() => setPlaceVisibility("public")}
+            />
+            公開（地図のピンをみんなに見せる）
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="radio"
+              name="placeVisibility"
+              value="private"
+              checked={placeVisibility === "private"}
+              onChange={() => setPlaceVisibility("private")}
+            />
+            非公開（自分とペアだけ）
+          </label>
+        </div>
+
+        <p style={{ marginTop: 8, color: "#6b7280", fontSize: 12 }}>
+          ※ ここは「場所そのもの」の公開設定だよ。下の公開先（ペア共有）はメモの共有範囲。
+        </p>
+      </fieldset>
+
+      
       {/* 公開先：非公開 or ペア */}
       <fieldset style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
         <legend style={{ padding: "0 6px", fontWeight: 800 }}>公開先</legend>
