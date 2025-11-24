@@ -121,7 +121,14 @@ export default function PlaceDetailPage() {
     <main style={{ padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <Link href="/">← 戻る</Link>
-        <h1 style={{ margin: 0 }}>{place.title ?? "無題の場所"}</h1>
+        <h1 style={{ margin: 0 }}>
+  {place.title ?? "無題の場所"}（DEBUG-PLACE-V1）
+</h1>
+
+        <div style={{ padding: 8, background: "#fee2e2", borderRadius: 8, marginBottom: 8 }}>
+  ★DEBUG: PlaceDetailPage からのメッセージ
+</div>
+        
       </div>
 
       <div style={{ color: "#666", marginBottom: 4 }}>
