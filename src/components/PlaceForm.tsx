@@ -15,6 +15,9 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
   const [title, setTitle] = useState<string>("");
   const [address, setAddress] = useState<string>("");
 
+  // ★ 公開／非公開
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
+
   useEffect(() => {
     if (typeof defaultLat === "number") setLat(defaultLat);
     if (typeof defaultLng === "number") setLng(defaultLng);
@@ -27,6 +30,7 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
       alert("緯度経度が未入力じゃ。地図をクリックするか検索して埋めてね。");
       return;
     }
+
     const { data, error } = await supabase
       .from("places")
       .insert({
@@ -35,10 +39,16 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
         lng: Number(lng),
         title: title || null,
         address: address || null,
+        visibility, // ★ ここで保存
       })
       .select("id")
       .single();
-    if (error) return alert(error.message);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
     // 追加後は詳細へ
     window.location.href = `/place/${data.id}`;
   }
@@ -70,6 +80,46 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
         </div>
       </div>
 
+      {/* 公開範囲 */}
+      <fieldset
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          padding: 10,
+          marginTop: 8,
+        }}
+      >
+        <legend style={{ padding: "0 6px", fontWeight: 700 }}>公開範囲</legend>
+
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 4 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="radio"
+              name="visibility"
+              value="public"
+              checked={visibility === "public"}
+              onChange={() => setVisibility("public")}
+            />
+            公開（みんなに見せる）
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="radio"
+              name="visibility"
+              value="private"
+              checked={visibility === "private"}
+              onChange={() => setVisibility("private")}
+            />
+            非公開（自分だけ）
+          </label>
+        </div>
+
+        <p style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+          ※ 迷ったら非公開にしとき。あとから公開に変えるUIもそのうち付けよ。
+        </p>
+      </fieldset>
+
       <button
         type="submit"
         style={{
@@ -88,3 +138,4 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
     </form>
   );
 }
+
