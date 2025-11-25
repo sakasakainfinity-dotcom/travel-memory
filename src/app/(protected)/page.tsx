@@ -41,6 +41,7 @@ function PostModal({
     lat: number;
     lng: number;
     photos: File[];
+    visibility: "public" | "private" | "pair"; // ★追加
   }) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -209,6 +210,7 @@ function PostModal({
                 lat,
                 lng,
                 photos: files,
+                visibility,
               })
             }
             style={{ padding: "10px 14px", borderRadius: 10, background: "#000", color: "#fff", fontWeight: 700 }}
@@ -865,6 +867,7 @@ export default function Page() {
               lng: d.lng,
               visitedAt: d.visitedAt,
               files: d.photos,
+              visibility: d.visibility,
             });
             setPlaces((prev) => [
               {
