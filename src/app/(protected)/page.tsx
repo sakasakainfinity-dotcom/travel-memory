@@ -116,41 +116,76 @@ function PostModal({
         </div>
 
         {/* 公開範囲 */}
-<div className="mt-2">
-  <label className="mb-1 block text-sm">公開範囲</label>
-  <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
-    <label className="flex items-center gap-2">
-      <input
-        type="radio"
-        name="visibility"
-        value="public"
-        checked={visibility === "public"}
-        onChange={() => setVisibility("public")}
-      />
-      <span>公開（全国どのユーザーからも見える・青ピン）</span>
-    </label>
+{/* 公開範囲（ボタンスタイル） */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 4 }}>
+    公開範囲
+  </label>
 
-    <label className="flex items-center gap-2">
-      <input
-        type="radio"
-        name="visibility"
-        value="private"
-        checked={visibility === "private"}
-        onChange={() => setVisibility("private")}
-      />
-      <span>非公開（自分だけ・赤ピン）</span>
-    </label>
-
-    <label className="flex items-center gap-2">
-      <input
-        type="radio"
-        name="visibility"
-        value="pair"
-        checked={visibility === "pair"}
-        onChange={() => setVisibility("pair")}
-      />
-      <span>ペア限定（ペア相手とのマップだけで表示・黄ピン）</span>
-    </label>
+  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    {[
+      {
+        key: "public" as const,
+        label: "公開",
+        sub: "全国どのユーザーからも見える",
+        color: "#2563eb", // 青
+      },
+      {
+        key: "private" as const,
+        label: "非公開",
+        sub: "自分だけ",
+        color: "#ef4444", // 赤
+      },
+      {
+        key: "pair" as const,
+        label: "ペア限定",
+        sub: "ペア相手とのマップだけ",
+        color: "#eab308", // 黄
+      },
+    ].map((opt) => {
+      const active = visibility === opt.key;
+      return (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={() => setVisibility(opt.key)}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 2,
+            padding: "8px 12px",
+            borderRadius: 999,
+            border: active ? `2px solid ${opt.color}` : "1px solid #d1d5db",
+            background: active ? `${opt.color}22` : "#fff",
+            color: "#111827",
+            fontSize: 12,
+            cursor: "pointer",
+            minWidth: 120,
+          }}
+        >
+          <span
+            style={{
+              fontWeight: 800,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "999px",
+                backgroundColor: opt.color,
+              }}
+            />
+            {opt.label}
+          </span>
+          <span style={{ fontSize: 11, color: "#6b7280" }}>{opt.sub}</span>
+        </button>
+      );
+    })}
   </div>
 </div>
 
@@ -615,7 +650,7 @@ export default function Page() {
 
         const { data: ps } = await supabase
           .from("places")
-          .select("id, title, memo, lat, lng")
+          .select("id, title, memo, lat, lng, visibility")
           .eq("space_id", mySpace.id)
           .order("created_at", { ascending: false });
 
@@ -641,6 +676,7 @@ export default function Page() {
             lat: p.lat,
             lng: p.lng,
             photos: photosBy[p.id] ?? [],
+            visibility: (p as any).visibility ?? "private",
           }))
         );
       } catch (e) {
@@ -877,6 +913,7 @@ export default function Page() {
                 lat: created.lat,
                 lng: created.lng,
                 photos: created.photos ?? [],
+                visibility: created.visibility ?? "private",
               },
               ...prev,
             ]);
