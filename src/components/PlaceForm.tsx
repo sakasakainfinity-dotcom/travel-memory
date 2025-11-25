@@ -1,3 +1,4 @@
+// src/components/PlaceForm.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -15,8 +16,8 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
   const [title, setTitle] = useState<string>("");
   const [address, setAddress] = useState<string>("");
 
-  // ★ 公開／非公開
-  const [visibility, setVisibility] = useState<"public" | "private">("private");
+  // ★ 公開範囲: public / private / pair
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">("private");
 
   useEffect(() => {
     if (typeof defaultLat === "number") setLat(defaultLat);
@@ -39,7 +40,7 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
         lng: Number(lng),
         title: title || null,
         address: address || null,
-        visibility, // ★ ここで保存
+        visibility, // ★ 3状態のどれかが入る
       })
       .select("id")
       .single();
@@ -80,7 +81,7 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
         </div>
       </div>
 
-      {/* 公開範囲 */}
+      {/* 公開範囲（place自体のvisibility） */}
       <fieldset
         style={{
           border: "1px solid #e5e7eb",
@@ -89,34 +90,45 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
           marginTop: 8,
         }}
       >
-        <legend style={{ padding: "0 6px", fontWeight: 700 }}>公開範囲</legend>
+        <legend style={{ padding: "0 6px", fontWeight: 700 }}>場所の公開範囲</legend>
 
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4, fontSize: 14 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <input
               type="radio"
-              name="visibility"
+              name="place_visibility"
               value="public"
               checked={visibility === "public"}
               onChange={() => setVisibility("public")}
             />
-            公開（みんなに見せる）
+            公開（全国だれでもこのピンが見える）
           </label>
 
           <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <input
               type="radio"
-              name="visibility"
+              name="place_visibility"
               value="private"
               checked={visibility === "private"}
               onChange={() => setVisibility("private")}
             />
             非公開（自分だけ）
           </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="radio"
+              name="place_visibility"
+              value="pair"
+              checked={visibility === "pair"}
+              onChange={() => setVisibility("pair")}
+            />
+            ペア限定（ペア相手とのマップにだけ表示）
+          </label>
         </div>
 
         <p style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
-          ※ 迷ったら非公開にしとき。あとから公開に変えるUIもそのうち付けよ。
+          ※ ここは「場所そのもの」の公開範囲だよ。メモの共有先は下のフォーム（MemoryForm）で決める。
         </p>
       </fieldset>
 
@@ -138,4 +150,3 @@ export default function PlaceForm({ spaceId, defaultLat, defaultLng, defaultTitl
     </form>
   );
 }
-
