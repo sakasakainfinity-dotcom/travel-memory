@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PhotoGrid from "@/components/PhotoGrid";
+import MemoryForm from "@/components/MemoryForm";
 import type { Place, Photo as DBPhoto } from "@/types/db";
 
 export default function PlaceDetailPage() {
@@ -28,7 +29,7 @@ export default function PlaceDetailPage() {
 
         const { data, error } = await supabase
           .from("places")
-          .select("*") // ★ Place に必要なカラムを全部取る
+          .select("*") // Place型に必要なカラム全部
           .eq("id", placeId)
           .single();
 
@@ -48,7 +49,6 @@ export default function PlaceDetailPage() {
 
     (async () => {
       try {
-        // まず place の memories を取得
         const { data: ms, error: em } = await supabase
           .from("memories")
           .select("id")
@@ -77,7 +77,6 @@ export default function PlaceDetailPage() {
           storage_path: p.storage_path,
           place_id: p.place_id,
           created_at: p.created_at,
-          // types/db に他の必須フィールドがあればここで追加
         }));
 
         setPhotos(normalized);
@@ -118,33 +117,40 @@ export default function PlaceDetailPage() {
   }
 
   return (
-    <main style={{ padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+    <main style={{ padding: 16, display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <Link href="/">← 戻る</Link>
-        <h1 style={{ margin: 0 }}>
-  {place.title ?? "無題の場所"}（DEBUG-PLACE-V1）
-</h1>
-
-        <div style={{ padding: 8, background: "#fee2e2", borderRadius: 8, marginBottom: 8 }}>
-  ★DEBUG: PlaceDetailPage からのメッセージ
-</div>
-        
+        <h1 style={{ margin: 0 }}>{place.title ?? "無題の場所"}</h1>
       </div>
 
-      <div style={{ color: "#666", marginBottom: 4 }}>
-        {`(${Number((place as any).lat).toFixed(4)}, ${Number((place as any).lng).toFixed(4)})`}
+      <div style={{ color: "#666" }}>
+        {`(${Number((place as any).lat).toFixed(4)}, ${Number(
+          (place as any).lng
+        ).toFixed(4)})`}
       </div>
 
-      {/* 公開状態の簡易表示 */}
-      <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>
+      <div style={{ color: "#6b7280", fontSize: 12 }}>
         公開状態:{" "}
         {place.visibility === "public"
-          ? "公開（みんなに見える）"
-          : "非公開（自分／ペアだけ）"}
+          ? "公開（全国だれでも）"
+          : place.visibility === "pair"
+          ? "ペア限定"
+          : "非公開（自分だけ）"}
       </div>
 
-      <PhotoGrid photos={photos} />
+      {/* 写真一覧 */}
+      <section>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>写真</h2>
+        <PhotoGrid photos={photos} />
+      </section>
+
+      {/* 思い出を追加（MemoryForm） */}
+      <section>
+        <h2 style={{ fontSize: 16, margin: "16px 0 8px" }}>思い出を追加</h2>
+        <MemoryForm spaceId={place.space_id} placeId={place.id} />
+      </section>
     </main>
   );
 }
+
 
