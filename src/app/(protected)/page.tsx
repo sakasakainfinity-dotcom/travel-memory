@@ -54,6 +54,7 @@ function PostModal({
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">("private");
 
   // 開くたび完全リセット
   useEffect(() => {
@@ -112,6 +113,46 @@ function PostModal({
           <label style={{ fontSize: 12, color: "#555" }}>訪問日</label>
           <input type="date" value={visitedAt} onChange={(e) => setVisitedAt(e.target.value)} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
         </div>
+
+        {/* 公開範囲 */}
+<div className="mt-2">
+  <label className="mb-1 block text-sm">公開範囲</label>
+  <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
+    <label className="flex items-center gap-2">
+      <input
+        type="radio"
+        name="visibility"
+        value="public"
+        checked={visibility === "public"}
+        onChange={() => setVisibility("public")}
+      />
+      <span>公開（全国どのユーザーからも見える・青ピン）</span>
+    </label>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="radio"
+        name="visibility"
+        value="private"
+        checked={visibility === "private"}
+        onChange={() => setVisibility("private")}
+      />
+      <span>非公開（自分だけ・赤ピン）</span>
+    </label>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="radio"
+        name="visibility"
+        value="pair"
+        checked={visibility === "pair"}
+        onChange={() => setVisibility("pair")}
+      />
+      <span>ペア限定（ペア相手とのマップだけで表示・黄ピン）</span>
+    </label>
+  </div>
+</div>
+
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>メモ</label>
@@ -437,6 +478,7 @@ async function insertPlace({
   memo?: string;
   visitedAt?: string;
   files: File[];
+  visibility;
 }) {
   // 認証
   const { data: ses } = await supabase.auth.getSession();
