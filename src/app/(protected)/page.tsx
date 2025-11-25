@@ -471,6 +471,7 @@ async function insertPlace({
   memo,
   visitedAt,
   files,
+  visibility, // ★追加
 }: {
   lat: number;
   lng: number;
@@ -478,7 +479,7 @@ async function insertPlace({
   memo?: string;
   visitedAt?: string;
   files: File[];
-  visibility;
+  visibility: "public" | "private" | "pair"; // ★追加
 }) {
   // 認証
   const { data: ses } = await supabase.auth.getSession();
@@ -489,7 +490,7 @@ async function insertPlace({
   const sp = await ensureMySpace();
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
-  // 1) places行を先に作る
+  // 1) places行を先に作る（★ visibility を保存）
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
@@ -500,15 +501,16 @@ async function insertPlace({
       lng,
       visited_at: visitedAt ?? null,
       created_by: uid,
+      visibility, // ★ここ追加
     })
-    .select("id, title, memo, lat, lng")
+    .select("id, title, memo, lat, lng, visibility")
     .single();
+
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
-  // 2) 写真（HEIC/HDRでも必ずJPEG化→.jpgで保存）
+  // 2) 写真（JPEG化→保存）
   const urls: string[] = [];
   for (const f of files ?? []) {
-    // ← ここで “必ずJPEG化” （image.ts の compress は <img>→canvas→JPEG で再エンコード）
     const jpegBlob = await compress(f);
 
     const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
@@ -535,16 +537,18 @@ async function insertPlace({
     urls.push(publicUrl);
   }
 
-  // 呼び出し側でUIに即反映できるよう返す
+  // 呼び出し側が使う返り値
   return {
     id: placeRow.id,
     title: placeRow.title,
     memo: placeRow.memo,
     lat: placeRow.lat,
     lng: placeRow.lng,
+    visibility: placeRow.visibility, // ★反映
     photos: urls,
   };
 }
+
 
 
 /* ================== ページ本体 ================== */
