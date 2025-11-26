@@ -12,6 +12,7 @@ export type Place = {
   lat: number;
   lng: number;
   photos?: string[];
+  visibility?: "public" | "private" | "pair";
 };
 
 type View = { lat: number; lng: number; zoom: number };
@@ -55,7 +56,15 @@ export default function MapView({
         type: "Feature",
         geometry: { type: "Point", coordinates: [p.lng, p.lat] },
         properties: { id: p.id, title: p.name ?? "" },
-      })),
+      })),features: (places || []).map((p) => ({
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+  properties: {
+    id: p.id,
+    title: p.name ?? "",
+    visibility: p.visibility ?? "private", // ★追加
+  },
+})),
     } as GeoJSON.FeatureCollection;
   }, [places]);
 
@@ -112,10 +121,17 @@ export default function MapView({
         id: "visit-selected-ring-outer",
         type: "circle",
         source: "places",
-        paint: {
-          "circle-radius": 14,
-          "circle-color": "rgba(29,78,216,0.12)",
-        },
+       paint: {
+  "circle-radius": 6,
+  "circle-color": [
+    "case",
+    ["==", ["get", "visibility"], "public"], "#2563eb", // 公開：青
+    ["==", ["get", "visibility"], "pair"], "#eab308",   // ペア：黄
+    "#ef4444",                                          // それ以外（非公開）：赤
+  ],
+  "circle-stroke-color": "#ffffff",
+  "circle-stroke-width": 2,
+}, 
         filter: ["==", ["get", "id"], ""], // 初期非表示
       });
 
