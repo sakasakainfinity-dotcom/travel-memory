@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PhotoGrid from "@/components/PhotoGrid";
-import MemoryForm from "@/components/MemoryForm";
 import type { Place, Photo as DBPhoto } from "@/types/db";
 
 export default function PlaceDetailPage() {
