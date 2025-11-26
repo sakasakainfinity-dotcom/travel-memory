@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import MemoryForm from "@/components/MemoryForm";
 import type { Place } from "@/types/db";
 
 export default function EditPlacePage() {
