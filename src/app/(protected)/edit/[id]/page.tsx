@@ -1,4 +1,3 @@
-// src/app/(protected)/edit/[id]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,7 +13,14 @@ export default function EditPlacePage() {
   const router = useRouter();
   const [place, setPlace] = useState<Place | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [memo, setMemo] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
+    "private"
+  );
 
   useEffect(() => {
     if (!placeId) return;
@@ -24,7 +30,6 @@ export default function EditPlacePage() {
         setLoading(true);
         setErr(null);
 
-        // place を1件取得（visibility 含めて全部）
         const { data, error } = await supabase
           .from("places")
           .select("*")
@@ -32,7 +37,13 @@ export default function EditPlacePage() {
           .single();
 
         if (error) throw error;
-        setPlace(data as Place);
+        const p = data as Place;
+        setPlace(p);
+
+        setTitle(p.title ?? "");
+        setMemo(p.memo ?? "");
+        setVisibility((p as any).visibility ?? "private");
+
       } catch (e: any) {
         setErr(e?.message ?? String(e));
       } finally {
@@ -41,13 +52,37 @@ export default function EditPlacePage() {
     })();
   }, [placeId]);
 
+  async function save() {
+    if (!placeId) return;
+
+    try {
+      setSaving(true);
+
+      const { error } = await supabase
+        .from("places")
+        .update({
+          title,
+          memo,
+          visibility,
+        })
+        .eq("id", placeId);
+
+      if (error) throw error;
+
+      alert("保存したよ！");
+      router.push(`/place/${placeId}`);
+    } catch (e: any) {
+      alert(`保存に失敗した：${e?.message ?? e}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!placeId) {
     return (
       <main style={{ padding: 16 }}>
-        <p>URL に id がないみたいじゃ。</p>
-        <p>
-          <Link href="/">← 戻る</Link>
-        </p>
+        <p>URLがおかしいみたいじゃ。</p>
+        <Link href="/">← 戻る</Link>
       </main>
     );
   }
@@ -64,20 +99,7 @@ export default function EditPlacePage() {
     return (
       <main style={{ padding: 16 }}>
         <p style={{ color: "crimson" }}>{err}</p>
-        <p>
-          <Link href="/">← 戻る</Link>
-        </p>
-      </main>
-    );
-  }
-
-  if (!place) {
-    return (
-      <main style={{ padding: 16 }}>
-        <p>この場所は見つからんかったよ。</p>
-        <p>
-          <Link href="/">← 戻る</Link>
-        </p>
+        <Link href="/">← 戻る</Link>
       </main>
     );
   }
@@ -85,44 +107,82 @@ export default function EditPlacePage() {
   return (
     <main style={{ padding: 16, display: "grid", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          style={{ border: "none", background: "transparent", cursor: "pointer" }}
-        >
+        <button onClick={() => router.back()} style={{ border: "none", background: "transparent" }}>
           ← 戻る
         </button>
-        <h1 style={{ margin: 0 }}>投稿を追加 / 編集</h1>
+        <h1 style={{ margin: 0 }}>投稿を編集</h1>
       </div>
 
-      <div
-        style={{
-          padding: 8,
-          borderRadius: 8,
-          background: "#f3f4f6",
-          fontSize: 14,
-        }}
-      >
-        <div style={{ fontWeight: 700 }}>
-          場所: {place.title ?? "無題の場所"}
-        </div>
-        <div style={{ color: "#6b7280" }}>
-          {`(${Number((place as any).lat).toFixed(4)}, ${Number(
-            (place as any).lng
-          ).toFixed(4)})`}
-        </div>
-        <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-          現在の公開範囲:{" "}
-          {place.visibility === "public"
-            ? "公開（全国だれでも）"
-            : place.visibility === "pair"
-            ? "ペア限定"
-            : "非公開（自分だけ）"}
-        </div>
-      </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        <label>
+          タイトル
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{ width: "100%", padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
+          />
+        </label>
 
-      {/* ★ここで MemoryForm を使う：spaceId & placeId を渡す */}
-      <MemoryForm spaceId={place.space_id} placeId={place.id} />
+        <label>
+          メモ
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            style={{ width: "100%", height: 140, padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
+          />
+        </label>
+
+        <div>
+          <label className="mb-1 block text-sm">公開範囲</label>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label>
+              <input
+                type="radio"
+                name="vis"
+                value="public"
+                checked={visibility === "public"}
+                onChange={() => setVisibility("public")}
+              />
+              公開（青ピン）
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="vis"
+                value="private"
+                checked={visibility === "private"}
+                onChange={() => setVisibility("private")}
+              />
+              非公開（赤ピン）
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="vis"
+                value="pair"
+                checked={visibility === "pair"}
+                onChange={() => setVisibility("pair")}
+              />
+              ペア限定（黄ピン）
+            </label>
+          </div>
+        </div>
+
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "#111827",
+            color: "#fff",
+            fontWeight: 700,
+          }}
+        >
+          保存する
+        </button>
+      </div>
     </main>
   );
 }
+
