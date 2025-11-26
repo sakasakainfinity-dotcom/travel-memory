@@ -12,7 +12,7 @@ export type Place = {
   lat: number;
   lng: number;
   photos?: string[];
-  visibility?: "public" | "private" | "pair";
+  visibility?: "public" | "private" | "pair"; // ★追加
 };
 
 type View = { lat: number; lng: number; zoom: number };
@@ -31,7 +31,7 @@ export default function MapView({
   onRequestNew: (p: { lat: number; lng: number }) => void;
   onSelect?: (p: Place) => void;
   selectedId?: string | null;
-  flyTo?: { lat: number; lng: number; zoom?: number; label?: string } | null; // ← label 追加OK
+  flyTo?: { lat: number; lng: number; zoom?: number; label?: string } | null;
   bindGetView?: (fn: () => View) => void;
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
@@ -42,33 +42,29 @@ export default function MapView({
   // 検索一時ピン（毎回置き換え）
   const searchMarkerRef = useRef<Marker | null>(null);
 
-  // ★ 最新の places を常に参照するための ref
+  // 最新の places を常に参照するための ref
   const placesRef = useRef<Place[]>(places);
   useEffect(() => {
     placesRef.current = places;
   }, [places]);
 
-  // GeoJSON へ変換
+  // GeoJSON へ変換（visibility も含める）
   const geojson = useMemo(() => {
     return {
       type: "FeatureCollection",
       features: (places || []).map((p) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-        properties: { id: p.id, title: p.name ?? "" },
-      })),features: (places || []).map((p) => ({
-  type: "Feature",
-  geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-  properties: {
-    id: p.id,
-    title: p.name ?? "",
-    visibility: p.visibility ?? "private", // ★追加
-  },
-})),
+        properties: {
+          id: p.id,
+          title: p.name ?? "",
+          visibility: p.visibility ?? "private",
+        },
+      })),
     } as GeoJSON.FeatureCollection;
   }, [places]);
 
-  // 初期化：OSM ラスタ（キー不要・詳細表示）
+  // 初期化：OSM ラスタ
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -103,14 +99,19 @@ export default function MapView({
       // データソース
       map.addSource("places", { type: "geojson", data: geojson });
 
-      // ピン
+      // ★ ピン：visibility で色分け
       map.addLayer({
         id: "visit-pins",
         type: "circle",
         source: "places",
         paint: {
           "circle-radius": 6,
-          "circle-color": "#1d4ed8",
+          "circle-color": [
+            "case",
+            ["==", ["get", "visibility"], "public"], "#2563eb", // 公開：青
+            ["==", ["get", "visibility"], "pair"], "#eab308",   // ペア：黄
+            "#ef4444",                                          // それ以外（非公開）：赤
+          ],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
         },
@@ -121,17 +122,10 @@ export default function MapView({
         id: "visit-selected-ring-outer",
         type: "circle",
         source: "places",
-       paint: {
-  "circle-radius": 6,
-  "circle-color": [
-    "case",
-    ["==", ["get", "visibility"], "public"], "#2563eb", // 公開：青
-    ["==", ["get", "visibility"], "pair"], "#eab308",   // ペア：黄
-    "#ef4444",                                          // それ以外（非公開）：赤
-  ],
-  "circle-stroke-color": "#ffffff",
-  "circle-stroke-width": 2,
-}, 
+        paint: {
+          "circle-radius": 14,
+          "circle-color": "rgba(29,78,216,0.12)",
+        },
         filter: ["==", ["get", "id"], ""], // 初期非表示
       });
 
@@ -147,7 +141,7 @@ export default function MapView({
         filter: ["==", ["get", "id"], ""],
       });
 
-      // ★ ピンをクリック → 最新の placesRef から探す（古いクロージャ問題の回避）
+      // ピンをクリック → 最新の placesRef から探す
       map.on("click", "visit-pins", (e) => {
         const f = e.features?.[0];
         if (!f) return;
@@ -188,7 +182,7 @@ export default function MapView({
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // データ更新
   useEffect(() => {
@@ -198,12 +192,12 @@ export default function MapView({
     if (src) src.setData(geojson);
   }, [geojson]);
 
-  // ★ 検索ジャンプ（強めに寄る＋一時ピン＋ポップアップ）
+  // 検索ジャンプ（一時ピン付き）
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !flyTo) return;
 
-    const targetZoom = flyTo.zoom ?? 17; // ← 建物が見えるくらい
+    const targetZoom = flyTo.zoom ?? 17;
     map.easeTo({
       center: [flyTo.lng, flyTo.lat],
       zoom: targetZoom,
@@ -224,7 +218,6 @@ export default function MapView({
 
     searchMarkerRef.current = marker;
 
-    // 視覚フィードバックとして少し遅らせて開く
     const t = window.setTimeout(() => {
       marker.togglePopup();
     }, 650);
@@ -247,6 +240,3 @@ export default function MapView({
 
   return <div ref={containerRef} style={{ position: "fixed", inset: 0, zIndex: 0 }} />;
 }
-
-
-
