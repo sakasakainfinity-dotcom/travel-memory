@@ -2,20 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import MapView, { Place as MapPlace } from "@/components/MapView";
 import { supabase } from "@/lib/supabaseClient";
-import type { Place as MapPlace } from "@/components/MapView";
+import { useRouter } from "next/navigation";
 
-const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
-
-export default function PublicMapPage() {
-  // ★ 型をちゃんと指定する：ここが今回のエラーの原因
-  const [places, setPlaces] = useState<MapPlace[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export default function PublicPage() {
+  const router = useRouter();
+  const [places, setPlaces] = useState<MapPlace[]>([]); // ★ここ重要
 
   useEffect(() => {
     (async () => {
-      // visibility="public" の place を全部取る（space_id は絞らない）
       const { data, error } = await supabase
         .from("places")
         .select("id, title, memo, lat, lng, visibility")
@@ -35,7 +31,7 @@ export default function PublicMapPage() {
           lat: p.lat,
           lng: p.lng,
           visibility: p.visibility ?? "public",
-          photos: [], // ここで写真まで見せたくなったら photo join 足せばOK
+          photos: [], // 必要なら後で photo JOIN 足す
         }))
       );
     })();
@@ -43,31 +39,87 @@ export default function PublicMapPage() {
 
   return (
     <>
+      {/* 右上トグル（public 側） */}
       <div
         style={{
           position: "fixed",
-          top: 10,
-          left: 10,
-          zIndex: 10000,
-          padding: "6px 10px",
-          borderRadius: 999,
-          background: "rgba(255,255,255,0.95)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-          fontSize: 12,
-          fontWeight: 700,
+          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          right: "max(12px, env(safe-area-inset-right, 0px))",
+          zIndex: 11000,
         }}
       >
-        🌏 公開マップ（みんなの青ピン）
+        <div
+          style={{
+            display: "inline-flex",
+            borderRadius: 999,
+            border: "1px solid #d1d5db",
+            overflow: "hidden",
+            background: "#fff",
+            fontSize: 12,
+          }}
+        >
+          {/* Private 側ボタン（ここではOFF） */}
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            style={{
+              padding: "6px 10px",
+              border: "none",
+              background: "#fff",
+              color: "#6b7280",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                border: "1px solid #9ca3af",
+              }}
+            />
+            Private
+          </button>
+
+          {/* Public 側ボタン（ここではON） */}
+          <button
+            type="button"
+            style={{
+              padding: "6px 10px",
+              border: "none",
+              background: "#0f172a",
+              color: "#fff",
+              cursor: "default",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontWeight: 700,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                background: "#22c55e",
+              }}
+            />
+            Public
+          </button>
+        </div>
       </div>
 
+      {/* 🗺 マップ */}
       <MapView
         places={places}
         onRequestNew={() => {
-          // 公開マップは閲覧専用：ダブルクリックで投稿は無効化
-          alert("これは公開ビューだから、ここからは投稿できんよ！（マイマップ側で投稿してね）");
+          // 公開ページでは「新規投稿」は禁止にしてもいい
+          alert("公開モードでは投稿できません。マイマップ側から追加してね。");
         }}
-        selectedId={selectedId}
-        onSelect={(p) => setSelectedId(p.id)}
+        onSelect={() => {}}
       />
     </>
   );
