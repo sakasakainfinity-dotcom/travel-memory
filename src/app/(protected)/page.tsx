@@ -704,6 +704,22 @@ export default function Page() {
       {/* 右上メニュー（三点） */}
       <KebabMenu />
 
+      {/* 🔘 public / private 切り替え */}
+<div style={{ position: "fixed", top: 12, right: 70, zIndex: 10000 }}>
+  <a
+    href="/public"
+    style={{
+      padding: "6px 10px",
+      borderRadius: 20,
+      background: "#fff",
+      border: "1px solid #ddd",
+      fontSize: 13,
+    }}
+  >
+    🌏 公開マップ
+  </a>
+</div>
+
       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
       <div
         style={{
