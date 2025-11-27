@@ -1,78 +1,74 @@
 // src/app/public/page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import type { Place as MapPlace } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-export default function PublicPage() {
-  const [places, setPlaces] = useState([]);
+export default function PublicMapPage() {
+  // ★ 型をちゃんと指定する：ここが今回のエラーの原因
+  const [places, setPlaces] = useState<MapPlace[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // 初回ロード：visibility = public を取得
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      // visibility="public" の place を全部取る（space_id は絞らない）
+      const { data, error } = await supabase
         .from("places")
         .select("id, title, memo, lat, lng, visibility")
         .eq("visibility", "public")
         .order("created_at", { ascending: false });
 
+      if (error) {
+        console.error(error);
+        return;
+      }
+
       setPlaces(
-        (data ?? []).map((p) => ({
+        (data ?? []).map((p: any) => ({
           id: p.id,
           name: p.title,
           memo: p.memo ?? undefined,
           lat: p.lat,
           lng: p.lng,
           visibility: p.visibility ?? "public",
-          photos: [],
+          photos: [], // ここで写真まで見せたくなったら photo join 足せばOK
         }))
       );
-
-      // 写真の取得
-      const ids = (data ?? []).map((p) => p.id);
-      if (ids.length > 0) {
-        const { data: ph } = await supabase
-          .from("photos")
-          .select("place_id, file_url")
-          .in("place_id", ids);
-
-        const by: Record<string, string[]> = {};
-        for (const row of ph ?? []) {
-          (by[row.place_id] ||= []).push(row.file_url);
-        }
-
-        setPlaces((prev) =>
-          prev.map((p: any) => ({
-            ...p,
-            photos: by[p.id] ?? [],
-          }))
-        );
-      }
     })();
   }, []);
 
   return (
     <>
-      {/* 🔘 切り替えスイッチ */}
-      <div style={{ position: "fixed", top: 12, right: 12, zIndex: 10000 }}>
-        <a
-          href="/"
-          style={{
-            padding: "6px 10px",
-            borderRadius: 20,
-            background: "#fff",
-            border: "1px solid #ddd",
-            fontSize: 13,
-          }}
-        >
-          🔒 マイマップへ戻る
-        </a>
+      <div
+        style={{
+          position: "fixed",
+          top: 10,
+          left: 10,
+          zIndex: 10000,
+          padding: "6px 10px",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.95)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+          fontSize: 12,
+          fontWeight: 700,
+        }}
+      >
+        🌏 公開マップ（みんなの青ピン）
       </div>
 
-      <MapView places={places} />
+      <MapView
+        places={places}
+        onRequestNew={() => {
+          // 公開マップは閲覧専用：ダブルクリックで投稿は無効化
+          alert("これは公開ビューだから、ここからは投稿できんよ！（マイマップ側で投稿してね）");
+        }}
+        selectedId={selectedId}
+        onSelect={(p) => setSelectedId(p.id)}
+      />
     </>
   );
 }
