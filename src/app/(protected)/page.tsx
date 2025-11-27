@@ -700,25 +700,83 @@ export default function Page() {
   );
 
   return (
-    <>
-      {/* 右上メニュー（三点） */}
-      <KebabMenu />
+  <>
+    {/* 右上トグル（private 側） */}
+    <div
+      style={{
+        position: "fixed",
+        top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+        right: "max(12px, env(safe-area-inset-right, 0px))",
+        zIndex: 11000,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        style={{
+          display: "inline-flex",
+          borderRadius: 999,
+          border: "1px solid #d1d5db",
+          overflow: "hidden",
+          background: "#fff",
+          fontSize: 12,
+        }}
+      >
+        {/* Private 側（ここではON） */}
+        <button
+          type="button"
+          style={{
+            padding: "6px 10px",
+            border: "none",
+            background: "#0f172a",
+            color: "#fff",
+            cursor: "default",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontWeight: 700,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "999px",
+              background: "#22c55e",
+            }}
+          />
+          Private
+        </button>
 
-      {/* 🔘 public / private 切り替え */}
-<div style={{ position: "fixed", top: 12, right: 70, zIndex: 10000 }}>
-  <a
-    href="/public"
-    style={{
-      padding: "6px 10px",
-      borderRadius: 20,
-      background: "#fff",
-      border: "1px solid #ddd",
-      fontSize: 13,
-    }}
-  >
-    🌏 公開マップ
-  </a>
-</div>
+        {/* Public 側（ここではOFF） */}
+        <button
+          type="button"
+          onClick={() => router.push("/public")}
+          style={{
+            padding: "6px 10px",
+            border: "none",
+            background: "#fff",
+            color: "#6b7280",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "999px",
+              border: "1px solid #9ca3af",
+            }}
+          />
+          Public
+        </button>
+      </div>
+    </div>
+
+    
 
       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
       <div
