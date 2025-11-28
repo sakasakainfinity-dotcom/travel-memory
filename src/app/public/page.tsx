@@ -79,29 +79,45 @@ export default function PublicPage() {
   );
 
   return (
-    <>
-      {/* 右上トグル：private へ戻る */}
+  <>
+    {/* 右上トグル：Publicページ版（Publicがアクティブ） */}
+    <div
+      style={{
+        position: "fixed",
+        top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+        right: "max(12px, env(safe-area-inset-right, 0px))",
+        zIndex: 10001,
+        pointerEvents: "auto",
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onWheel={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
       <div
         style={{
-          position: "fixed",
-          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          right: "max(12px, env(safe-area-inset-right, 0px))",
-          zIndex: 11000,
+          display: "flex",
+          borderRadius: 999,
+          border: "1px solid #111827",
+          overflow: "hidden",
+          background: "#fff",
+          fontSize: 12,
         }}
       >
+        {/* ← Private 側（今回は非アクティブ） */}
         <button
-          onClick={() => router.push("/")}
+          type="button"
+          onClick={() => router.push("/")} // ★Privateへ
           style={{
+            padding: "6px 14px",
+            border: "none",
+            background: "#ffffff",
+            color: "#111827",
+            cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: 6,
-            borderRadius: 999,
-            border: "1px solid #4b5563",
-            padding: "4px 10px",
-            background: "#111827",
-            color: "#f9fafb",
-            fontSize: 12,
-            cursor: "pointer",
+            fontWeight: 600,
           }}
         >
           <span
@@ -109,12 +125,38 @@ export default function PublicPage() {
               width: 8,
               height: 8,
               borderRadius: "999px",
-              backgroundColor: "#22c55e",
+              background: "#22c55e", // 緑
             }}
           />
-          <span>プライベートに戻る</span>
+          Private
         </button>
+
+        {/* → Public 側（アクティブ） */}
+        <div
+          style={{
+            padding: "6px 14px",
+            background: "#111827",
+            color: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontWeight: 700,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "999px",
+              background: "#2563eb", // 青
+            }}
+          />
+          Public
+        </div>
       </div>
+    </div>
+
+  
 
       {/* 🗺 公開マップ本体 */}
       <MapView
