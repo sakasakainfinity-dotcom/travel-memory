@@ -1,6 +1,7 @@
 // src/app/page.tsx
 "use client";
 
+import GlobalPlaceSearch from "@/components/GlobalPlaceSearch";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Place as MapPlace } from "@/components/MapView";
@@ -610,6 +611,11 @@ export default function Page() {
   const setViewRef = useRef<(v: View) => void>(() => {});
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
 
+    const handleGlobalSelect = (p: { lat: number; lng: number }) => {
+    // MapView に飛んでもらう
+    setFlyTo({ lat: p.lat, lng: p.lng, zoom: 16 });
+  };
+
   // /?focus=... /?open=1 /?lat=..&lng=.. を解釈
   const sp = useSearchParams();
   const focusId = sp.get("focus");
@@ -778,7 +784,7 @@ export default function Page() {
 
     
 
-      {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
+       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
       <div
         style={{
           position: "fixed",
@@ -792,7 +798,18 @@ export default function Page() {
         onWheel={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
-        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+        <div style={{ width: "clamp(220px, 60vw, 340px)", display: "grid", gap: 8 }}>
+          {/* ① 世界のスポット検索（MapTiler） */}
+          <div style={{ position: "relative" }}>
+            <GlobalPlaceSearch
+              onSelect={(r) => {
+                // 世界から選んだ地点にジャンプ
+                setFlyTo({ lat: r.lat, lng: r.lng, zoom: 16 });
+              }}
+            />
+          </div>
+
+          {/* ② 自分の訪問スポット検索（今までの SearchBox） */}
           <div style={{ position: "relative" }}>
             <SearchBox onPick={(p) => setFlyTo(p)} />
           </div>
