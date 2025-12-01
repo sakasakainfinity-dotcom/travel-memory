@@ -781,9 +781,7 @@ export default function Page() {
       </div>
     </div>
 
-    
-
-       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
+      {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
       <div
         style={{
           position: "fixed",
@@ -797,8 +795,12 @@ export default function Page() {
         onWheel={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
-        <div style={{ width: "clamp(220px, 60vw, 340px)", display: "grid", gap: 8 }}>
-          
+        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+          <div style={{ position: "relative" }}>
+            <SearchBox onPick={(p) => setFlyTo(p)} />
+          </div>
+        </div>
+      </div>
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
