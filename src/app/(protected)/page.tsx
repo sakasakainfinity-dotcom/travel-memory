@@ -23,6 +23,123 @@ type PhotoRow = {
   storage_path: string;
 };
 
+function PlaceSearchField({
+  onPick,
+}: {
+  onPick: (p: { lat: number; lng: number; name: string; address: string }) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    if (!q.trim()) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+
+    timer.current = window.setTimeout(async () => {
+      try {
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("q", q);
+        url.searchParams.set("format", "json");
+        url.searchParams.set("addressdetails", "0");
+        url.searchParams.set("limit", "5");
+        url.searchParams.set("accept-language", "ja");
+        const res = await fetch(url.toString(), {
+          headers: { Accept: "application/json" },
+        });
+        const json = await res.json();
+        setItems(json);
+        setOpen(json.length > 0);
+      } catch (e) {
+        console.error(e);
+        setItems([]);
+        setOpen(false);
+      }
+    }, 300);
+
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+  }, [q]);
+
+  const pick = (s: any) => {
+    const name = s.display_name.split(",")[0] ?? "";
+    onPick({
+      lat: Number(s.lat),
+      lng: Number(s.lon),
+      name,
+      address: s.display_name,
+    });
+    setQ(name);
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="場所名で検索（例：月待の滝、おやき学校）"
+        style={{
+          width: "100%",
+          borderRadius: 8,
+          border: "1px solid #ddd",
+          padding: "8px 10px",
+        }}
+      />
+      {open && items.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: "105%",
+            background: "#fff",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+          }}
+        >
+          {items.map((s, i) => (
+            <button
+              key={`${s.lat}-${s.lon}-${i}`}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                pick(s);
+              }}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 10px",
+                border: "none",
+                background: "white",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>
+                {s.display_name.split(",")[0]}
+              </div>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>
+                {s.display_name}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 /* ================== 投稿モーダル（新規作成） ================== */
 function PostModal({
   open,
@@ -98,6 +215,23 @@ function PostModal({
             経度
             <input value={Number.isFinite(lng) ? lng : ""} onChange={(e) => setLng(parseFloat(e.target.value))} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
           </label>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 4 }}>
+            場所を検索して反映
+          </label>
+          <PlaceSearchField
+            onPick={(p) => {
+              // 緯度・経度を自動反映
+              setLat(p.lat);
+              setLng(p.lng);
+              // タイトル空ならその場所名を入れる
+              if (!title) setTitle(p.name);
+              // 住所空なら住所を入れる
+              if (!address) setAddress(p.address);
+            }}
+          />
         </div>
 
         <div style={{ marginTop: 10 }}>
