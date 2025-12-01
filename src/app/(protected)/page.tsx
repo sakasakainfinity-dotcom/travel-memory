@@ -1,7 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-import GlobalPlaceSearch from "@/components/GlobalPlaceSearch";
+import { GlobalPlaceSearch } from "@/components/GlobalPlaceSearch";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Place as MapPlace } from "@/components/MapView";
