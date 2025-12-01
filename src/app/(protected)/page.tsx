@@ -1,7 +1,6 @@
 // src/app/page.tsx
 "use client";
 
-import { GlobalPlaceSearch } from "@/components/GlobalPlaceSearch";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Place as MapPlace } from "@/components/MapView";
@@ -799,22 +798,7 @@ export default function Page() {
         onTouchStart={(e) => e.stopPropagation()}
       >
         <div style={{ width: "clamp(220px, 60vw, 340px)", display: "grid", gap: 8 }}>
-          {/* ① 世界のスポット検索（MapTiler） */}
-          <div style={{ position: "relative" }}>
-            <GlobalPlaceSearch
-              onSelect={(r) => {
-                // 世界から選んだ地点にジャンプ
-                setFlyTo({ lat: r.lat, lng: r.lng, zoom: 16 });
-              }}
-            />
-          </div>
-
-          {/* ② 自分の訪問スポット検索（今までの SearchBox） */}
-          <div style={{ position: "relative" }}>
-            <SearchBox onPick={(p) => setFlyTo(p)} />
-          </div>
-        </div>
-      </div>
+          
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
