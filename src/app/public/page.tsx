@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Place as MapPlace } from "@/components/MapView";
 import { useRouter } from "next/navigation";
+import SearchBox from "@/components/SearchBox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
