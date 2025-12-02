@@ -272,36 +272,40 @@ function PostModal({
          {/* 場所検索（MapTiler Geocoding） */}
         <div style={{ marginTop: 10 }}>
           <label
-            style={{
-              fontSize: 12,
-              color: "#555",
-              display: "block",
-              marginBottom: 4,
-            }}
-          >
-            場所を検索
-          </label>
+  style={{
+    fontSize: 12,
+    color: "#555",
+    display: "block",
+    marginBottom: 4,
+  }}
+>
+  場所を検索して反映
+</label>
 
-          <PlaceGeocodeSearch
-            onPick={({ lat, lng, name, address: addr }) => {
-              setLat(lat);
-              setLng(lng);
-              if (name) setTitle((prev) => (prev ? prev : name));
-              if (addr) setAddress((prev) => (prev ? prev : addr));
-            }}
-          />
+<PlaceSearchField
+  onPick={(p) => {
+    // 緯度・経度を自動反映
+    setLat(p.lat);
+    setLng(p.lng);
+    if (p.name) {
+      setTitle((prev) => (prev ? prev : p.name!));
+    }
+    if (p.address) {
+      setAddress((prev) => (prev ? prev : p.address!));
+    }
+  }}
+/>
 
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 11,
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
-          </div>
-        </div>
+<div
+  style={{
+    marginTop: 4,
+    fontSize: 11,
+    color: "#6b7280",
+    lineHeight: 1.5,
+  }}
+>
+  🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
+</div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <label style={{ fontSize: 12, color: "#555" }}>
