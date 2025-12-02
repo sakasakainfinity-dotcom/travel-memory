@@ -23,23 +23,32 @@ type GeocodeFeature = {
   center?: [number, number];
 };
 
-function PlaceGeocodeSearch({
+type PlaceSearchHit = {
+  id: string;
+  text?: string;
+  place_name?: string;
+  center?: [number, number];
+};
+
+function PlaceSearchField({
   onPick,
 }: {
-  onPick: (d: { lat: number; lng: number; name?: string; address?: string }) => void;
+  onPick: (p: { lat: number; lng: number; name?: string; address?: string }) => void;
 }) {
   const [q, setQ] = useState("");
-  const [items, setItems] = useState<GeocodeFeature[]>([]);
+  const [items, setItems] = useState<PlaceSearchHit[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
   useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
+    // デバウンス
+    if (timerRef.current) window.clearTimeout(timerRef.current);
 
-    if (!q.trim()) {
+    const query = q.trim();
+    if (!query) {
       setItems([]);
       setOpen(false);
       return;
@@ -50,17 +59,17 @@ function PlaceGeocodeSearch({
       return;
     }
 
-    timer.current = setTimeout(async () => {
+    timerRef.current = window.setTimeout(async () => {
       try {
         setLoading(true);
-        const encoded = encodeURIComponent(q.trim());
+        const encoded = encodeURIComponent(query);
         const url = `https://api.maptiler.com/geocoding/${encoded}.json?key=${apiKey}&language=ja&country=JP&limit=5`;
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const json = await res.json();
-        const features = (json.features ?? []) as GeocodeFeature[];
+        const features = (json.features ?? []) as PlaceSearchHit[];
         setItems(features);
         setOpen(features.length > 0);
       } catch (e) {
@@ -73,11 +82,11 @@ function PlaceGeocodeSearch({
     }, 400);
 
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
     };
   }, [q, apiKey]);
 
-  const pick = (f: GeocodeFeature) => {
+  const pick = (f: PlaceSearchHit) => {
     const [lng, lat] = f.center ?? [0, 0];
     const name = f.text ?? "";
     const addr = f.place_name ?? "";
@@ -112,6 +121,7 @@ function PlaceGeocodeSearch({
           padding: "8px 10px",
         }}
       />
+
       {loading && (
         <div
           style={{
@@ -192,7 +202,6 @@ function PlaceGeocodeSearch({
     </div>
   );
 }
-
 
 /* ================== 投稿モーダル（新規作成） ================== */
 function PostModal({
