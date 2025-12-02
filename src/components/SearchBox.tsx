@@ -1,3 +1,4 @@
+// src/components/SearchBox.tsx
 "use client";
 
 import { useMemo, useRef, useState } from "react";
@@ -15,16 +16,15 @@ export default function SearchBox({
   onPick,
 }: {
   places: LocalPlace[];
-  onPick: (p: { lat: number; lng: number; zoom?: number; id?: string }) => void;
+  onPick: (p: { id: string; lat: number; lng: number; zoom?: number }) => void;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const normalize = (s: string) =>
-    s.toLowerCase().replace(/\s+/g, "");
+  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 
-  // タイトル / メモ から部分一致でフィルタ
+  // 投稿（places）をローカルで絞り込み
   const results = useMemo(() => {
     const nq = normalize(q);
     if (!nq) return [];
@@ -34,8 +34,23 @@ export default function SearchBox({
         const m = normalize(p.memo ?? "");
         return t.includes(nq) || m.includes(nq);
       })
-      .slice(0, 10);
+      .slice(0, 20);
   }, [q, places]);
+
+  const pick = (p: LocalPlace) => {
+    const label = p.name || p.memo || "";
+    if (label) setQ(label);
+    setOpen(false);
+    onPick({ id: p.id, lat: p.lat, lng: p.lng, zoom: 15 });
+  };
+
+  const handleSearch = () => {
+    if (results.length > 0) {
+      pick(results[0]);
+    } else {
+      inputRef.current?.focus();
+    }
+  };
 
   const stopAll = (e: any) => e.stopPropagation();
 
@@ -43,17 +58,6 @@ export default function SearchBox({
     setQ("");
     setOpen(false);
     inputRef.current?.focus();
-  };
-
-  const handlePick = (p: LocalPlace) => {
-    setOpen(false);
-    setQ(p.name || p.memo || "");
-    onPick({
-      lat: p.lat,
-      lng: p.lng,
-      zoom: 17,
-      id: p.id,
-    });
   };
 
   return (
@@ -106,7 +110,10 @@ export default function SearchBox({
           }}
           onFocus={() => results.length && setOpen(true)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            } else if (e.key === "Escape") {
               if (open) setOpen(false);
               else handleClear();
             }
@@ -125,10 +132,7 @@ export default function SearchBox({
         <button
           type="button"
           aria-label="検索"
-          onClick={() => {
-            // Enter押さなくても結果リストが出てるので特に何もしない
-            if (!open && results.length > 0) setOpen(true);
-          }}
+          onClick={handleSearch}
           style={{
             position: "absolute",
             right: 8,
@@ -147,7 +151,8 @@ export default function SearchBox({
         </button>
       </div>
 
-      {open && results.length > 0 && (
+      {/* サジェスト */}
+      {open && (
         <div
           style={{
             position: "absolute",
@@ -160,6 +165,8 @@ export default function SearchBox({
             borderRadius: 12,
             overflow: "hidden",
             boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
+            maxHeight: 280,
+            display: results.length > 0 ? "block" : q ? "block" : "none",
           }}
           onMouseDown={stopAll}
           onMouseUp={stopAll}
@@ -167,34 +174,52 @@ export default function SearchBox({
           onWheel={stopAll}
           onTouchStart={stopAll}
         >
-          {results.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handlePick(p);
-              }}
+          {results.length === 0 && q ? (
+            <div
               style={{
-                width: "100%",
-                textAlign: "left",
                 padding: "10px 12px",
-                border: "none",
-                background: "white",
-                cursor: "pointer",
+                fontSize: 12,
+                color: "#9ca3af",
               }}
             >
-              <div style={{ fontWeight: 600 }}>
-                {p.name || "(タイトルなし)"}
-              </div>
-              {p.memo && (
-                <div style={{ fontSize: 12, color: "#6b7280" }}>
-                  {p.memo}
-                </div>
-              )}
-            </button>
-          ))}
+              投稿が見つからんかった…（タイトルかメモにそのワード入っとる？）
+            </div>
+          ) : (
+            results.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pick(p);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "10px 12px",
+                  border: "none",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{p.name || "無題"}</div>
+                {p.memo && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#6b7280",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.memo}
+                  </div>
+                )}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
