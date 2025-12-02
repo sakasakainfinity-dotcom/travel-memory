@@ -80,84 +80,106 @@ export default function PublicPage() {
   );
 
   return (
-  <>
-    {/* 右上トグル：Publicページ版（Publicがアクティブ） */}
-    <div
-      style={{
-        position: "fixed",
-        top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-        right: "max(12px, env(safe-area-inset-right, 0px))",
-        zIndex: 10001,
-        pointerEvents: "auto",
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onWheel={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-    >
+    <>
+      {/* 右上トグル：Publicページ版（Publicがアクティブ） */}
       <div
         style={{
-          display: "flex",
-          borderRadius: 999,
-          border: "1px solid #111827",
-          overflow: "hidden",
-          background: "#fff",
-          fontSize: 12,
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          right: "max(12px, env(safe-area-inset-right, 0px))",
+          zIndex: 10001,
+          pointerEvents: "auto",
         }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
-        {/* ← Private 側（今回は非アクティブ） */}
-        <button
-          type="button"
-          onClick={() => router.push("/")} // ★Privateへ
-          style={{
-            padding: "6px 14px",
-            border: "none",
-            background: "#ffffff",
-            color: "#111827",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontWeight: 600,
-          }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "999px",
-              background: "#22c55e", // 緑
-            }}
-          />
-          Private
-        </button>
-
-        {/* → Public 側（アクティブ） */}
         <div
           style={{
-            padding: "6px 14px",
-            background: "#111827",
-            color: "#ffffff",
             display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontWeight: 700,
+            borderRadius: 999,
+            border: "1px solid #111827",
+            overflow: "hidden",
+            background: "#fff",
+            fontSize: 12,
           }}
         >
-          <span
+          {/* ← Private 側（今回は非アクティブ） */}
+          <button
+            type="button"
+            onClick={() => router.push("/")} // ★Privateへ
             style={{
-              width: 8,
-              height: 8,
-              borderRadius: "999px",
-              background: "#2563eb", // 青
+              padding: "6px 14px",
+              border: "none",
+              background: "#ffffff",
+              color: "#111827",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
             }}
-          />
-          Public
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                background: "#22c55e", // 緑
+              }}
+            />
+            Private
+          </button>
+
+          {/* → Public 側（アクティブ） */}
+          <div
+            style={{
+              padding: "6px 14px",
+              background: "#111827",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 700,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                background: "#2563eb", // 青
+              }}
+            />
+            Public
+          </div>
         </div>
       </div>
-    </div>
 
-  
+      {/* 🔍 左上：公開投稿を検索（タイトル・メモ） */}
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          zIndex: 10000,
+          pointerEvents: "auto",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+          <div style={{ position: "relative" }}>
+            <SearchBox
+              places={places}
+              onPick={(p) => setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 })}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* 🗺 公開マップ本体 */}
       <MapView
@@ -178,7 +200,7 @@ export default function PublicPage() {
         initialView={initialView}
       />
 
-      {/* 必要なら private 側と同じ「下プレビュー」をあとでコピペすればOK */}
+      {/* 下プレビュー（Private とだいたい同じ構成） */}
       {selected && (
         <div
           style={{
@@ -200,6 +222,7 @@ export default function PublicPage() {
             gap: 10,
           }}
         >
+          {/* タイトル */}
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -219,11 +242,7 @@ export default function PublicPage() {
             </div>
           </div>
 
-          <SearchBox
-  places={publicPlaces}   // 公開側の配列
-  onPick={(p) => setFlyTo(p)} // MapView の中心移動
-/>
-
+          {/* 閉じるボタン */}
           <button
             onClick={() => setSelectedId(null)}
             style={{
@@ -240,6 +259,7 @@ export default function PublicPage() {
             ×
           </button>
 
+          {/* メモ */}
           <div
             style={{
               fontSize: 13,
@@ -252,34 +272,35 @@ export default function PublicPage() {
             {selected.memo || "（メモなし）"}
           </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                gap: 8,
-                overflowY: "auto",
-                flex: 1,
-              }}
-            >
-              {(selected.photos ?? []).length === 0 && (
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
-              )}
-              {(selected.photos ?? []).map((u) => (
-                <img
-                  key={u}
-                  src={u}
-                  loading="lazy"
-                  style={{
-                    width: "100%",
-                    height: "24vh",
-                    objectFit: "cover",
-                    borderRadius: 10,
-                    border: "1px solid #eee",
-                  }}
-                  alt=""
-                />
-              ))}
-            </div>
+          {/* 写真一覧 */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 8,
+              overflowY: "auto",
+              flex: 1,
+            }}
+          >
+            {(selected.photos ?? []).length === 0 && (
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+            )}
+            {(selected.photos ?? []).map((u) => (
+              <img
+                key={u}
+                src={u}
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  height: "24vh",
+                  objectFit: "cover",
+                  borderRadius: 10,
+                  border: "1px solid #eee",
+                }}
+                alt=""
+              />
+            ))}
+          </div>
         </div>
       )}
     </>
