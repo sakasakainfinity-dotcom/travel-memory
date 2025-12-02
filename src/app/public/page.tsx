@@ -218,6 +218,11 @@ export default function PublicPage() {
             </div>
           </div>
 
+          <SearchBox
+  places={publicPlaces}   // 公開側の配列
+  onPick={(p) => setFlyTo(p)} // MapView の中心移動
+/>
+
           <button
             onClick={() => setSelectedId(null)}
             style={{
