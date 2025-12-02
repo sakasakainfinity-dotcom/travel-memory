@@ -221,7 +221,7 @@ function PostModal({
     lat: number;
     lng: number;
     photos: File[];
-    visibility: "public" | "private" | "pair"; // ★追加
+    visibility: "public" | "private" | "pair";
   }) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -235,7 +235,9 @@ function PostModal({
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">("private");
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
+    "private"
+  );
 
   // 開くたび完全リセット
   useEffect(() => {
@@ -245,7 +247,9 @@ function PostModal({
     setTitle("");
     setMemo("");
     setAddress("");
-    setVisitedAt(`${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`);
+    setVisitedAt(
+      `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`
+    );
     setLat(place.lat);
     setLng(place.lng);
     setFiles([]);
@@ -255,65 +259,100 @@ function PostModal({
     () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
     [files]
   );
-  useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p.url)), [previews]);
+  useEffect(
+    () => () => previews.forEach((p) => URL.revokeObjectURL(p.url)),
+    [previews]
+  );
 
   if (!open) return null;
+
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 999999, display: "grid", placeItems: "center" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.45)",
+        zIndex: 999999,
+        display: "grid",
+        placeItems: "center",
+      }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "min(920px, 92vw)", maxHeight: "86vh", overflow: "auto", background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 20px 60px rgba(0,0,0,.35)" }}
+        style={{
+          width: "min(920px, 92vw)",
+          maxHeight: "86vh",
+          overflow: "auto",
+          background: "#fff",
+          borderRadius: 14,
+          padding: 16,
+          boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+        }}
       >
-        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>投稿</div>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+          投稿
+        </div>
 
-         {/* 場所検索（MapTiler Geocoding） */}
+        {/* 📍 場所を検索して反映 */}
         <div style={{ marginTop: 10 }}>
           <label
-  style={{
-    fontSize: 12,
-    color: "#555",
-    display: "block",
-    marginBottom: 4,
-  }}
->
-  場所を検索して反映
-</label>
+            style={{
+              fontSize: 12,
+              color: "#555",
+              display: "block",
+              marginBottom: 4,
+            }}
+          >
+            場所を検索して反映
+          </label>
 
-<PlaceSearchField
-  onPick={(p) => {
-    // 緯度・経度を自動反映
-    setLat(p.lat);
-    setLng(p.lng);
-    if (p.name) {
-      setTitle((prev) => (prev ? prev : p.name!));
-    }
-    if (p.address) {
-      setAddress((prev) => (prev ? prev : p.address!));
-    }
-  }}
-/>
+          <PlaceSearchField
+            onPick={(p) => {
+              // 緯度・経度を自動反映
+              setLat(p.lat);
+              setLng(p.lng);
+              if (p.name) {
+                setTitle((prev) => (prev ? prev : p.name!));
+              }
+              if (p.address) {
+                setAddress((prev) => (prev ? prev : p.address!));
+              }
+            }}
+          />
 
-<div
-  style={{
-    marginTop: 4,
-    fontSize: 11,
-    color: "#6b7280",
-    lineHeight: 1.5,
-  }}
->
-  🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
-</div>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              color: "#6b7280",
+              lineHeight: 1.5,
+            }}
+          >
+            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
+          </div>
+        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {/* 緯度・経度（必要なら手でいじれる） */}
+        <div
+          style={{
+            marginTop: 10,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+          }}
+        >
           <label style={{ fontSize: 12, color: "#555" }}>
             緯度
             <input
               value={Number.isFinite(lat) ? lat : ""}
               onChange={(e) => setLat(parseFloat(e.target.value))}
-              style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }}
+              style={{
+                width: "100%",
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                padding: "8px 10px",
+              }}
             />
           </label>
           <label style={{ fontSize: 12, color: "#555" }}>
@@ -321,163 +360,238 @@ function PostModal({
             <input
               value={Number.isFinite(lng) ? lng : ""}
               onChange={(e) => setLng(parseFloat(e.target.value))}
-              style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }}
+              style={{
+                width: "100%",
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                padding: "8px 10px",
+              }}
             />
           </label>
         </div>
-        
+
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 4 }}>
-            場所を検索して反映
-          </label>
-          <PlaceSearchField
-            onPick={(p) => {
-              // 緯度・経度を自動反映
-              setLat(p.lat);
-              setLng(p.lng);
-              // タイトル空ならその場所名を入れる
-              if (!title) setTitle(p.name);
-              // 住所空なら住所を入れる
-              if (!address) setAddress(p.address);
+          <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="例：〇〇食堂"
+            style={{
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
             }}
           />
         </div>
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例：〇〇食堂" style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
-        </div>
-
-        <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>住所（任意）</label>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="住所など" style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="住所など"
+            style={{
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}
+          />
         </div>
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>訪問日</label>
-          <input type="date" value={visitedAt} onChange={(e) => setVisitedAt(e.target.value)} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
+          <input
+            type="date"
+            value={visitedAt}
+            onChange={(e) => setVisitedAt(e.target.value)}
+            style={{
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}
+          />
         </div>
 
-        {/* 公開範囲 */}
-{/* 公開範囲（ボタンスタイル） */}
-<div style={{ marginTop: 10 }}>
-  <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 4 }}>
-    公開範囲
-  </label>
-
-  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-    {[
-      {
-        key: "public" as const,
-        label: "公開",
-        sub: "全国どのユーザーからも見える",
-        color: "#2563eb", // 青
-      },
-      {
-        key: "private" as const,
-        label: "非公開",
-        sub: "自分だけ",
-        color: "#ef4444", // 赤
-      },
-      {
-        key: "pair" as const,
-        label: "ペア限定",
-        sub: "ペア相手とのマップだけ",
-        color: "#eab308", // 黄
-      },
-    ].map((opt) => {
-      const active = visibility === opt.key;
-      return (
-        <button
-          key={opt.key}
-          type="button"
-          onClick={() => setVisibility(opt.key)}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 2,
-            padding: "8px 12px",
-            borderRadius: 999,
-            border: active ? `2px solid ${opt.color}` : "1px solid #d1d5db",
-            background: active ? `${opt.color}22` : "#fff",
-            color: "#111827",
-            fontSize: 12,
-            cursor: "pointer",
-            minWidth: 120,
-          }}
-        >
-          <span
+        {/* 公開範囲（ボタンスタイル） */}
+        <div style={{ marginTop: 10 }}>
+          <label
             style={{
-              fontWeight: 800,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
+              fontSize: 12,
+              color: "#555",
+              display: "block",
+              marginBottom: 4,
             }}
           >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "999px",
-                backgroundColor: opt.color,
-              }}
-            />
-            {opt.label}
-          </span>
-          <span style={{ fontSize: 11, color: "#6b7280" }}>{opt.sub}</span>
-        </button>
-      );
-    })}
-  </div>
-</div>
+            公開範囲
+          </label>
 
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[
+              {
+                key: "public" as const,
+                label: "公開",
+                sub: "全国どのユーザーからも見える",
+                color: "#2563eb",
+              },
+              {
+                key: "private" as const,
+                label: "非公開",
+                sub: "自分だけ",
+                color: "#ef4444",
+              },
+              {
+                key: "pair" as const,
+                label: "ペア限定",
+                sub: "ペア相手とのマップだけ",
+                color: "#eab308",
+              },
+            ].map((opt) => {
+              const active = visibility === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setVisibility(opt.key)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 2,
+                    padding: "8px 12px",
+                    borderRadius: 999,
+                    border: active
+                      ? `2px solid ${opt.color}`
+                      : "1px solid #d1d5db",
+                    background: active ? `${opt.color}22` : "#fff",
+                    color: "#111827",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    minWidth: 120,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "999px",
+                        backgroundColor: opt.color,
+                      }}
+                    />
+                    {opt.label}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#6b7280" }}>
+                    {opt.sub}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>メモ</label>
-          <textarea value={memo} onChange={(e) => setMemo(e.target.value)} style={{ width: "100%", height: 120, border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            style={{
+              width: "100%",
+              height: 120,
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}
+          />
         </div>
 
-      {/* 写真（複数可） */}
-<div style={{ marginTop: 10 }}>
-  <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
-  <label style={{ display: "inline-block", marginTop: 6 }}>
-    <span
-      style={{
-        display: "inline-block",
-        padding: "10px 14px",
-        borderRadius: 10,
-        border: "1px solid #ddd",
-        background: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-      }}
-    >
-      写真を追加
-    </span>
-    <input
-      type="file"
-      accept="image/*,image/heic,image/heif"
-      multiple
-      onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-      style={{ display: "none" }}
-    />
-  </label>
+        {/* 写真（複数可） */}
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 12, color: "#555" }}>写真（複数可）</label>
+          <label style={{ display: "inline-block", marginTop: 6 }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid #ddd",
+                background: "#fff",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              写真を追加
+            </span>
+            <input
+              type="file"
+              accept="image/*,image/heic,image/heif"
+              multiple
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              style={{ display: "none" }}
+            />
+          </label>
 
-  {previews.length > 0 && (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 8 }}>
-      {previews.map((p) => (
-        <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
-          <img src={p.url} alt={p.name} style={{ width: "100%", height: 120, objectFit: "cover" }} />
+          {previews.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3,1fr)",
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              {previews.map((p) => (
+                <div
+                  key={p.url}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={p.url}
+                    alt={p.name}
+                    style={{
+                      width: "100%",
+                      height: 120,
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
-    </div>
-  )}
-</div>
 
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
-          <button onClick={onClose} style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}>閉じる</button>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            marginTop: 14,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+            }}
+          >
+            閉じる
+          </button>
           <button
             onClick={() =>
               onSubmit({
@@ -491,7 +605,13 @@ function PostModal({
                 visibility,
               })
             }
-            style={{ padding: "10px 14px", borderRadius: 10, background: "#000", color: "#fff", fontWeight: 700 }}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#000",
+              color: "#fff",
+              fontWeight: 700,
+            }}
           >
             保存
           </button>
@@ -500,6 +620,7 @@ function PostModal({
     </div>
   );
 }
+
 
 /* ================== 編集モーダル（更新 / 追加アップロード / 写真削除 / 投稿削除） ================== */
 function EditModal({
