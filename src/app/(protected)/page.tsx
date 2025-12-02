@@ -16,75 +16,94 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 type View = { lat: number; lng: number; zoom: number };
 
-type PhotoRow = {
+type GeocodeFeature = {
   id: string;
-  place_id: string;
-  file_url: string;
-  storage_path: string;
+  text?: string;
+  place_name?: string;
+  center?: [number, number];
 };
 
-function PlaceSearchField({
+function PlaceGeocodeSearch({
   onPick,
 }: {
-  onPick: (p: { lat: number; lng: number; name: string; address: string }) => void;
+  onPick: (d: { lat: number; lng: number; name?: string; address?: string }) => void;
 }) {
   const [q, setQ] = useState("");
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<GeocodeFeature[]>([]);
   const [open, setOpen] = useState(false);
-  const timer = useRef<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
   useEffect(() => {
-    if (timer.current) window.clearTimeout(timer.current);
+    if (timer.current) clearTimeout(timer.current);
+
     if (!q.trim()) {
       setItems([]);
       setOpen(false);
       return;
     }
 
-    timer.current = window.setTimeout(async () => {
+    if (!apiKey) {
+      console.warn("MapTiler API key is not set");
+      return;
+    }
+
+    timer.current = setTimeout(async () => {
       try {
-        const url = new URL("https://nominatim.openstreetmap.org/search");
-        url.searchParams.set("q", q);
-        url.searchParams.set("format", "json");
-        url.searchParams.set("addressdetails", "0");
-        url.searchParams.set("limit", "5");
-        url.searchParams.set("accept-language", "ja");
-        const res = await fetch(url.toString(), {
-          headers: { Accept: "application/json" },
-        });
+        setLoading(true);
+        const encoded = encodeURIComponent(q.trim());
+        const url = `https://api.maptiler.com/geocoding/${encoded}.json?key=${apiKey}&language=ja&country=JP&limit=5`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const json = await res.json();
-        setItems(json);
-        setOpen(json.length > 0);
+        const features = (json.features ?? []) as GeocodeFeature[];
+        setItems(features);
+        setOpen(features.length > 0);
       } catch (e) {
         console.error(e);
         setItems([]);
         setOpen(false);
+      } finally {
+        setLoading(false);
       }
-    }, 300);
+    }, 400);
 
     return () => {
-      if (timer.current) window.clearTimeout(timer.current);
+      if (timer.current) clearTimeout(timer.current);
     };
-  }, [q]);
+  }, [q, apiKey]);
 
-  const pick = (s: any) => {
-    const name = s.display_name.split(",")[0] ?? "";
-    onPick({
-      lat: Number(s.lat),
-      lng: Number(s.lon),
-      name,
-      address: s.display_name,
-    });
-    setQ(name);
+  const pick = (f: GeocodeFeature) => {
+    const [lng, lat] = f.center ?? [0, 0];
+    const name = f.text ?? "";
+    const addr = f.place_name ?? "";
+    onPick({ lat, lng, name, address: addr });
+    setQ(name || addr || q);
     setOpen(false);
   };
 
+  const stopAll = (e: any) => e.stopPropagation();
+
   return (
-    <div style={{ position: "relative" }}>
+    <div
+      style={{ position: "relative" }}
+      onMouseDown={stopAll}
+      onMouseUp={stopAll}
+      onClick={stopAll}
+      onWheel={stopAll}
+      onTouchStart={stopAll}
+    >
       <input
         type="search"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
         placeholder="場所名で検索（例：月待の滝、おやき学校）"
         style={{
           width: "100%",
@@ -93,7 +112,22 @@ function PlaceSearchField({
           padding: "8px 10px",
         }}
       />
-      {open && items.length > 0 && (
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            right: 10,
+            top: "50%",
+            transform: "translateY(-50%)",
+            fontSize: 11,
+            color: "#6b7280",
+          }}
+        >
+          検索中…
+        </div>
+      )}
+
+      {open && (
         <div
           style={{
             position: "absolute",
@@ -105,34 +139,54 @@ function PlaceSearchField({
             borderRadius: 8,
             boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
             zIndex: 1000,
+            maxHeight: 260,
+            overflowY: "auto",
           }}
         >
-          {items.map((s, i) => (
-            <button
-              key={`${s.lat}-${s.lon}-${i}`}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                pick(s);
-              }}
+          {items.length === 0 ? (
+            <div
               style={{
-                width: "100%",
-                textAlign: "left",
                 padding: "8px 10px",
-                border: "none",
-                background: "white",
-                cursor: "pointer",
+                fontSize: 12,
+                color: "#9ca3af",
               }}
             >
-              <div style={{ fontWeight: 600 }}>
-                {s.display_name.split(",")[0]}
-              </div>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>
-                {s.display_name}
-              </div>
-            </button>
-          ))}
+              候補が見つからんかった…
+            </div>
+          ) : (
+            items.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pick(f);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 10px",
+                  border: "none",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{f.text}</div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#6b7280",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {f.place_name}
+                </div>
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -206,17 +260,59 @@ function PostModal({
       >
         <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>投稿</div>
 
+         {/* 場所検索（MapTiler Geocoding） */}
+        <div style={{ marginTop: 10 }}>
+          <label
+            style={{
+              fontSize: 12,
+              color: "#555",
+              display: "block",
+              marginBottom: 4,
+            }}
+          >
+            場所を検索
+          </label>
+
+          <PlaceGeocodeSearch
+            onPick={({ lat, lng, name, address: addr }) => {
+              setLat(lat);
+              setLng(lng);
+              if (name) setTitle((prev) => (prev ? prev : name));
+              if (addr) setAddress((prev) => (prev ? prev : addr));
+            }}
+          />
+
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              color: "#6b7280",
+              lineHeight: 1.5,
+            }}
+          >
+            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
+          </div>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <label style={{ fontSize: 12, color: "#555" }}>
             緯度
-            <input value={Number.isFinite(lat) ? lat : ""} onChange={(e) => setLat(parseFloat(e.target.value))} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
+            <input
+              value={Number.isFinite(lat) ? lat : ""}
+              onChange={(e) => setLat(parseFloat(e.target.value))}
+              style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }}
+            />
           </label>
           <label style={{ fontSize: 12, color: "#555" }}>
             経度
-            <input value={Number.isFinite(lng) ? lng : ""} onChange={(e) => setLng(parseFloat(e.target.value))} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
+            <input
+              value={Number.isFinite(lng) ? lng : ""}
+              onChange={(e) => setLng(parseFloat(e.target.value))}
+              style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }}
+            />
           </label>
         </div>
-
+        
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 4 }}>
             場所を検索して反映
@@ -951,6 +1047,28 @@ export default function Page() {
         initialView={initialView}
       />
 
+       {/* 🗺 ヒント：地図クリックで投稿できる */}
+      <div
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 150,
+          zIndex: 10000,
+          background: "rgba(17,24,39,0.92)",
+          color: "#fff",
+          padding: "8px 12px",
+          borderRadius: 999,
+          fontSize: 12,
+          boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+          pointerEvents: "none",
+          lineHeight: 1.4,
+        }}
+      >
+        🗺 地図をタップ or 長押しで
+        <br />
+        その場所に投稿できるよ
+      </div>
+    
       {/* ➕ 投稿フローティングボタン */}
       <button
         onClick={() => {
