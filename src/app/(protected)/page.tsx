@@ -931,7 +931,10 @@ export default function Page() {
       >
         <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
           <div style={{ position: "relative" }}>
-            <SearchBox onPick={(p) => setFlyTo(p)} />
+            <SearchBox
+　　　　　　  places={places}
+　　　　　　  onPick={(p) => setFlyTo(p)}
+　　　　　　/>
           </div>
         </div>
       </div>
