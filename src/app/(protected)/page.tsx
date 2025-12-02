@@ -16,6 +16,13 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 type View = { lat: number; lng: number; zoom: number };
 
+type PhotoRow = {
+  id: string;
+  place_id: string;
+  file_url: string;
+  storage_path: string;
+};
+
 type GeocodeFeature = {
   id: string;
   text?: string;
