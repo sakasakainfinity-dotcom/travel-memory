@@ -32,9 +32,10 @@ type GeocodeFeature = {
 
 type PlaceSearchHit = {
   id: string;
-  text?: string;
-  place_name?: string;
-  center?: [number, number];
+  text: string;
+  place_name: string;
+  center: [number, number];
+  source: "maptiler" | "nominatim";
 };
 
 function PlaceSearchField({
@@ -46,39 +47,83 @@ function PlaceSearchField({
   const [items, setItems] = useState<PlaceSearchHit[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
+  // 入力を「まともなクエリ」に正規化
+  const normalizeQuery = (raw: string) => {
+    return raw
+      .replace(/[　]/g, " ") // 全角スペース → 半角
+      .replace(/[▶▷◀◁≫«»〈〉<>【】\[\]]/g, " ") // 変な記号はスペースに
+      .replace(/\s+/g, " ") // 連続スペースまとめ
+      .trim();
+  };
+
   useEffect(() => {
-    // デバウンス
     if (timerRef.current) window.clearTimeout(timerRef.current);
 
-    const query = q.trim();
+    const raw = q;
+    const query = normalizeQuery(raw);
     if (!query) {
       setItems([]);
       setOpen(false);
       return;
     }
 
-    if (!apiKey) {
-      console.warn("MapTiler API key is not set");
-      return;
-    }
-
-    timerRef.current = window.setTimeout(async () => {
+    timerRef.current = setTimeout(async () => {
       try {
         setLoading(true);
-        const encoded = encodeURIComponent(query);
-        const url = `https://api.maptiler.com/geocoding/${encoded}.json?key=${apiKey}&language=ja&country=JP&limit=5`;
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let hits: PlaceSearchHit[] = [];
 
-        const json = await res.json();
-        const features = (json.features ?? []) as PlaceSearchHit[];
-        setItems(features);
-        setOpen(features.length > 0);
+        // ① MapTiler を試す
+        if (apiKey) {
+          const encoded = encodeURIComponent(query);
+          const url = `https://api.maptiler.com/geocoding/${encoded}.json?key=${apiKey}&language=ja&country=JP&limit=5`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const json = await res.json();
+            const features = (json.features ?? []) as any[];
+            hits = features.map((f: any) => ({
+              id: String(f.id ?? `${f.text}-${f.center?.join(",")}`),
+              text: String(f.text ?? f.place_name ?? query),
+              place_name: String(f.place_name ?? f.text ?? query),
+              center: f.center ?? [0, 0],
+              source: "maptiler",
+            }));
+          }
+        } else {
+          console.warn("MapTiler API key is not set");
+        }
+
+        // ② MapTilerで0件なら Nominatim で再チャレンジ
+        if (hits.length === 0) {
+          const url = new URL("https://nominatim.openstreetmap.org/search");
+          url.searchParams.set("q", query);
+          url.searchParams.set("format", "json");
+          url.searchParams.set("addressdetails", "0");
+          url.searchParams.set("limit", "5");
+          url.searchParams.set("accept-language", "ja");
+
+          const res = await fetch(url.toString(), {
+            headers: { Accept: "application/json" },
+          });
+
+          if (res.ok) {
+            const json = (await res.json()) as any[];
+            hits = json.map((r, idx) => ({
+              id: `nomi-${idx}-${r.place_id ?? ""}`,
+              text: String(r.display_name?.split(",")[0] ?? query),
+              place_name: String(r.display_name ?? query),
+              center: [Number(r.lon), Number(r.lat)] as [number, number],
+              source: "nominatim",
+            }));
+          }
+        }
+
+        setItems(hits);
+        setOpen(hits.length > 0);
       } catch (e) {
         console.error(e);
         setItems([]);
@@ -95,10 +140,14 @@ function PlaceSearchField({
 
   const pick = (f: PlaceSearchHit) => {
     const [lng, lat] = f.center ?? [0, 0];
-    const name = f.text ?? "";
-    const addr = f.place_name ?? "";
-    onPick({ lat, lng, name, address: addr });
-    setQ(name || addr || q);
+    onPick({
+      lat,
+      lng,
+      name: f.text,
+      address: f.place_name,
+    });
+    // 入力欄は、その地点の名前を反映
+    setQ(f.text || f.place_name || q);
     setOpen(false);
   };
 
@@ -120,7 +169,7 @@ function PlaceSearchField({
           setQ(e.target.value);
           setOpen(true);
         }}
-        placeholder="場所名で検索（例：月待の滝、おやき学校）"
+        placeholder="場所名＋エリア（例：月待の滝 大子、マック 水戸駅前）"
         style={{
           width: "100%",
           borderRadius: 8,
@@ -200,6 +249,15 @@ function PlaceSearchField({
                   }}
                 >
                   {f.place_name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#9ca3af",
+                    marginTop: 2,
+                  }}
+                >
+                  {f.source === "maptiler" ? "MapTiler" : "OSM 検索"}
                 </div>
               </button>
             ))
