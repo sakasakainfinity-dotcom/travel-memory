@@ -137,6 +137,13 @@ function PostModal({
       if (name && !title) setTitle(name);
       if (addr && !address) setAddress(addr);
     }}
+    onReset={() => {
+    // 🔽 検索し直したタイミングで一度リセット
+    setTitle("");
+    setLat(null);
+    setLng(null);
+    setAddress("");
+  }}
   />
 
   <div
