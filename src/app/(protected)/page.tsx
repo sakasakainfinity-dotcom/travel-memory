@@ -25,60 +25,6 @@ type PhotoRow = {
   storage_path: string;
 };
 
-type GeocodeFeature = {
-  id: string;
-  text?: string;
-  place_name?: string;
-  center?: [number, number];
-};
-
-type PlaceSearchHit = {
-  id: string;
-  text: string;
-  place_name: string;
-  center: [number, number];
-  source: "maptiler" | "nominatim";
-};
-
-function PlaceSearchField({
-  onPick,
-}: {
-  onPick: (p: { lat: number; lng: number; name?: string; address?: string }) => void;
-}) {
-  const [q, setQ] = useState("");
-  const [items, setItems] = useState<PlaceSearchHit[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-
-  // 入力を「まともなクエリ」に正規化
-  const normalizeQuery = (raw: string) => {
-    return raw
-      .replace(/[　]/g, " ") // 全角スペース → 半角
-      .replace(/[▶▷◀◁≫«»〈〉<>【】\[\]]/g, " ") // 変な記号はスペースに
-      .replace(/\s+/g, " ") // 連続スペースまとめ
-      .trim();
-  };
-
-  useEffect(() => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-
-    const raw = q;
-    const query = normalizeQuery(raw);
-    if (!query) {
-      setItems([]);
-      setOpen(false);
-      return;
-    }
-
-    timerRef.current = setTimeout(async () => {
-      try {
-        setLoading(true);
-
-        let hits: PlaceSearchHit[] = [];
-
        
 /* ================== 投稿モーダル（新規作成） ================== */
 function PostModal({
@@ -171,44 +117,40 @@ function PostModal({
           投稿
         </div>
 
-        {/* 📍 場所を検索して反映 */}
-        <div style={{ marginTop: 10 }}>
-          <label
-            style={{
-              fontSize: 12,
-              color: "#555",
-              display: "block",
-              marginBottom: 4,
-            }}
-          >
-            場所を検索して反映
-          </label>
+       {/* 📍 場所を検索して反映（Yahoo 2ステップ） */}
+<div style={{ marginTop: 10 }}>
+  <label
+    style={{
+      fontSize: 12,
+      color: "#555",
+      display: "block",
+      marginBottom: 4,
+    }}
+  >
+    場所を検索して反映
+  </label>
 
-          <PlaceSearchField
-            onPick={(p) => {
-              // 緯度・経度を自動反映
-              setLat(p.lat);
-              setLng(p.lng);
-              if (p.name) {
-                setTitle((prev) => (prev ? prev : p.name!));
-              }
-              if (p.address) {
-                setAddress((prev) => (prev ? prev : p.address!));
-              }
-            }}
-          />
+  <PlaceGeocodeSearch
+    onPick={({ lat, lng, name, address: addr }) => {
+      setLat(lat);
+      setLng(lng);
+      if (name && !title) setTitle(name);
+      if (addr && !address) setAddress(addr);
+    }}
+  />
 
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 11,
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
-          </div>
-        </div>
+  <div
+    style={{
+      marginTop: 4,
+      fontSize: 11,
+      color: "#6b7280",
+      lineHeight: 1.5,
+    }}
+  >
+    🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
+  </div>
+</div>
+
 
         {/* 緯度・経度（必要なら手でいじれる） */}
         <div
@@ -247,15 +189,7 @@ function PostModal({
           </label>
         </div>
 
-        {/* 位置検索（Yahoo 2ステップ） */}
-<PlaceGeocodeSearch
-  onPick={({ lat, lng, name, address: addr }) => {
-    setLat(lat);
-    setLng(lng);
-    if (!title) setTitle(name);
-    if (addr && !address) setAddress(addr);
-  }}
-/>
+       
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
