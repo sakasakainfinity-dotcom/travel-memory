@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
+import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
+
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -434,6 +436,16 @@ function PostModal({
             />
           </label>
         </div>
+
+        {/* 位置検索（Yahoo 2ステップ） */}
+<PlaceGeocodeSearch
+  onPick={({ lat, lng, name, address: addr }) => {
+    setLat(lat);
+    setLng(lng);
+    if (!title) setTitle(name);
+    if (addr && !address) setAddress(addr);
+  }}
+/>
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
