@@ -140,8 +140,6 @@ function PostModal({
     onReset={() => {
     // 🔽 検索し直したタイミングで一度リセット
     setTitle("");
-    setLat(null);
-    setLng(null);
     setAddress("");
   }}
   />
