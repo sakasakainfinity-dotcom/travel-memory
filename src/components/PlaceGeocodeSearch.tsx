@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Props = {
   onPick: (p: {
@@ -10,6 +11,8 @@ type Props = {
     name: string;
     address?: string;
   }) => void;
+  /** 検索をやり直したタイミングでフォーム側をリセットしたい場合に使う（任意） */
+  onReset?: () => void;
 };
 
 type SearchResult = {
@@ -19,7 +22,7 @@ type SearchResult = {
   address?: string;
 };
 
-export default function PlaceGeocodeSearch({ onPick }: Props) {
+export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SearchResult[]>([]);
@@ -29,7 +32,8 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
     const raw = q.trim();
     if (!raw) return;
 
-        if (onReset) {
+    // 親フォーム側のタイトル・緯度経度をリセットしたい場合用
+    if (onReset) {
       onReset();
     }
 
@@ -44,8 +48,8 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
       let keyword = "";
 
       if (parts.length >= 2) {
-        area = parts[0]; // 北見市
-        keyword = parts.slice(1).join(" "); // イオン
+        area = parts[0]; // 例: 北見市
+        keyword = parts.slice(1).join(" "); // 例: イオン
       }
 
       // Step1: エリア側でジオコーディング（座標だけほしい）
@@ -93,7 +97,26 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
         ];
       }
 
-      setItems(results);
+      // Step3: Supabase public 投稿場所も検索して追加
+      const { data: pub, error: pubError } = await supabase
+        .from("posts_public") // ← public投稿テーブル名
+        .select("title, lat, lng")
+        .ilike("title", `%${poiQuery}%`); // タイトル部分一致検索
+
+      if (pubError) {
+        console.error(pubError);
+      }
+
+      const pubResults: SearchResult[] =
+        (pub ?? []).map((p: any) => ({
+          name: p.title,
+          lat: p.lat,
+          lon: p.lng,
+          address: "（投稿データ）",
+        })) ?? [];
+
+      // Yahoo結果 + public投稿候補を合体
+      setItems([...results, ...pubResults]);
     } catch (e) {
       console.error(e);
       setItems([]);
@@ -114,17 +137,6 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
 
   return (
     <div style={{ marginTop: 8, marginBottom: 8 }}>
-      <label
-        style={{
-          fontSize: 12,
-          color: "#555",
-          display: "block",
-          marginBottom: 4,
-        }}
-      >
-        場所を検索して反映
-      </label>
-
       <div style={{ position: "relative" }}>
         <input
           value={q}
@@ -221,3 +233,4 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
     </div>
   );
 }
+
