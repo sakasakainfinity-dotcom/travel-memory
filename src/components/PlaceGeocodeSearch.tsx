@@ -29,6 +29,10 @@ export default function PlaceGeocodeSearch({ onPick }: Props) {
     const raw = q.trim();
     if (!raw) return;
 
+        if (onReset) {
+      onReset();
+    }
+
     setLoading(true);
     setOpen(true);
     setItems([]);
