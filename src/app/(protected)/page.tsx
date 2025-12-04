@@ -1211,25 +1211,36 @@ export default function Page() {
     </div>
 
       {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
-      <div
-        style={{
-          position: "fixed",
-          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          left: "max(12px, env(safe-area-inset-left, 0px))",
-          zIndex: 10000,
-          pointerEvents: "auto",
+<div
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    left: "max(12px, env(safe-area-inset-left, 0px))",
+    zIndex: 10000,
+    pointerEvents: "auto",
+  }}
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => e.stopPropagation()}
+  onWheel={(e) => e.stopPropagation()}
+  onTouchStart={(e) => e.stopPropagation()}
+>
+  <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+    <div style={{ position: "relative" }}>
+      <SearchBox
+        places={places}
+        onPick={(p) => {
+          setFlyTo({
+            lat: p.lat,
+            lng: p.lng,
+            zoom: p.zoom ?? 15,
+          });
+          if (p.id) setSelectedId(p.id);
         }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-      >
-        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
-          <div style={{ position: "relative" }}>
-            <SearchBox onPick={(p) => setFlyTo(p)} />
-          </div>
-        </div>
-      </div>
+      />
+    </div>
+  </div>
+</div>
+
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
