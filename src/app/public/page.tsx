@@ -173,9 +173,9 @@ export default function PublicPage() {
       >
         <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
           <div style={{ position: "relative" }}>
-           <SearchBox onPick={(p) => setFlyTo(p)} />
-              onPick={(p) => setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 })}
-            />
+           <SearchBox
+  onPick={(p) => setFlyTo({ lat: p.lat, lng: p.lng, zoom: 15 })}
+/>
           </div>
         </div>
       </div>
