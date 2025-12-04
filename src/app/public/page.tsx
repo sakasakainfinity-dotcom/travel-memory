@@ -157,28 +157,35 @@ export default function PublicPage() {
         </div>
       </div>
 
-      {/* 🔍 左上：公開投稿を検索（タイトル・メモ） */}
-      <div
-        style={{
-          position: "fixed",
-          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          left: "max(12px, env(safe-area-inset-left, 0px))",
-          zIndex: 10000,
-          pointerEvents: "auto",
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-      >
-        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
-          <div style={{ position: "relative" }}>
-           <SearchBox
-  onPick={(p) => setFlyTo({ lat: p.lat, lng: p.lng, zoom: 15 })}
-/>
-          </div>
-        </div>
-      </div>
+     {/* 左上：公開投稿のキーワード検索 */}
+<div
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    left: "max(12px, env(safe-area-inset-left, 0px))",
+    zIndex: 10000,
+    pointerEvents: "auto",
+  }}
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => e.stopPropagation()}
+  onWheel={(e) => e.stopPropagation()}
+  onTouchStart={(e) => e.stopPropagation()}
+>
+  <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+    <SearchBox
+      places={places}
+      onPick={(p) => {
+        setFlyTo({
+          lat: p.lat,
+          lng: p.lng,
+          zoom: p.zoom ?? 15,
+        });
+        if (p.id) setSelectedId(p.id);
+      }}
+    />
+  </div>
+</div>
+
 
       {/* 🗺 公開マップ本体 */}
       <MapView
