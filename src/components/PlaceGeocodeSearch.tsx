@@ -97,24 +97,25 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         ];
       }
 
-      // Step3: Supabase public.places からも検索して追加
-      const { data: pub, error: pubError } = await supabase
-        .from("places") // ← ここを places に修正
-        .select("title, lat, lng")
-        .ilike("title", `%${poiQuery}%`)
-        .limit(20);
+      // Step3: Supabase places から「public だけ」検索して追加
+const { data: pub, error: pubError } = await supabase
+  .from("places")
+  .select("title, lat, lng, visibility")
+  .eq("visibility", "public")         // ★ここで public だけに絞る
+  .ilike("title", `%${poiQuery}%`)
+  .limit(20);
 
-      if (pubError) {
-        console.error("Supabase ERROR:", pubError);
-      }
+if (pubError) {
+  console.error("Supabase ERROR:", pubError);
+}
 
-      const pubResults: SearchResult[] =
-        (pub ?? []).map((p: any) => ({
-          name: p.title,
-          lat: p.lat,
-          lon: p.lng,
-          address: "（投稿データ）",
-        })) ?? [];
+const pubResults: SearchResult[] =
+  (pub ?? []).map((p: any) => ({
+    name: p.title,
+    lat: p.lat,
+    lon: p.lng,
+    address: "（投稿データ）",
+  })) ?? [];
 
       // Yahoo結果 + public投稿候補を合体
       setItems([...results, ...pubResults]);
