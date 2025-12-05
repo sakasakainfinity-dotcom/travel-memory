@@ -32,7 +32,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     const raw = q.trim();
     if (!raw) return;
 
-    // 親フォーム側のタイトル・緯度経度をリセットしたい場合用
+    // 親フォーム側のタイトル・住所だけリセットしたい場合用
     if (onReset) {
       onReset();
     }
@@ -67,12 +67,12 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
       const baseLat = geo.lat;
       const baseLon = geo.lon;
 
-      // Step2: 周辺POI検索
+      // Step2: 周辺POI検索（Yahoo）
       const poiQuery = keyword || raw; // キーワードが無ければ全体
       const poiRes = await fetch(
         `/api/yahoo-poi?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
           poiQuery
-        )}&dist=5` // 5km以内とか
+        )}&dist=5` // 5km以内
       );
       const poiJson = await poiRes.json();
 
@@ -97,14 +97,15 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         ];
       }
 
-      // Step3: Supabase public 投稿場所も検索して追加
+      // Step3: Supabase public.places からも検索して追加
       const { data: pub, error: pubError } = await supabase
-        .from("posts_public") // ← public投稿テーブル名
+        .from("places") // ← ここを places に修正
         .select("title, lat, lng")
-        .ilike("title", `%${poiQuery}%`); // タイトル部分一致検索
+        .ilike("title", `%${poiQuery}%`)
+        .limit(20);
 
       if (pubError) {
-        console.error(pubError);
+        console.error("Supabase ERROR:", pubError);
       }
 
       const pubResults: SearchResult[] =
@@ -233,4 +234,3 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     </div>
   );
 }
-
