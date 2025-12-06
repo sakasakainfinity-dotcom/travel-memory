@@ -1,6 +1,14 @@
 // src/app/api/yahoo-local/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+// レスポンスで返したい形
+type LocalItem = {
+  name: string;
+  lat: number;
+  lon: number;
+  address?: string;
+};
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
@@ -30,7 +38,7 @@ export async function GET(req: NextRequest) {
     `?appid=${encodeURIComponent(appid)}` +
     `&lat=${encodeURIComponent(lat)}` +
     `&lon=${encodeURIComponent(lon)}` +
-    `&dist=${encodeURIComponent(dist)}` + // 1〜20km
+    `&dist=${encodeURIComponent(dist)}` +
     `&query=${encodeURIComponent(q)}` +
     "&results=20" +
     "&sort=geo" +
@@ -49,11 +57,10 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    // YDF JSON → フロントで使いやすい形に変換
     const features: any[] = data.Feature ?? [];
 
-    const items = features
-      .map((f) => {
+    const items: LocalItem[] = features
+      .map((f): LocalItem | null => {
         const name: string = f.Name ?? "";
         const coords: string = f.Geometry?.Coordinates ?? "";
         const [lonStr, latStr] = coords.split(",");
@@ -70,7 +77,7 @@ export async function GET(req: NextRequest) {
           address,
         };
       })
-      .filter((x): x is { name: string; lat: number; lon: number; address?: string } => !!x);
+      .filter((x): x is LocalItem => x !== null);
 
     return NextResponse.json({ items });
   } catch (e) {
@@ -78,3 +85,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "fetch failed" }, { status: 500 });
   }
 }
+
