@@ -31,41 +31,46 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     const raw = q.trim();
     if (!raw) return;
 
-    if (onReset) onReset();
+    if (onReset) {
+      onReset();
+    }
 
     setLoading(true);
     setOpen(true);
     setItems([]);
 
     try {
-      // 「旭川 旭山動物園」みたいなのを分割
+      // 1) 「大子町 セブン」みたいな文字列を分割
       const parts = raw.split(/\s+/);
       let area = raw;
       let keyword = "";
 
       if (parts.length >= 2) {
-        area = parts[0];                    // 例: 旭川
-        keyword = parts.slice(1).join(" "); // 例: 旭山動物園
+        area = parts[0]; // 例: 大子町
+        keyword = parts.slice(1).join(" "); // 例: セブン
       }
 
-      // -------- Step1: ジオコーディング（エリア） --------
+      // Step1: エリア側でジオコーディング（座標だけほしい）
       const geoRes = await fetch(
         `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
       );
       const geo = await geoRes.json();
 
-      let results: SearchResult[] = [];
+      if (!geo.lat || !geo.lon) {
+        // どうにもならんかったら終了
+        setItems([]);
+        return;
+      }
 
-      if (geo.lat && geo.lon) {
-        const baseLat = geo.lat;
-        const baseLon = geo.lon;
+      const baseLat = geo.lat;
+      const baseLon = geo.lon;
 
-        // -------- Step2: 周辺POI検索 --------
-        const poiQuery = keyword || raw;
-              const poiRes = await fetch(
+      // Step2: 周辺の店舗検索（Yahoo ローカルサーチAPIラッパー）
+      const poiQuery = keyword || raw;
+      const poiRes = await fetch(
         `/api/yahoo-local?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
           poiQuery
-        )}&dist=5` // ローカルサーチAPIの最大は20km。まずは5kmでOK
+        )}&dist=5`
       );
       const poiJson = await poiRes.json();
 
@@ -79,7 +84,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
           address: it.address,
         }));
       } else {
-        // POIが0件なら、ジオコーダの地点だけ候補にする
+        // 店舗が0件なら、ジオコーダの地点だけ候補にする
         results = [
           {
             name: geo.name || raw,
@@ -90,13 +95,12 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         ];
       }
 
-
-      // -------- Step3: Supabase places（publicのみ） --------
+      // Step3: Supabase places（publicのみ）も検索してマージ
       const { data: pub, error: pubError } = await supabase
         .from("places")
         .select("title, lat, lng, visibility")
         .eq("visibility", "public")
-        .ilike("title", `%${raw}%`)
+        .ilike("title", `%${poiQuery}%`)
         .limit(20);
 
       if (pubError) {
@@ -143,7 +147,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
               run();
             }
           }}
-          placeholder="例：旭川 旭山動物園 / 大子町 ファミマ / 東京タワー"
+          placeholder="例：大子町 セブン / 旭川 ファミマ / 東京タワー"
           style={{
             width: "100%",
             borderRadius: 12,
@@ -176,14 +180,14 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
             marginTop: 6,
             maxHeight: 220,
             overflowY: "auto",
-            border: "1px solid #ddd",
+            border: "1px solid "#ddd",
             borderRadius: 10,
             background: "#fff",
           }}
         >
           {loading && (
             <div style={{ padding: 10, fontSize: 12, color: "#6b7280" }}>
-            検索中…
+              検索中…
             </div>
           )}
 
@@ -229,5 +233,3 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     </div>
   );
 }
-
-
