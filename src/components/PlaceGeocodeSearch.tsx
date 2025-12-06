@@ -11,6 +11,7 @@ type Props = {
     name: string;
     address?: string;
   }) => void;
+  /** 検索やり直し時にフォーム側をリセットしたいとき用（任意） */
   onReset?: () => void;
 };
 
@@ -31,157 +32,52 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     const raw = q.trim();
     if (!raw) return;
 
-    if (onReset) onReset();
+    // 親フォームのタイトル／住所などをリセット
+    onReset?.();
 
     setLoading(true);
     setOpen(true);
     setItems([]);
 
     try {
-      const parts = raw.split(/\s+/);
+      // ---------- まず Yahoo 側（ジオコーダ＋ローカルサーチ＋場所情報API） ----------
+      const params = new URLSearchParams({ q: raw });
+      const res = await fetch(`/api/place-search?${params.toString()}`);
+      const json: any = await res.json();
 
-      // =========================
-      // ① ワード1個 → ランドマークモード
-      // =========================
-      if (parts.length === 1) {
-        let results: SearchResult[] = [];
+      let results: SearchResult[] = Array.isArray(json.items) ? json.items : [];
 
-        // a) ジオコードで座標を取る
-        try {
-          const geoRes = await fetch(
-            `/api/yahoo-geocode?q=${encodeURIComponent(raw)}`
-          );
-          const geo = await geoRes.json();
-          if (geo.lat && geo.lon) {
-            results.push({
-              name: geo.name || raw,
-              lat: geo.lat,
-              lon: geo.lon,
-              address: geo.raw?.Property?.Address,
-            });
-          }
-        } catch (e) {
-          console.error("geocode (single word) error", e);
-        }
+      // ---------- Supabase の public places も混ぜる ----------
+      const { data: pub } = await supabase
+        .from("places")
+        .select("title, lat, lng, visibility")
+        .eq("visibility", "public")
+        .ilike("title", `%${raw}%`);
 
-        // b) Supabase places でも検索
-        try {
-          const { data: pub, error: pubError } = await supabase
-            .from("places")
-            .select("title, lat, lng, visibility")
-            .eq("visibility", "public")
-            .ilike("title", `%${raw}%`)
-            .limit(20);
-
-          if (pubError) {
-            console.error("Supabase (single word) ERROR:", pubError);
-          } else if (pub) {
-            const pubResults: SearchResult[] = pub.map((p: any) => ({
-              name: p.title as string,
-              lat: p.lat,
-              lon: p.lng,
-              address: "（投稿データ）",
-            }));
-            results = [...results, ...pubResults];
-          }
-        } catch (e) {
-          console.error("supabase (single word) error", e);
-        }
-
-        setItems(results);
-        return;
-      }
-
-      // =========================
-      // ② ワード2個以上 → エリア＋ローカルサーチモード
-      //    例）「山梨 ラーメン」「大子町 セブン」
-      // =========================
-      let area = parts[0];
-      let keyword = parts.slice(1).join(" ");
-
-      let baseLat: number | null = null;
-      let baseLon: number | null = null;
-
-      // a) エリアをジオコード
-      try {
-        const geoRes = await fetch(
-          `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
-        );
-        const geo = await geoRes.json();
-        if (geo.lat && geo.lon) {
-          baseLat = geo.lat;
-          baseLon = geo.lon;
-        }
-      } catch (e) {
-        console.error("geocode (area) error", e);
-      }
-
-      const poiQuery = keyword || raw;
-      let results: SearchResult[] = [];
-
-      // b) Yahoo ローカルサーチ
-      try {
-        const params = new URLSearchParams();
-        params.set("q", poiQuery);
-
-        if (baseLat != null && baseLon != null) {
-          params.set("lat", String(baseLat));
-          params.set("lon", String(baseLon));
-          params.set("dist", "5");
-        }
-
-        const poiRes = await fetch(`/api/yahoo-local?${params.toString()}`);
-        const poiJson = await poiRes.json();
-
-        if (Array.isArray(poiJson.items) && poiJson.items.length > 0) {
-          results = poiJson.items.map((it: any) => ({
-            name: it.name as string,
-            lat: Number(it.lat),
-            lon: Number(it.lon),
-            address: it.address as string | undefined,
-          }));
-        }
-      } catch (e) {
-        console.error("local search error", e);
-      }
-
-      // c) Supabase places（publicのみ）もマージ
-      try {
-        const { data: pub, error: pubError } = await supabase
-          .from("places")
-          .select("title, lat, lng, visibility")
-          .eq("visibility", "public")
-          .ilike("title", `%${poiQuery}%`)
-          .limit(20);
-
-        if (pubError) {
-          console.error("Supabase (multi word) ERROR:", pubError);
-        } else if (pub) {
-          const pubResults: SearchResult[] = pub.map((p: any) => ({
-            name: p.title as string,
+      const pubResults: SearchResult[] =
+        pub
+          ?.filter(
+            (p: any) =>
+              typeof p.lat === "number" && typeof p.lng === "number"
+          )
+          .map((p: any) => ({
+            name: p.title || "(タイトル未設定)",
             lat: p.lat,
             lon: p.lng,
-            address: "（投稿データ）",
-          }));
-          results = [...results, ...pubResults];
-        }
-      } catch (e) {
-        console.error("supabase (multi word) error", e);
-      }
+            address: "（みんなの投稿）",
+          })) ?? [];
 
-      // d) それでも0件で、エリア座標だけはある場合 → エリアをそのまま候補に
-      if (results.length === 0 && baseLat != null && baseLon != null) {
-        results = [
-          {
-            name: area,
-            lat: baseLat,
-            lon: baseLon,
-            address: undefined,
-          },
-        ];
-      }
+      // Yahoo + public を合体して、重複を削る
+      const merged = [...results, ...pubResults];
+      const seen = new Set<string>();
+      const uniq = merged.filter((it) => {
+        const key = `${it.name}|${it.lat.toFixed(6)}|${it.lon.toFixed(6)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
-      setItems(results);
+      setItems(uniq);
     } catch (e) {
       console.error(e);
       setItems([]);
@@ -202,6 +98,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
 
   return (
     <div style={{ marginTop: 8, marginBottom: 8 }}>
+      {/* ラベルは外側 (page.tsx) に任せる。ここでは input だけ。 */}
       <div style={{ position: "relative" }}>
         <input
           value={q}
@@ -212,7 +109,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
               run();
             }
           }}
-          placeholder="例：東京タワー / 琵琶湖 / 山梨 ラーメン / 大子町 セブン"
+          placeholder="例：東京タワー / 姫路城 / 山梨 ラーメン"
           style={{
             width: "100%",
             borderRadius: 12,
@@ -238,6 +135,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         </button>
       </div>
 
+      {/* 結果リスト */}
       {open && (
         <div
           style={{
@@ -264,7 +162,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
           {!loading &&
             items.map((it, idx) => (
               <button
-                key={idx}
+                key={`${it.name}-${idx}`}
                 type="button"
                 onClick={() => pick(it)}
                 style={{
