@@ -81,7 +81,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
       }
 
       // ジオコーダ成功時は 5km、失敗時は 200km とかに広げる
-      const dist = hasGeo ? 5 : 200;
+      const dist = hasGeo ? 30 : 200;
 
       // -------- Step2: 周辺POI検索（ランドマーク名にも対応） --------
       const poiRes = await fetch(
