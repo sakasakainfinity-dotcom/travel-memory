@@ -38,20 +38,71 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     setItems([]);
 
     try {
-      // 「山梨 ラーメン」みたいな文字列を分割
       const parts = raw.split(/\s+/);
-      let area = raw;
-      let keyword = "";
 
-      if (parts.length >= 2) {
-        area = parts[0];
-        keyword = parts.slice(1).join(" ");
+      // =========================
+      // ① ワード1個 → ランドマークモード
+      // =========================
+      if (parts.length === 1) {
+        let results: SearchResult[] = [];
+
+        // a) ジオコードで座標を取る
+        try {
+          const geoRes = await fetch(
+            `/api/yahoo-geocode?q=${encodeURIComponent(raw)}`
+          );
+          const geo = await geoRes.json();
+          if (geo.lat && geo.lon) {
+            results.push({
+              name: geo.name || raw,
+              lat: geo.lat,
+              lon: geo.lon,
+              address: geo.raw?.Property?.Address,
+            });
+          }
+        } catch (e) {
+          console.error("geocode (single word) error", e);
+        }
+
+        // b) Supabase places でも検索
+        try {
+          const { data: pub, error: pubError } = await supabase
+            .from("places")
+            .select("title, lat, lng, visibility")
+            .eq("visibility", "public")
+            .ilike("title", `%${raw}%`)
+            .limit(20);
+
+          if (pubError) {
+            console.error("Supabase (single word) ERROR:", pubError);
+          } else if (pub) {
+            const pubResults: SearchResult[] = pub.map((p: any) => ({
+              name: p.title as string,
+              lat: p.lat,
+              lon: p.lng,
+              address: "（投稿データ）",
+            }));
+            results = [...results, ...pubResults];
+          }
+        } catch (e) {
+          console.error("supabase (single word) error", e);
+        }
+
+        setItems(results);
+        return;
       }
 
-      // --- Step1: ジオコード（失敗しても return しない） ---
+      // =========================
+      // ② ワード2個以上 → エリア＋ローカルサーチモード
+      //    例）「山梨 ラーメン」「大子町 セブン」
+      // =========================
+      let area = parts[0];
+      let keyword = parts.slice(1).join(" ");
+
       let baseLat: number | null = null;
       let baseLon: number | null = null;
 
+      // a) エリアをジオコード
       try {
         const geoRes = await fetch(
           `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
@@ -62,18 +113,17 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
           baseLon = geo.lon;
         }
       } catch (e) {
-        console.error("geocode error", e);
+        console.error("geocode (area) error", e);
       }
 
       const poiQuery = keyword || raw;
       let results: SearchResult[] = [];
 
-      // --- Step2: Yahoo ローカルサーチ ---
+      // b) Yahoo ローカルサーチ
       try {
         const params = new URLSearchParams();
         params.set("q", poiQuery);
 
-        // ジオコード成功してたら周辺検索、ダメなら全国検索
         if (baseLat != null && baseLon != null) {
           params.set("lat", String(baseLat));
           params.set("lon", String(baseLon));
@@ -95,7 +145,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         console.error("local search error", e);
       }
 
-      // --- Step3: Supabase places（publicのみ） ---
+      // c) Supabase places（publicのみ）もマージ
       try {
         const { data: pub, error: pubError } = await supabase
           .from("places")
@@ -105,7 +155,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
           .limit(20);
 
         if (pubError) {
-          console.error("Supabase ERROR:", pubError);
+          console.error("Supabase (multi word) ERROR:", pubError);
         } else if (pub) {
           const pubResults: SearchResult[] = pub.map((p: any) => ({
             name: p.title as string,
@@ -116,10 +166,10 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
           results = [...results, ...pubResults];
         }
       } catch (e) {
-        console.error("supabase search error", e);
+        console.error("supabase (multi word) error", e);
       }
 
-      // --- Step4: それでもゼロなら、ジオコード地点だけ候補にする ---
+      // d) それでも0件で、エリア座標だけはある場合 → エリアをそのまま候補に
       if (results.length === 0 && baseLat != null && baseLon != null) {
         results = [
           {
@@ -162,7 +212,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
               run();
             }
           }}
-          placeholder="例：山梨 ラーメン / 大子町 セブン / 東京タワー"
+          placeholder="例：東京タワー / 琵琶湖 / 山梨 ラーメン / 大子町 セブン"
           style={{
             width: "100%",
             borderRadius: 12,
