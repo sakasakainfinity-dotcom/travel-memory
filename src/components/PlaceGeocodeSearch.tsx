@@ -11,8 +11,10 @@ type Props = {
     name: string;
     address?: string;
   }) => void;
-  /** 検索をやり直したタイミングでフォーム側をリセットしたい場合に使う（任意） */
   onReset?: () => void;
+  /** 地図の中心やピンの位置など「基準にしたい座標」 */
+  baseLat?: number;
+  baseLng?: number;
 };
 
 type SearchResult = {
@@ -22,117 +24,159 @@ type SearchResult = {
   address?: string;
 };
 
-export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
+export default function PlaceGeocodeSearch({
+  onPick,
+  onReset,
+  baseLat,
+  baseLng,
+}: Props) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
 
-    async function run() {
+  // ---------- 共通ヘルパー：Yahoo POI ----------
+  const searchPoi = async (
+    lat: number,
+    lon: number,
+    query: string,
+    dist: number
+  ): Promise<SearchResult[]> => {
+    const res = await fetch(
+      `/api/yahoo-poi?lat=${lat}&lon=${lon}&q=${encodeURIComponent(
+        query
+      )}&dist=${dist}`
+    );
+    const json = await res.json();
+
+    if (!json.items || json.items.length === 0) return [];
+
+    return json.items.map((it: any) => ({
+      name: it.name,
+      lat: it.lat,
+      lon: it.lon,
+      address: it.address,
+    }));
+  };
+
+  // ---------- 共通ヘルパー：Supabase places（publicのみ） ----------
+  const searchPublicPlaces = async (query: string): Promise<SearchResult[]> => {
+    const { data, error } = await supabase
+      .from("places")
+      .select("title, lat, lng, visibility")
+      .eq("visibility", "public")
+      .ilike("title", `%${query}%`)
+      .limit(20);
+
+    if (error) {
+      console.error("Supabase ERROR:", error);
+      return [];
+    }
+
+    return (
+      data?.map((p: any) => ({
+        name: p.title,
+        lat: p.lat,
+        lon: p.lng,
+        address: "（投稿データ）",
+      })) ?? []
+    );
+  };
+
+  // ---------- 共通ヘルパー：場所情報API（ランドマーク救済用） ----------
+  const searchPlaceInfo = async (
+    lat: number,
+    lon: number,
+    keyword: string
+  ): Promise<SearchResult[]> => {
+    try {
+      const res = await fetch(
+        `/api/yahoo-placeinfo?lat=${lat}&lon=${lon}`
+      );
+      const json = await res.json();
+
+      // ★ここは実際のレスポンス構造に合わせて調整してね
+      const features: any[] = json.items ?? json.features ?? [];
+
+      return features
+        .filter((f) => {
+          const name: string | undefined = f.name ?? f.Title ?? f.title;
+          return name ? name.includes(keyword) : false;
+        })
+        .map((f) => ({
+          name: f.name ?? f.Title ?? f.title ?? keyword,
+          lat: f.lat ?? f.Lat ?? f.latitude,
+          lon: f.lon ?? f.Lon ?? f.longitude,
+          address: f.address ?? f.Address ?? undefined,
+        }))
+        .filter((r) => r.lat && r.lon);
+    } catch (e) {
+      console.error("placeinfo error", e);
+      return [];
+    }
+  };
+
+  // ---------- メイン処理 ----------
+  async function run() {
     const raw = q.trim();
     if (!raw) return;
 
-    if (onReset) {
-      onReset();
-    }
+    if (onReset) onReset();
 
     setLoading(true);
     setOpen(true);
     setItems([]);
 
     try {
-      // 「北見市 イオン」みたいな文字列を分割
       const parts = raw.split(/\s+/);
-      let area = raw;
-      let keyword = "";
-
-      if (parts.length >= 2) {
-        area = parts[0];                    // 例: 北見市
-        keyword = parts.slice(1).join(" "); // 例: イオン
-      }
-
-      const poiQuery = keyword || raw;
-
-      // -------- Step1: まずはジオコーディングを試す --------
-      let baseLat: number | null = null;
-      let baseLon: number | null = null;
-      let geoName: string | undefined;
-
-      try {
-        const geoRes = await fetch(
-          `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
-        );
-        const geo = await geoRes.json();
-
-        if (geo.lat && geo.lon) {
-          baseLat = geo.lat;
-          baseLon = geo.lon;
-          geoName = geo.name;
-        }
-      } catch (e) {
-        console.error("geocode error", e);
-      }
-
-      // ジオコーダがこけた場合は、日本の中心（東京駅付近）を使う
-      const hasGeo = baseLat !== null && baseLon !== null;
-      if (!hasGeo) {
-        baseLat = 35.681236;   // 東京駅あたり
-        baseLon = 139.767125;
-      }
-
-      // ジオコーダ成功時は 5km、失敗時は 200km とかに広げる
-      const dist = hasGeo ? 30 : 200;
-
-      // -------- Step2: 周辺POI検索（ランドマーク名にも対応） --------
-      const poiRes = await fetch(
-        `/api/yahoo-poi?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
-          poiQuery
-        )}&dist=${dist}`
-      );
-      const poiJson = await poiRes.json();
-
       let results: SearchResult[] = [];
 
-      if (poiJson.items && poiJson.items.length > 0) {
-        results = poiJson.items.map((it: any) => ({
-          name: it.name,
-          lat: it.lat,
-          lon: it.lon,
-          address: it.address,
-        }));
-      } else if (hasGeo && baseLat !== null && baseLon !== null) {
-        // POIが0件でも、ジオコーダが成功していればその地点だけ候補にする
-        results = [
-          {
-            name: geoName || raw,
-            lat: baseLat,
-            lon: baseLon,
-            address: undefined,
-          },
-        ];
+      // ====== パターンA：エリア＋キーワード（例：旭川 旭山動物園） ======
+      if (parts.length >= 2) {
+        const area = parts[0];
+        const keyword = parts.slice(1).join(" ");
+
+        try {
+          const geoRes = await fetch(
+            `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
+          );
+          const geo = await geoRes.json();
+
+          if (geo.lat && geo.lon) {
+            const baseLatFromArea = geo.lat;
+            const baseLonFromArea = geo.lon;
+            // 市区町村基準 → 半径30kmで検索（郊外の観光地も拾う）
+            results = await searchPoi(
+              baseLatFromArea,
+              baseLonFromArea,
+              keyword,
+              30
+            );
+          }
+        } catch (e) {
+          console.error("geocode error", e);
+        }
       }
 
-      // -------- Step3: Supabase places（publicのみ）からも検索 --------
-      const { data: pub, error: pubError } = await supabase
-        .from("places")
-        .select("title, lat, lng, visibility")
-        .eq("visibility", "public")
-        .ilike("title", `%${poiQuery}%`)
-        .limit(20);
+      // ====== パターンB：キーワード単体（例：琵琶湖 / 東京タワー） ======
+      if (results.length === 0) {
+        // 地図側からもらった座標があれば最優先で使う
+        let lat = baseLat ?? 37.5; // なければ日本の真ん中あたり
+        let lon = baseLng ?? 137.5;
+        const dist = baseLat != null && baseLng != null ? 80 : 1000;
 
-      if (pubError) {
-        console.error("Supabase ERROR:", pubError);
+        results = await searchPoi(lat, lon, raw, dist);
       }
 
-      const pubResults: SearchResult[] =
-        (pub ?? []).map((p: any) => ({
-          name: p.title,
-          lat: p.lat,
-          lon: p.lng,
-          address: "（投稿データ）",
-        })) ?? [];
+      // ====== まだダメなら：場所情報APIでランドマーク救済 ======
+      if (results.length === 0 && baseLat != null && baseLng != null) {
+        const placeInfoResults = await searchPlaceInfo(baseLat, baseLng, raw);
+        results = placeInfoResults;
+      }
 
-      // Yahoo結果 + public投稿候補を合体
+      // ====== Supabase public places もマージ ======
+      const pubResults = await searchPublicPlaces(raw);
+
       setItems([...results, ...pubResults]);
     } catch (e) {
       console.error(e);
@@ -164,7 +208,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
               run();
             }
           }}
-          placeholder="例：大子町 ファミマ / 北見市 イオン / 月待の滝"
+          placeholder="例：旭川 旭山動物園 / 琵琶湖 / 東京タワー"
           style={{
             width: "100%",
             borderRadius: 12,
@@ -190,7 +234,6 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         </button>
       </div>
 
-      {/* 結果リスト */}
       {open && (
         <div
           style={{
