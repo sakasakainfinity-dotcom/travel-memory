@@ -1,3 +1,4 @@
+// src/app/api/yahoo-local/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 type LocalItem = {
@@ -10,38 +11,44 @@ type LocalItem = {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
-  const lat = searchParams.get("lat");
+  const lat = searchParams.get("lat");          // あれば使う
   const lon = searchParams.get("lon");
-  const dist = searchParams.get("dist") ?? "5";
+  const dist = searchParams.get("dist") ?? "5"; // km（最大20）
   const q = searchParams.get("q") ?? "";
 
-  if (!lat || !lon || !q) {
-    return NextResponse.json(
-      { items: [], error: "lat, lon, q は必須です" }
-    );
+  // q だけ必須
+  if (!q) {
+    return NextResponse.json({ items: [], error: "q is required" });
   }
 
+  // ★ここは既存の geocode / poi と同じ env 名に揃えて
   const appid =
-    process.env.YAHOO_API_KEY || // ★ここを geocode/poi と同じ名前に合わせる
+    process.env.YAHOO_API_KEY ||       // ← ここをプロジェクトに合わせて
     process.env.NEXT_PUBLIC_YAHOO_APP_ID ||
     process.env.YAHOO_APP_ID ||
     "";
 
   if (!appid) {
-    console.error("YAHOO APPID が設定されていません");
+    console.error("Yahoo APPID missing");
     return NextResponse.json({ items: [], error: "missing appid" });
   }
 
-  const url =
+  // 基本URL（queryだけでもOK）
+  let url =
     "https://map.yahooapis.jp/search/local/V1/localSearch" +
     `?appid=${encodeURIComponent(appid)}` +
-    `&lat=${encodeURIComponent(lat)}` +
-    `&lon=${encodeURIComponent(lon)}` +
-    `&dist=${encodeURIComponent(dist)}` +
     `&query=${encodeURIComponent(q)}` +
     "&results=20" +
-    "&sort=geo" +
     "&output=json";
+
+  // lat/lon があれば「周辺検索 + 距離順」
+  if (lat && lon) {
+    url +=
+      `&lat=${encodeURIComponent(lat)}` +
+      `&lon=${encodeURIComponent(lon)}` +
+      `&dist=${encodeURIComponent(dist)}` +
+      "&sort=geo";
+  }
 
   try {
     const res = await fetch(url);
@@ -86,4 +93,3 @@ export async function GET(req: NextRequest) {
     });
   }
 }
-
