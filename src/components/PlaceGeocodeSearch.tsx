@@ -62,32 +62,34 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
 
         // -------- Step2: 周辺POI検索 --------
         const poiQuery = keyword || raw;
-        const poiRes = await fetch(
-          `/api/yahoo-poi?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
-            poiQuery
-          )}&dist=30` // ← 5kmから30kmに広げて郊外の観光地も拾う
-        );
-        const poiJson = await poiRes.json();
+              const poiRes = await fetch(
+        `/api/yahoo-local?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
+          poiQuery
+        )}&dist=5` // ローカルサーチAPIの最大は20km。まずは5kmでOK
+      );
+      const poiJson = await poiRes.json();
 
-        if (poiJson.items && poiJson.items.length > 0) {
-          results = poiJson.items.map((it: any) => ({
-            name: it.name,
-            lat: it.lat,
-            lon: it.lon,
-            address: it.address,
-          }));
-        } else {
-          // POIゼロでも、ジオコーダが成功してればその地点だけ候補にする
-          results = [
-            {
-              name: geo.name || raw,
-              lat: baseLat,
-              lon: baseLon,
-              address: geo.raw?.Property?.Address,
-            },
-          ];
-        }
+      let results: SearchResult[] = [];
+
+      if (poiJson.items && poiJson.items.length > 0) {
+        results = poiJson.items.map((it: any) => ({
+          name: it.name,
+          lat: it.lat,
+          lon: it.lon,
+          address: it.address,
+        }));
+      } else {
+        // POIが0件なら、ジオコーダの地点だけ候補にする
+        results = [
+          {
+            name: geo.name || raw,
+            lat: baseLat,
+            lon: baseLon,
+            address: geo.raw?.Property?.Address,
+          },
+        ];
       }
+
 
       // -------- Step3: Supabase places（publicのみ） --------
       const { data: pub, error: pubError } = await supabase
