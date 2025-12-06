@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: [] });
   }
 
-  const appid = process.env.YAHOO_APP_ID;
+  const appid = process.env.NEXT_PUBLIC_YAHOO_APPID;
   if (!appid) {
     console.error("YAHOO_APP_ID が env に設定されてないよ");
     return NextResponse.json(
