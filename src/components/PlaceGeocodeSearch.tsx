@@ -35,7 +35,7 @@ export default function PlaceGeocodeSearch({
   const [items, setItems] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
 
-  // ---------- 共通ヘルパー：Yahoo POI ----------
+  // ---------- Yahoo POI ----------
   const searchPoi = async (
     lat: number,
     lon: number,
@@ -50,7 +50,6 @@ export default function PlaceGeocodeSearch({
     const json = await res.json();
 
     if (!json.items || json.items.length === 0) return [];
-
     return json.items.map((it: any) => ({
       name: it.name,
       lat: it.lat,
@@ -59,7 +58,7 @@ export default function PlaceGeocodeSearch({
     }));
   };
 
-  // ---------- 共通ヘルパー：Supabase places（publicのみ） ----------
+  // ---------- Supabase places（publicのみ） ----------
   const searchPublicPlaces = async (query: string): Promise<SearchResult[]> => {
     const { data, error } = await supabase
       .from("places")
@@ -83,39 +82,6 @@ export default function PlaceGeocodeSearch({
     );
   };
 
-  // ---------- 共通ヘルパー：場所情報API（ランドマーク救済用） ----------
-  const searchPlaceInfo = async (
-    lat: number,
-    lon: number,
-    keyword: string
-  ): Promise<SearchResult[]> => {
-    try {
-      const res = await fetch(
-        `/api/yahoo-placeinfo?lat=${lat}&lon=${lon}`
-      );
-      const json = await res.json();
-
-      // ★ここは実際のレスポンス構造に合わせて調整してね
-      const features: any[] = json.items ?? json.features ?? [];
-
-      return features
-        .filter((f) => {
-          const name: string | undefined = f.name ?? f.Title ?? f.title;
-          return name ? name.includes(keyword) : false;
-        })
-        .map((f) => ({
-          name: f.name ?? f.Title ?? f.title ?? keyword,
-          lat: f.lat ?? f.Lat ?? f.latitude,
-          lon: f.lon ?? f.Lon ?? f.longitude,
-          address: f.address ?? f.Address ?? undefined,
-        }))
-        .filter((r) => r.lat && r.lon);
-    } catch (e) {
-      console.error("placeinfo error", e);
-      return [];
-    }
-  };
-
   // ---------- メイン処理 ----------
   async function run() {
     const raw = q.trim();
@@ -131,7 +97,7 @@ export default function PlaceGeocodeSearch({
       const parts = raw.split(/\s+/);
       let results: SearchResult[] = [];
 
-      // ====== パターンA：エリア＋キーワード（例：旭川 旭山動物園） ======
+      // ====== パターン①：エリア＋キーワード（例：旭川 旭山動物園） ======
       if (parts.length >= 2) {
         const area = parts[0];
         const keyword = parts.slice(1).join(" ");
@@ -145,7 +111,7 @@ export default function PlaceGeocodeSearch({
           if (geo.lat && geo.lon) {
             const baseLatFromArea = geo.lat;
             const baseLonFromArea = geo.lon;
-            // 市区町村基準 → 半径30kmで検索（郊外の観光地も拾う）
+            // 市区町村基準 → 半径30km
             results = await searchPoi(
               baseLatFromArea,
               baseLonFromArea,
@@ -158,20 +124,37 @@ export default function PlaceGeocodeSearch({
         }
       }
 
-      // ====== パターンB：キーワード単体（例：琵琶湖 / 東京タワー） ======
+      // ====== パターン②：キーワードだけ（例：琵琶湖 / 東京タワー） ======
       if (results.length === 0) {
-        // 地図側からもらった座標があれば最優先で使う
-        let lat = baseLat ?? 37.5; // なければ日本の真ん中あたり
-        let lon = baseLng ?? 137.5;
-        const dist = baseLat != null && baseLng != null ? 80 : 1000;
+        let centerLat: number;
+        let centerLon: number;
+        let dist: number;
 
-        results = await searchPoi(lat, lon, raw, dist);
+        if (baseLat != null && baseLng != null) {
+          // 地図の中心があるならそこを基準（80km）
+          centerLat = baseLat;
+          centerLon = baseLng;
+          dist = 80;
+        } else {
+          // なければ日本全体ざっくり検索
+          centerLat = 37.5;
+          centerLon = 137.5;
+          dist = 1000;
+        }
+
+        results = await searchPoi(centerLat, centerLon, raw, dist);
       }
 
-      // ====== まだダメなら：場所情報APIでランドマーク救済 ======
+      // ====== Yahoo側がゼロだった場合の簡易フォールバック ======
       if (results.length === 0 && baseLat != null && baseLng != null) {
-        const placeInfoResults = await searchPlaceInfo(baseLat, baseLng, raw);
-        results = placeInfoResults;
+        results = [
+          {
+            name: raw,
+            lat: baseLat,
+            lon: baseLng,
+            address: undefined,
+          },
+        ];
       }
 
       // ====== Supabase public places もマージ ======
@@ -293,3 +276,4 @@ export default function PlaceGeocodeSearch({
     </div>
   );
 }
+
