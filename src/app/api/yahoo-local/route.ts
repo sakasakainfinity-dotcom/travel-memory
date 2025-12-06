@@ -1,7 +1,5 @@
-// src/app/api/yahoo-local/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// レスポンスで返したい形
 type LocalItem = {
   name: string;
   lat: number;
@@ -14,23 +12,24 @@ export async function GET(req: NextRequest) {
 
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
-  const dist = searchParams.get("dist") ?? "5"; // km（最大20）
+  const dist = searchParams.get("dist") ?? "5";
   const q = searchParams.get("q") ?? "";
 
   if (!lat || !lon || !q) {
     return NextResponse.json(
-      { error: "lat, lon, q は必須です" },
-      { status: 400 }
+      { items: [], error: "lat, lon, q は必須です" }
     );
   }
 
-  const appid = process.env.YAHOO_APP_ID;
+  const appid =
+    process.env.YAHOO_API_KEY || // ★ここを geocode/poi と同じ名前に合わせる
+    process.env.NEXT_PUBLIC_YAHOO_APP_ID ||
+    process.env.YAHOO_APP_ID ||
+    "";
+
   if (!appid) {
-    console.error("YAHOO_APP_ID が設定されていません");
-    return NextResponse.json(
-      { error: "server config error" },
-      { status: 500 }
-    );
+    console.error("YAHOO APPID が設定されていません");
+    return NextResponse.json({ items: [], error: "missing appid" });
   }
 
   const url =
@@ -49,14 +48,13 @@ export async function GET(req: NextRequest) {
     if (!res.ok) {
       const text = await res.text();
       console.error("Yahoo localSearch error", res.status, text);
-      return NextResponse.json(
-        { error: "yahoo local search error" },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        items: [],
+        error: `upstream ${res.status}`,
+      });
     }
 
     const data = await res.json();
-
     const features: any[] = data.Feature ?? [];
 
     const items: LocalItem[] = features
@@ -82,7 +80,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items });
   } catch (e) {
     console.error("yahoo-local route error", e);
-    return NextResponse.json({ error: "fetch failed" }, { status: 500 });
+    return NextResponse.json({
+      items: [],
+      error: "fetch failed",
+    });
   }
 }
 
