@@ -139,7 +139,7 @@ export default function PlaceGeocodeSearch({
           // なければ日本全体ざっくり検索
           centerLat = 37.5;
           centerLon = 137.5;
-          dist = 1000;
+          dist = 200;
         }
 
         results = await searchPoi(centerLat, centerLon, raw, dist);
