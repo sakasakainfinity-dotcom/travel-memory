@@ -131,8 +131,6 @@ function PostModal({
   </label>
 
 <PlaceGeocodeSearch
-  baseLat={lat}
-  baseLng={lng}
   onPick={({ lat, lng, name, address: addr }) => {
     setLat(lat);
     setLng(lng);
@@ -140,10 +138,12 @@ function PostModal({
     if (addr && !address) setAddress(addr);
   }}
   onReset={() => {
+    // 🔽 検索し直したタイミングで一度リセット
     setTitle("");
     setAddress("");
   }}
 />
+
 
   <div
     style={{
