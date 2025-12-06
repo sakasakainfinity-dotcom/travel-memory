@@ -38,80 +38,100 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
     setItems([]);
 
     try {
-      // 「大子町 セブン」みたいな文字列を分割
+      // 「山梨 ラーメン」みたいな文字列を分割
       const parts = raw.split(/\s+/);
       let area = raw;
       let keyword = "";
 
       if (parts.length >= 2) {
-        area = parts[0]; // 例: 大子町
-        keyword = parts.slice(1).join(" "); // 例: セブン
+        area = parts[0];
+        keyword = parts.slice(1).join(" ");
       }
 
-      // Step1: エリアをジオコーディング
-      const geoRes = await fetch(
-        `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
-      );
-      const geo = await geoRes.json();
+      // --- Step1: ジオコード（失敗しても return しない） ---
+      let baseLat: number | null = null;
+      let baseLon: number | null = null;
 
-      if (!geo.lat || !geo.lon) {
-        setItems([]);
-        return;
+      try {
+        const geoRes = await fetch(
+          `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
+        );
+        const geo = await geoRes.json();
+        if (geo.lat && geo.lon) {
+          baseLat = geo.lat;
+          baseLon = geo.lon;
+        }
+      } catch (e) {
+        console.error("geocode error", e);
       }
 
-      const baseLat: number = geo.lat;
-      const baseLon: number = geo.lon;
-
-      // Step2: Yahoo ローカルサーチAPIで周辺検索
       const poiQuery = keyword || raw;
-      const poiRes = await fetch(
-        `/api/yahoo-local?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
-          poiQuery
-        )}&dist=5`
-      );
-      const poiJson = await poiRes.json();
-
       let results: SearchResult[] = [];
 
-      if (Array.isArray(poiJson.items) && poiJson.items.length > 0) {
-        results = poiJson.items.map((it: any) => ({
-          name: it.name as string,
-          lat: Number(it.lat),
-          lon: Number(it.lon),
-          address: it.address as string | undefined,
-        }));
-      } else {
-        // ローカルサーチで0件なら、ジオコーダの地点だけ候補にする
+      // --- Step2: Yahoo ローカルサーチ ---
+      try {
+        const params = new URLSearchParams();
+        params.set("q", poiQuery);
+
+        // ジオコード成功してたら周辺検索、ダメなら全国検索
+        if (baseLat != null && baseLon != null) {
+          params.set("lat", String(baseLat));
+          params.set("lon", String(baseLon));
+          params.set("dist", "5");
+        }
+
+        const poiRes = await fetch(`/api/yahoo-local?${params.toString()}`);
+        const poiJson = await poiRes.json();
+
+        if (Array.isArray(poiJson.items) && poiJson.items.length > 0) {
+          results = poiJson.items.map((it: any) => ({
+            name: it.name as string,
+            lat: Number(it.lat),
+            lon: Number(it.lon),
+            address: it.address as string | undefined,
+          }));
+        }
+      } catch (e) {
+        console.error("local search error", e);
+      }
+
+      // --- Step3: Supabase places（publicのみ） ---
+      try {
+        const { data: pub, error: pubError } = await supabase
+          .from("places")
+          .select("title, lat, lng, visibility")
+          .eq("visibility", "public")
+          .ilike("title", `%${poiQuery}%`)
+          .limit(20);
+
+        if (pubError) {
+          console.error("Supabase ERROR:", pubError);
+        } else if (pub) {
+          const pubResults: SearchResult[] = pub.map((p: any) => ({
+            name: p.title as string,
+            lat: p.lat,
+            lon: p.lng,
+            address: "（投稿データ）",
+          }));
+          results = [...results, ...pubResults];
+        }
+      } catch (e) {
+        console.error("supabase search error", e);
+      }
+
+      // --- Step4: それでもゼロなら、ジオコード地点だけ候補にする ---
+      if (results.length === 0 && baseLat != null && baseLon != null) {
         results = [
           {
-            name: geo.name || raw,
+            name: area,
             lat: baseLat,
             lon: baseLon,
-            address: geo.raw?.Property?.Address,
+            address: undefined,
           },
         ];
       }
 
-      // Step3: Supabase places（publicのみ）をマージ
-      const { data: pub, error: pubError } = await supabase
-        .from("places")
-        .select("title, lat, lng, visibility")
-        .eq("visibility", "public")
-        .ilike("title", `%${poiQuery}%`)
-        .limit(20);
-
-      if (pubError) {
-        console.error("Supabase ERROR:", pubError);
-      }
-
-      const pubResults: SearchResult[] = (pub ?? []).map((p: any) => ({
-        name: p.title as string,
-        lat: p.lat,
-        lon: p.lng,
-        address: "（投稿データ）",
-      }));
-
-      setItems([...results, ...pubResults]);
+      setItems(results);
     } catch (e) {
       console.error(e);
       setItems([]);
@@ -142,7 +162,7 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
               run();
             }
           }}
-          placeholder="例：大子町 セブン / 旭川 ファミマ / 東京タワー"
+          placeholder="例：山梨 ラーメン / 大子町 セブン / 東京タワー"
           style={{
             width: "100%",
             borderRadius: 12,
@@ -168,7 +188,6 @@ export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
         </button>
       </div>
 
-      {/* 結果リスト */}
       {open && (
         <div
           style={{
