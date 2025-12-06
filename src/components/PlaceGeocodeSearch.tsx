@@ -12,9 +12,6 @@ type Props = {
     address?: string;
   }) => void;
   onReset?: () => void;
-  /** 地図の中心やピンの位置など「基準にしたい座標」 */
-  baseLat?: number;
-  baseLng?: number;
 };
 
 type SearchResult = {
@@ -24,65 +21,12 @@ type SearchResult = {
   address?: string;
 };
 
-export default function PlaceGeocodeSearch({
-  onPick,
-  onReset,
-  baseLat,
-  baseLng,
-}: Props) {
+export default function PlaceGeocodeSearch({ onPick, onReset }: Props) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
 
-  // ---------- Yahoo POI ----------
-  const searchPoi = async (
-    lat: number,
-    lon: number,
-    query: string,
-    dist: number
-  ): Promise<SearchResult[]> => {
-    const res = await fetch(
-      `/api/yahoo-poi?lat=${lat}&lon=${lon}&q=${encodeURIComponent(
-        query
-      )}&dist=${dist}`
-    );
-    const json = await res.json();
-
-    if (!json.items || json.items.length === 0) return [];
-    return json.items.map((it: any) => ({
-      name: it.name,
-      lat: it.lat,
-      lon: it.lon,
-      address: it.address,
-    }));
-  };
-
-  // ---------- Supabase places（publicのみ） ----------
-  const searchPublicPlaces = async (query: string): Promise<SearchResult[]> => {
-    const { data, error } = await supabase
-      .from("places")
-      .select("title, lat, lng, visibility")
-      .eq("visibility", "public")
-      .ilike("title", `%${query}%`)
-      .limit(20);
-
-    if (error) {
-      console.error("Supabase ERROR:", error);
-      return [];
-    }
-
-    return (
-      data?.map((p: any) => ({
-        name: p.title,
-        lat: p.lat,
-        lon: p.lng,
-        address: "（投稿データ）",
-      })) ?? []
-    );
-  };
-
-  // ---------- メイン処理 ----------
   async function run() {
     const raw = q.trim();
     if (!raw) return;
@@ -94,72 +38,78 @@ export default function PlaceGeocodeSearch({
     setItems([]);
 
     try {
+      // 「旭川 旭山動物園」みたいなのを分割
       const parts = raw.split(/\s+/);
+      let area = raw;
+      let keyword = "";
+
+      if (parts.length >= 2) {
+        area = parts[0];                    // 例: 旭川
+        keyword = parts.slice(1).join(" "); // 例: 旭山動物園
+      }
+
+      // -------- Step1: ジオコーディング（エリア） --------
+      const geoRes = await fetch(
+        `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
+      );
+      const geo = await geoRes.json();
+
       let results: SearchResult[] = [];
 
-      // ====== パターン①：エリア＋キーワード（例：旭川 旭山動物園） ======
-      if (parts.length >= 2) {
-        const area = parts[0];
-        const keyword = parts.slice(1).join(" ");
+      if (geo.lat && geo.lon) {
+        const baseLat = geo.lat;
+        const baseLon = geo.lon;
 
-        try {
-          const geoRes = await fetch(
-            `/api/yahoo-geocode?q=${encodeURIComponent(area)}`
-          );
-          const geo = await geoRes.json();
+        // -------- Step2: 周辺POI検索 --------
+        const poiQuery = keyword || raw;
+        const poiRes = await fetch(
+          `/api/yahoo-poi?lat=${baseLat}&lon=${baseLon}&q=${encodeURIComponent(
+            poiQuery
+          )}&dist=30` // ← 5kmから30kmに広げて郊外の観光地も拾う
+        );
+        const poiJson = await poiRes.json();
 
-          if (geo.lat && geo.lon) {
-            const baseLatFromArea = geo.lat;
-            const baseLonFromArea = geo.lon;
-            // 市区町村基準 → 半径30km
-            results = await searchPoi(
-              baseLatFromArea,
-              baseLonFromArea,
-              keyword,
-              30
-            );
-          }
-        } catch (e) {
-          console.error("geocode error", e);
-        }
-      }
-
-      // ====== パターン②：キーワードだけ（例：琵琶湖 / 東京タワー） ======
-      if (results.length === 0) {
-        let centerLat: number;
-        let centerLon: number;
-        let dist: number;
-
-        if (baseLat != null && baseLng != null) {
-          // 地図の中心があるならそこを基準（80km）
-          centerLat = baseLat;
-          centerLon = baseLng;
-          dist = 80;
+        if (poiJson.items && poiJson.items.length > 0) {
+          results = poiJson.items.map((it: any) => ({
+            name: it.name,
+            lat: it.lat,
+            lon: it.lon,
+            address: it.address,
+          }));
         } else {
-          // なければ日本全体ざっくり検索
-          centerLat = 37.5;
-          centerLon = 137.5;
-          dist = 200;
+          // POIゼロでも、ジオコーダが成功してればその地点だけ候補にする
+          results = [
+            {
+              name: geo.name || raw,
+              lat: baseLat,
+              lon: baseLon,
+              address: geo.raw?.Property?.Address,
+            },
+          ];
         }
-
-        results = await searchPoi(centerLat, centerLon, raw, dist);
       }
 
-      // ====== Yahoo側がゼロだった場合の簡易フォールバック ======
-      if (results.length === 0 && baseLat != null && baseLng != null) {
-        results = [
-          {
-            name: raw,
-            lat: baseLat,
-            lon: baseLng,
-            address: undefined,
-          },
-        ];
+      // -------- Step3: Supabase places（publicのみ） --------
+      const { data: pub, error: pubError } = await supabase
+        .from("places")
+        .select("title, lat, lng, visibility")
+        .eq("visibility", "public")
+        .ilike("title", `%${raw}%`)
+        .limit(20);
+
+      if (pubError) {
+        console.error("Supabase ERROR:", pubError);
       }
 
-      // ====== Supabase public places もマージ ======
-      const pubResults = await searchPublicPlaces(raw);
+      const pubResults: SearchResult[] =
+        (pub ?? []).map((p: any) => ({
+          name: p.title,
+          lat: p.lat,
+          lon: p.lng,
+          address: "（投稿データ）",
+        })) ?? [];
 
+      // Yahoo結果 + public投稿候補を合体
       setItems([...results, ...pubResults]);
     } catch (e) {
       console.error(e);
@@ -191,7 +141,7 @@ export default function PlaceGeocodeSearch({
               run();
             }
           }}
-          placeholder="例：旭川 旭山動物園 / 琵琶湖 / 東京タワー"
+          placeholder="例：旭川 旭山動物園 / 大子町 ファミマ / 東京タワー"
           style={{
             width: "100%",
             borderRadius: 12,
@@ -217,6 +167,7 @@ export default function PlaceGeocodeSearch({
         </button>
       </div>
 
+      {/* 結果リスト */}
       {open && (
         <div
           style={{
@@ -230,7 +181,7 @@ export default function PlaceGeocodeSearch({
         >
           {loading && (
             <div style={{ padding: 10, fontSize: 12, color: "#6b7280" }}>
-              検索中…
+            検索中…
             </div>
           )}
 
@@ -276,4 +227,5 @@ export default function PlaceGeocodeSearch({
     </div>
   );
 }
+
 
