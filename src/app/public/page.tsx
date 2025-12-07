@@ -85,7 +85,7 @@ export default function PublicPage() {
       <div
         style={{
           position: "fixed",
-          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          top: "calc(env(safe-area-inset-top, 0px) + 60px)",
           right: "max(12px, env(safe-area-inset-right, 0px))",
           zIndex: 10001,
           pointerEvents: "auto",
