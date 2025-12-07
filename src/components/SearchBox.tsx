@@ -72,7 +72,7 @@ export default function SearchBox({ places, onPick }: Props) {
           background: "rgba(255,255,255,0.95)",
           padding: "8px 10px",
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-          fontSize: 13,
+          fontSize: 16,
         }}
       />
 
@@ -132,4 +132,5 @@ export default function SearchBox({ places, onPick }: Props) {
     </div>
   );
 }
+
 
