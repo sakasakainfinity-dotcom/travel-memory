@@ -38,8 +38,14 @@ export default function SearchBox({ places, onPick }: Props) {
     onPick({ id: p.id, lat: p.lat, lng: p.lng, zoom: 15 });
   };
 
-  return (
-    <div style={{ position: "relative", width: 360 }}>
+    return (
+  <div
+    style={{
+      position: "relative",
+      width: "100%",
+      maxWidth: "100%",
+    }}
+  >
       <input
         type="search"
         value={q}
@@ -126,3 +132,4 @@ export default function SearchBox({ places, onPick }: Props) {
     </div>
   );
 }
+
