@@ -1004,28 +1004,6 @@ export default function Page() {
   </div>
 </div>
 
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => e.stopPropagation()}
-  onWheel={(e) => e.stopPropagation()}
-  onTouchStart={(e) => e.stopPropagation()}
->
-  <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
-    <div style={{ position: "relative" }}>
-      <SearchBox
-        places={places}
-        onPick={(p) => {
-          setFlyTo({
-            lat: p.lat,
-            lng: p.lng,
-            zoom: p.zoom ?? 15,
-          });
-          if (p.id) setSelectedId(p.id);
-        }}
-      />
-    </div>
-  </div>
-</div>
-
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
