@@ -12,6 +12,7 @@ import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
+import { useState } from "react";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -25,7 +26,31 @@ type PhotoRow = {
   storage_path: string;
 };
 
-       
+export default function Page() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+
+  function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        padding: "10px 14px",
+        fontSize: 15,
+        textAlign: "left",
+        border: "1px solid #eee",
+        borderRadius: 8,
+        background: "#fafafa",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+
 /* ================== 投稿モーダル（新規作成） ================== */
 function PostModal({
   open,
@@ -1009,7 +1034,7 @@ export default function Page() {
   style={{
     position: "fixed",
     top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-    right: "max(70px, env(safe-area-inset-right, 0px))", // ← トグルの左
+    right: "max(70px, env(safe-area-inset-right, 0px))",
     zIndex: 11000,
   }}
   onClick={() => setMenuOpen(true)}
@@ -1034,7 +1059,8 @@ export default function Page() {
   </button>
 </div>
 
-    {menuOpen && (
+{/* スライドメニュー */}
+{menuOpen && (
   <div
     style={{
       position: "fixed",
@@ -1052,7 +1078,6 @@ export default function Page() {
       gap: 18,
     }}
   >
-    {/* 閉じるボタン */}
     <button
       onClick={() => setMenuOpen(false)}
       style={{
@@ -1068,7 +1093,6 @@ export default function Page() {
       ×
     </button>
 
-    {/* メニュー項目 */}
     <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
     <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
     <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
@@ -1085,27 +1109,6 @@ export default function Page() {
     />
   </div>
 )}
-
-    function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: "100%",
-        padding: "10px 14px",
-        fontSize: 15,
-        textAlign: "left",
-        border: "1px solid #eee",
-        borderRadius: 8,
-        background: "#fafafa",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
