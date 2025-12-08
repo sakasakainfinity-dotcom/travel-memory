@@ -12,7 +12,6 @@ import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
-import { useState } from "react";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -26,29 +25,6 @@ type PhotoRow = {
   storage_path: string;
 };
 
-export default function Page() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-
-  function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: "100%",
-        padding: "10px 14px",
-        fontSize: 15,
-        textAlign: "left",
-        border: "1px solid #eee",
-        borderRadius: 8,
-        background: "#fafafa",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 
 /* ================== 投稿モーダル（新規作成） ================== */
@@ -811,6 +787,7 @@ export default function Page() {
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // 初回起動イベント（Plausible）
   useEffect(() => {
@@ -1029,7 +1006,7 @@ export default function Page() {
   </div>
 </div>
 
-   {/* ハンバーガーメニュー */}
+{/* ハンバーガーメニュー */}
 <div
   style={{
     position: "fixed",
@@ -1109,6 +1086,7 @@ export default function Page() {
     />
   </div>
 )}
+
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
@@ -1363,3 +1341,24 @@ export default function Page() {
     </>
   );
 }
+// 👇 Page のすぐ下にこれを置く（場所はここでOK）
+function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        padding: "10px 14px",
+        fontSize: 15,
+        textAlign: "left",
+        border: "1px solid #eee",
+        borderRadius: 8,
+        background: "#fafafa",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
