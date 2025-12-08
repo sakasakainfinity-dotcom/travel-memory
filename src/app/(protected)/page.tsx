@@ -1004,90 +1004,108 @@ export default function Page() {
   </div>
 </div>
 
-    {/* 右上メニュー（History / AI Trip / Plans / Pilgrimage） */}
+   {/* ハンバーガーメニュー */}
 <div
   style={{
     position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 52px)", // トグルのちょい下
-    right: "max(12px, env(safe-area-inset-right, 0px))",
-    zIndex: 10990,
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    right: "max(70px, env(safe-area-inset-right, 0px))", // ← トグルの左
+    zIndex: 11000,
   }}
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => e.stopPropagation()}
+  onClick={() => setMenuOpen(true)}
 >
-  <div
+  <button
+    type="button"
     style={{
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      background: "#fff",
+      border: "1px solid #ddd",
       display: "flex",
-      flexDirection: "column",
-      alignItems: "flex-end",
-      gap: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 20,
+      cursor: "pointer",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
     }}
   >
-    <button
-      type="button"
-      onClick={() => router.push("/history")}
-      style={{
-        padding: "4px 10px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "rgba(255,255,255,0.95)",
-        fontSize: 11,
-        cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      History
-    </button>
-
-    <button
-      type="button"
-      onClick={() => router.push("/ai-trip")}
-      style={{
-        padding: "4px 10px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "rgba(255,255,255,0.95)",
-        fontSize: 11,
-        cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      AI Trip
-    </button>
-
-    <button
-      type="button"
-      onClick={() => router.push("/plans")}
-      style={{
-        padding: "4px 10px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "rgba(255,255,255,0.95)",
-        fontSize: 11,
-        cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      有料プラン
-    </button>
-
-    <button
-      type="button"
-      onClick={() => router.push("/pilgrimage")}
-      style={{
-        padding: "4px 10px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "rgba(255,255,255,0.95)",
-        fontSize: 11,
-        cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      巡礼マップ
-    </button>
-  </div>
+    ≡
+  </button>
 </div>
+
+    {menuOpen && (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      right: 0,
+      width: "70vw",
+      maxWidth: 300,
+      height: "100vh",
+      background: "#ffffff",
+      zIndex: 20000,
+      boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
+      padding: "20px 16px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 18,
+    }}
+  >
+    {/* 閉じるボタン */}
+    <button
+      onClick={() => setMenuOpen(false)}
+      style={{
+        width: "100%",
+        textAlign: "right",
+        fontSize: 22,
+        border: "none",
+        background: "none",
+        cursor: "pointer",
+        marginBottom: 10,
+      }}
+    >
+      ×
+    </button>
+
+    {/* メニュー項目 */}
+    <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
+    <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
+    <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
+    <MenuButton label="ペア機能" onClick={() => router.push("/pair")} />
+    <MenuButton label="シェアする" onClick={() => router.push("/share")} />
+    <MenuButton label="巡礼マップ" onClick={() => router.push("/pilgrimage")} />
+    <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
+    <MenuButton
+      label="ログアウト"
+      onClick={async () => {
+        await supabase.auth.signOut();
+        router.push("/login");
+      }}
+    />
+  </div>
+)}
+
+    function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        padding: "10px 14px",
+        fontSize: 15,
+        textAlign: "left",
+        border: "1px solid #eee",
+        borderRadius: 8,
+        background: "#fafafa",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
