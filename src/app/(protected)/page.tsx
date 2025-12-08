@@ -3,6 +3,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+Use Control + Shift + m to toggle the tab key moving focus. Alternatively, use esc then tab to move to the next interactive element on the page.
+Copied!
+
 import type { Place as MapPlace } from "@/components/MapView";
 import SearchBox from "@/components/SearchBox";
 import { supabase } from "@/lib/supabaseClient";
@@ -1010,7 +1013,7 @@ export default function Page() {
 <div
   style={{
     position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    top: "calc(env(safe-area-inset-top, 0px) + 52px)",
     right: "max(70px, env(safe-area-inset-right, 0px))",
     zIndex: 11000,
   }}
