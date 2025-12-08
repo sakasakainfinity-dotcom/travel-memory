@@ -1004,6 +1004,90 @@ export default function Page() {
   </div>
 </div>
 
+    {/* 右上メニュー（History / AI Trip / Plans / Pilgrimage） */}
+<div
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 52px)", // トグルのちょい下
+    right: "max(12px, env(safe-area-inset-right, 0px))",
+    zIndex: 10990,
+  }}
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => e.stopPropagation()}
+>
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "flex-end",
+      gap: 6,
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => router.push("/history")}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "rgba(255,255,255,0.95)",
+        fontSize: 11,
+        cursor: "pointer",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      History
+    </button>
+
+    <button
+      type="button"
+      onClick={() => router.push("/ai-trip")}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "rgba(255,255,255,0.95)",
+        fontSize: 11,
+        cursor: "pointer",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      AI Trip
+    </button>
+
+    <button
+      type="button"
+      onClick={() => router.push("/plans")}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "rgba(255,255,255,0.95)",
+        fontSize: 11,
+        cursor: "pointer",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      有料プラン
+    </button>
+
+    <button
+      type="button"
+      onClick={() => router.push("/pilgrimage")}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "rgba(255,255,255,0.95)",
+        fontSize: 11,
+        cursor: "pointer",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      巡礼マップ
+    </button>
+  </div>
+</div>
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
