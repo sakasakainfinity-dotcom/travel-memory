@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SharePage() {
   const [shareUrl, setShareUrl] = useState("");
   const [canWebShare, setCanWebShare] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -64,16 +66,34 @@ export default function SharePage() {
     }
   }
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f172a, #1e293b)",
-        color: "#f8fafc",
-        padding: "24px",
-      }}
-    >
-      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+return (
+  <div
+    style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #0f172a, #1e293b)",
+      color: "#f8fafc",
+      padding: "24px",
+    }}
+  >
+    <div style={{ maxWidth: 480, margin: "0 auto" }}>
+      {/* ← 戻るボタン */}
+      <button
+        type="button"
+        onClick={() => router.back()}
+        style={{
+          marginBottom: 12,
+          padding: "6px 10px",
+          borderRadius: 999,
+          border: "1px solid #475569",
+          background: "rgba(15,23,42,0.9)",
+          color: "#e2e8f0",
+          fontSize: 12,
+          cursor: "pointer",
+        }}
+      >
+        ← 戻る
+      </button>
+
         <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
           アプリをシェアしよう！
         </h1>
