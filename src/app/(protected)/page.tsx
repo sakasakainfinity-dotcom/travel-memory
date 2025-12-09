@@ -1077,6 +1077,7 @@ export default function Page() {
     <MenuButton label="シェアする" onClick={() => router.push("/share")} />
     <MenuButton label="巡礼マップ" onClick={() => router.push("/pilgrimage")} />
     <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
+    <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
     <MenuButton
       label="ログアウト"
       onClick={async () => {
