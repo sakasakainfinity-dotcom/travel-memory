@@ -1,419 +1,236 @@
+// src/app/about/page.tsx
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+/* ------------------------
+   丸アイコンコンポーネント
+------------------------- */
+function CircleImage({ src, size = 90 }: { src: string; size?: number }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        border: "2px solid #334155",
+      }}
+    />
+  );
+}
 
 export default function AboutPage() {
-  const [shareUrl, setShareUrl] = useState<string>("");
-  const [category, setCategory] = useState<string>("idea");
-  const [message, setMessage] = useState<string>("");
-  const [contact, setContact] = useState<string>("");
-  const [sending, setSending] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setShareUrl(window.location.origin);
-    }
-  }, []);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!message.trim()) {
-      alert("フィードバック内容を入力してください。");
-      return;
-    }
-
-    try {
-      setSending(true);
-
-      const { data: ses } = await supabase.auth.getSession();
-      const userId = ses.session?.user.id ?? null;
-
-      const { error } = await supabase.from("feedbacks").insert({
-        user_id: userId,
-        category,
-        message,
-        contact: contact || null,
-      });
-
-      if (error) {
-        console.error(error);
-        alert("送信に失敗しました。時間をおいてもう一度お試しください。");
-        return;
-      }
-
-      setMessage("");
-      setContact("");
-      setCategory("idea");
-      alert("フィードバックありがとうございます！今後の改善の参考にさせていただきます。");
-    } catch (e) {
-      console.error(e);
-      alert("予期せぬエラーが発生しました。すみません…");
-    } finally {
-      setSending(false);
-    }
-  }
+  const router = useRouter();
+  const [feedback, setFeedback] = useState("");
+  const [sent, setSent] = useState(false);
 
   return (
     <div
       style={{
-        minHeight: "100vh",
+        padding: "20px",
+        maxWidth: 720,
+        margin: "0 auto",
+        color: "#e2e8f0",
         background: "#0f172a",
-        color: "#f9fafb",
-        padding: "24px 16px 40px",
-        boxSizing: "border-box",
+        minHeight: "100vh",
+        lineHeight: 1.6,
       }}
     >
-      <div
+      {/* 戻るボタン */}
+      <button
+        onClick={() => router.push("/")}
         style={{
-          maxWidth: 720,
-          margin: "0 auto",
+          marginBottom: 14,
+          padding: "6px 12px",
+          borderRadius: 8,
+          background: "#1e293b",
+          color: "#fff",
+          border: "1px solid #334155",
+          cursor: "pointer",
         }}
       >
-        {/* 戻る（とりあえずブラウザバック） */}
-        <button
-          type="button"
-          onClick={() => history.back()}
-          style={{
-            marginBottom: 16,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid #475569",
-            background: "rgba(15,23,42,0.9)",
-            color: "#e2e8f0",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          ← 戻る
-        </button>
+        ← ホームに戻る
+      </button>
 
-        {/* タイトル */}
-        <h1
+      {/* 開発者プロフィール */}
+      <section
+        style={{
+          background: "rgba(15,23,42,0.9)",
+          borderRadius: 16,
+          padding: 18,
+          border: "1px solid rgba(148,163,184,0.4)",
+          marginBottom: 20,
+        }}
+      >
+        <div
           style={{
-            fontSize: 22,
-            fontWeight: 800,
-            marginBottom: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginBottom: 10,
           }}
         >
-          開発者と宿のご紹介
-        </h1>
-        <p
-          style={{
-            fontSize: 13,
-            color: "#e5e7eb",
-            lineHeight: 1.7,
-            marginBottom: 20,
-          }}
-        >
-          TripMemory は、茨城の田舎で小さな宿を営みながら、
-          「旅の思い出をちゃんと残したい」という想いから生まれたアプリです。
-          このページでは、開発者と、運営している宿を紹介します。
+          <CircleImage src="/profile-dev.jpg" size={85} />
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+              開発者：かずき
+            </h2>
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>
+              TripMemory 制作者
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 14 }}>
+          茨城県で「まちやど Motomachi」「古民家宿 Tabi湊」を運営しながら、
+          旅の思い出をちゃんと残せるアプリを作りたくて
+          TripMemory を開発しています。
+        </p>
+      </section>
+
+      {/* まちやど Motomachi */}
+      <section
+        style={{
+          background: "rgba(15,23,42,0.9)",
+          borderRadius: 16,
+          padding: 18,
+          border: "1px solid rgba(148,163,184,0.4)",
+          marginBottom: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <CircleImage src="/motomachi.jpg" size={70} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>
+              まちやど「Motomachi」
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>茨城県大子町</div>
+          </div>
+        </div>
+
+        <p style={{ marginTop: 10, fontSize: 13 }}>
+          商店街の一角にある、小さなまちやど。  
+          「旅人と地元が自然につながる場所」を目指しています。
         </p>
 
-        {/* 開発者プロフィール */}
-        <section
+        <a
+          href="https://daigo-machiyado.jp/"
+          target="_blank"
           style={{
-            background: "rgba(15,23,42,0.95)",
-            borderRadius: 16,
-            padding: 16,
-            border: "1px solid rgba(148,163,184,0.5)",
-            marginBottom: 20,
+            marginTop: 10,
+            display: "inline-block",
+            fontSize: 13,
+            color: "#60a5fa",
           }}
         >
-          <h2
-            style={{
-              fontSize: 18,
-              fontWeight: 700,
-              marginBottom: 8,
-            }}
-          >
-            開発者プロフィール
-          </h2>
-          <p
-            style={{
-              fontSize: 13,
-              color: "#e5e7eb",
-              lineHeight: 1.7,
-              marginBottom: 10,
-            }}
-          >
-            茨城県で、
-            <span style={{ fontWeight: 700 }}>まちやど「Motomachi」</span>
-            と
-            <span style={{ fontWeight: 700 }}>古民家宿「Tabi湊」</span>
-            の2つの宿を運営しながら、  
-            旅の写真・思い出・会話を「ちゃんと残せる場所」を作りたくて、
-            TripMemory を個人開発しています。
-          </p>
-          <p
-            style={{
-              fontSize: 13,
-              color: "#e5e7eb",
-              lineHeight: 1.7,
-              marginBottom: 6,
-            }}
-          >
-            旅行、カメラ、ゲストハウス、AI が好きで、
-            「旅の余韻が、チェックアウトで終わらない仕組み」を作るのが目標です。
-          </p>
-          <p
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-              lineHeight: 1.6,
-            }}
-          >
-            アプリはまだまだ実験中ですが、  
-            みなさんの声をもとに、少しずつ育てていきたいと思っています。
-          </p>
-        </section>
+          ▶ 公式サイトを見る
+        </a>
+      </section>
 
-        {/* 宿紹介 */}
-        <section
-          style={{
-            marginBottom: 24,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              marginBottom: 10,
-            }}
-          >
-            運営している宿のご紹介
-          </h2>
-
-          {/* まちやど Motomachi */}
-          <div
-            style={{
-              background: "rgba(15,23,42,0.95)",
-              borderRadius: 16,
-              padding: 14,
-              border: "1px solid rgba(148,163,184,0.45)",
-              marginBottom: 12,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              まちやど「Motomachi」（茨城県大子町）
+      {/* Tabi湊 */}
+      <section
+        style={{
+          background: "rgba(15,23,42,0.9)",
+          borderRadius: 16,
+          padding: 18,
+          border: "1px solid rgba(148,163,184,0.4)",
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <CircleImage src="/tabiminato.jpg" size={70} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>
+              古民家宿「Tabi湊」
             </div>
-            <p
-              style={{
-                fontSize: 12,
-                color: "#e5e7eb",
-                lineHeight: 1.7,
-                marginBottom: 6,
-              }}
-            >
-              茨城県大子町の商店街の一角にある、小さなゲストハウスです。
-              観光の拠点というだけでなく、  
-              「町と人がゆるくつながる場所」を目指して、
-              長期滞在やリピーターさんにも多く利用いただいています。
-            </p>
-            <a
-              href="https://daigo-machiyado.jp/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-block",
-                marginTop: 4,
-                fontSize: 12,
-                color: "#bfdbfe",
-                textDecoration: "underline",
-              }}
-            >
-              まちやど「Motomachi」の公式サイトを見る
-            </a>
-          </div>
-
-          {/* 古民家宿 Tabi湊 */}
-          <div
-            style={{
-              background: "rgba(15,23,42,0.95)",
-              borderRadius: 16,
-              padding: 14,
-              border: "1px solid rgba(148,163,184,0.45)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              古民家宿「Tabi湊」（茨城県ひたちなか市・那珂湊）
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>
+              茨城県ひたちなか市
             </div>
-            <p
-              style={{
-                fontSize: 12,
-                color: "#e5e7eb",
-                lineHeight: 1.7,
-                marginBottom: 6,
-              }}
-            >
-              那珂湊の港町にある、昭和レトロな一棟貸しの古民家宿です。
-              海や市場が近く、BBQや長期滞在、家族や友人との集まりの場として
-              利用いただいています。「実家に帰ってきたような安心感」を大事にしています。
-            </p>
-            <a
-              href="https://tabiminatoinn.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-block",
-                marginTop: 4,
-                fontSize: 12,
-                color: "#bfdbfe",
-                textDecoration: "underline",
-              }}
-            >
-              古民家宿「Tabi湊」の公式サイトを見る
-            </a>
           </div>
-        </section>
+        </div>
 
-        {/* フィードバックフォーム */}
-        <section
+        <p style={{ marginTop: 10, fontSize: 13 }}>
+          海沿いの静かな古民家を一棟貸しした宿。  
+          特に BBQ や家族旅行に人気です。
+        </p>
+
+        <a
+          href="https://tabiminatoinn.com/"
+          target="_blank"
           style={{
-            background: "rgba(15,23,42,0.98)",
-            borderRadius: 16,
-            padding: 16,
-            border: "1px solid rgba(148,163,184,0.6)",
+            marginTop: 10,
+            display: "inline-block",
+            fontSize: 13,
+            color: "#60a5fa",
           }}
         >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              marginBottom: 8,
-            }}
-          >
-            アプリの改善アイデア・フィードバック
-          </h2>
-          <p
-            style={{
-              fontSize: 12,
-              color: "#e5e7eb",
-              lineHeight: 1.6,
-              marginBottom: 10,
-            }}
-          >
-            「こんな機能が欲しい」「ここが使いづらい」「バグかも？」など、
-            なんでも正直に教えてもらえると、とても助かります。
-          </p>
+          ▶ 公式サイトを見る
+        </a>
+      </section>
 
-          <form onSubmit={handleSubmit}>
-            {/* カテゴリ */}
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                marginBottom: 4,
-              }}
-            >
-              種類
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              style={{
-                width: "100%",
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-                background: "#020617",
-                color: "#e5e7eb",
-                padding: "6px 8px",
-                fontSize: 12,
-                marginBottom: 10,
-              }}
-            >
-              <option value="idea">機能のアイデア</option>
-              <option value="bug">バグ報告</option>
-              <option value="ux">使い勝手について</option>
-              <option value="other">その他</option>
-            </select>
+      {/* フィードバック */}
+      <section
+        style={{
+          background: "rgba(15,23,42,0.9)",
+          borderRadius: 16,
+          padding: 18,
+          border: "1px solid rgba(148,163,184,0.4)",
+        }}
+      >
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
+          アプリ改善のご意見・フィードバック
+        </h3>
 
-            {/* 本文 */}
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                marginBottom: 4,
-              }}
-            >
-              内容（必須）
-            </label>
+        {sent ? (
+          <div style={{ color: "#4ade80", fontSize: 14 }}>
+            送信ありがとう！  
+            しっかり目を通して、改善に活かすけぇね！
+          </div>
+        ) : (
+          <>
             <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="例）マップの読み込みが遅く感じました／こんな表示があると嬉しい… など"
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="不具合、改善してほしい点、追加してほしい機能など…"
               style={{
                 width: "100%",
-                minHeight: 120,
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-                background: "#020617",
-                color: "#e5e7eb",
-                padding: "8px 10px",
-                fontSize: 12,
-                marginBottom: 10,
-              }}
-            />
-
-            {/* 連絡先 */}
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                marginBottom: 4,
-              }}
-            >
-              連絡先（任意）
-            </label>
-            <input
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder="返信が欲しい場合はメールアドレスやSNSアカウントなど"
-              style={{
-                width: "100%",
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-                background: "#020617",
-                color: "#e5e7eb",
-                padding: "8px 10px",
-                fontSize: 12,
-                marginBottom: 14,
+                height: 140,
+                borderRadius: 12,
+                padding: 12,
+                border: "1px solid #475569",
+                background: "#1e293b",
+                color: "#fff",
+                fontSize: 14,
               }}
             />
 
             <button
-              type="submit"
-              disabled={sending}
+              onClick={() => {
+                console.log("feedback:", feedback); // ★後で supabase に保存可
+                setSent(true);
+              }}
               style={{
+                marginTop: 12,
                 width: "100%",
-                padding: "10px 14px",
-                borderRadius: 999,
+                padding: "10px 0",
+                background: "#3b82f6",
+                color: "#fff",
+                borderRadius: 10,
                 border: "none",
-                background: sending ? "#4b5563" : "#22c55e",
-                color: "#022c22",
-                fontWeight: 800,
-                fontSize: 14,
-                cursor: sending ? "default" : "pointer",
+                fontWeight: 700,
+                cursor: "pointer",
               }}
             >
-              {sending ? "送信中…" : "フィードバックを送る"}
+              送信する
             </button>
-          </form>
-        </section>
-      </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
+
