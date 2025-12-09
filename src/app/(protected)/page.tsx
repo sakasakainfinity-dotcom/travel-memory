@@ -1049,7 +1049,7 @@ export default function Page() {
       background: "#ffffff",
       zIndex: 20000,
       boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
-      padding: "20px 16px",
+      padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 20px",
       display: "flex",
       flexDirection: "column",
       gap: 18,
