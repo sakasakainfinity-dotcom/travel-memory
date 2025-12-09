@@ -1011,7 +1011,7 @@ export default function Page() {
   style={{
     position: "fixed",
     top: "calc(env(safe-area-inset-top, 0px) + 52px)",
-    right: "max(70px, env(safe-area-inset-right, 0px))",
+    right: "max(12px, env(safe-area-inset-right, 0px))",
     zIndex: 11000,
   }}
   onClick={() => setMenuOpen(true)}
