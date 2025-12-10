@@ -18,10 +18,10 @@ type PublicPlace = MapPlace & {
   createdAt?: Date | null;
   likeCount?: number;
   wantCount?: number;
+  visitedCount?: number;
   likedByMe?: boolean;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
-　visitedCount?: number; 
 };
 
 export default function PublicPage() {
@@ -31,19 +31,16 @@ export default function PublicPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
-
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
 
-  // -------------------------------------------------------
-  // 公開投稿の読み込み（写真 & リアクション込み）
-  // -------------------------------------------------------
+  // 公開投稿の読み込み
   useEffect(() => {
     (async () => {
       try {
-        // ログインユーザー（自分のリアクション判定用）
+        // ログインユーザー（リアクション判定用）
         const { data: ses } = await supabase.auth.getSession();
         const uid = ses.session?.user.id ?? null;
 
@@ -58,7 +55,7 @@ export default function PublicPage() {
         const rows = (ps ?? []) as any[];
         const ids = rows.map((p) => p.id as string);
 
-        // 写真まとめて取得
+        // 写真をまとめて取得
         let photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
           const { data: phs, error: ePh } = await supabase
@@ -75,11 +72,11 @@ export default function PublicPage() {
           }
         }
 
-              // リアクションをまとめて取得
+        // リアクションをまとめて取得（like / want / visited）
         type ReactionRow = {
           place_id: string;
           user_id: string;
-          kind: "like" | "want" | "visited"; // ← visited 追加
+          kind: "like" | "want" | "visited";
         };
 
         let reactionBy: Record<
@@ -129,9 +126,9 @@ export default function PublicPage() {
           }
         }
 
-        // 🔥 MapView 用の拡張データに整形
+        // MapView 用に整形
         setPlaces(
-          (rows ?? []).map((p: any) => {
+          rows.map((p: any) => {
             const react =
               reactionBy[p.id] ?? {
                 likeCount: 0,
@@ -141,6 +138,7 @@ export default function PublicPage() {
                 wantedByMe: false,
                 visitedByMe: false,
               };
+
             return {
               id: p.id,
               name: p.title,
@@ -153,9 +151,10 @@ export default function PublicPage() {
               createdAt: p.created_at ? new Date(p.created_at) : null,
               likeCount: react.likeCount,
               wantCount: react.wantCount,
+              visitedCount: react.visitedCount,
               likedByMe: react.likedByMe,
               wantedByMe: react.wantedByMe,
-              visitedByMe: react.visitedByMe, // ← ここが MapView に飛んでいく
+              visitedByMe: react.visitedByMe,
             } as PublicPlace;
           })
         );
@@ -165,16 +164,13 @@ export default function PublicPage() {
     })();
   }, []);
 
-  // 選択中の投稿
   const selected = useMemo(
     () => places.find((x) => x.id === selectedId) || null,
     [places, selectedId]
   );
 
-  // -------------------------------------------------------
-  // いいね / 行きたい！のトグル処理
-  // -------------------------------------------------------
-  async function toggleReaction(placeId: string, kind: "like" | "want") {
+  // リアクションのトグル（like / want / visited 共通）
+  async function toggleReaction(placeId: string, kind: "like" | "want" | "visited") {
     try {
       setReactBusyId(`${placeId}:${kind}`);
 
@@ -188,7 +184,12 @@ export default function PublicPage() {
       const target = places.find((p) => p.id === placeId);
       if (!target) return;
 
-      const already = kind === "like" ? target.likedByMe : target.wantedByMe;
+      const already =
+        kind === "like"
+          ? target.likedByMe
+          : kind === "want"
+          ? target.wantedByMe
+          : target.visitedByMe;
 
       if (already) {
         // すでに押している → 取り消し
@@ -208,15 +209,16 @@ export default function PublicPage() {
               : {
                   ...p,
                   likeCount:
-                    kind === "like"
-                      ? Math.max(0, (p.likeCount ?? 0) - 1)
-                      : p.likeCount,
+                    kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
                   wantCount:
-                    kind === "want"
-                      ? Math.max(0, (p.wantCount ?? 0) - 1)
-                      : p.wantCount,
+                    kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+                  visitedCount:
+                    kind === "visited"
+                      ? Math.max(0, (p.visitedCount ?? 0) - 1)
+                      : p.visitedCount,
                   likedByMe: kind === "like" ? false : p.likedByMe,
                   wantedByMe: kind === "want" ? false : p.wantedByMe,
+                  visitedByMe: kind === "visited" ? false : p.visitedByMe,
                 }
           )
         );
@@ -242,8 +244,11 @@ export default function PublicPage() {
                     kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
                   wantCount:
                     kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+                  visitedCount:
+                    kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
                   likedByMe: kind === "like" ? true : p.likedByMe,
                   wantedByMe: kind === "want" ? true : p.wantedByMe,
+                  visitedByMe: kind === "visited" ? true : p.visitedByMe,
                 }
           )
         );
@@ -446,7 +451,7 @@ export default function PublicPage() {
               `・${selected.createdAt.toLocaleDateString("ja-JP")}`}
           </div>
 
-          {/* リアクションボタン */}
+          {/* リアクションボタン（3つ） */}
           <div
             style={{
               display: "flex",
@@ -488,10 +493,10 @@ export default function PublicPage() {
                 padding: "6px 12px",
                 borderRadius: 999,
                 border: selected.wantedByMe
-                  ? "1px solid #22c55e"
-                  : "1px solid #bbf7d0",
-                background: selected.wantedByMe ? "#22c55e" : "#f0fdf4",
-                color: selected.wantedByMe ? "#022c22" : "#15803d",
+                  ? "1px solid #fbbf24"
+                  : "1px solid #fef3c7",
+                background: selected.wantedByMe ? "#fbbf24" : "#fffbeb",
+                color: selected.wantedByMe ? "#78350f" : "#92400e",
                 fontSize: 12,
                 cursor:
                   reactBusyId === `${selected.id}:want`
@@ -499,7 +504,30 @@ export default function PublicPage() {
                     : "pointer",
               }}
             >
-              ✈ 行きたい！（{selected.wantCount ?? 0}）
+              ⭐ 行きたい！（{selected.wantCount ?? 0}）
+            </button>
+
+            {/* 行った！ */}
+            <button
+              type="button"
+              disabled={reactBusyId === `${selected.id}:visited`}
+              onClick={() => toggleReaction(selected.id, "visited")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: selected.visitedByMe
+                  ? "1px solid #10b981"
+                  : "1px solid #d1fae5",
+                background: selected.visitedByMe ? "#10b981" : "#ecfdf5",
+                color: selected.visitedByMe ? "#ecfdf5" : "#065f46",
+                fontSize: 12,
+                cursor:
+                  reactBusyId === `${selected.id}:visited`
+                    ? "default"
+                    : "pointer",
+              }}
+            >
+              ✓ 行った！（{selected.visitedCount ?? 0}）
             </button>
           </div>
 
