@@ -104,21 +104,28 @@ export default function MapView({
       // データソース
       map.addSource("places", { type: "geojson", data: geojson });
 
-      // ★ ピン：行った / 行きたい / visibility で色分け
+            // ★ ピン：行った / 行きたい / visibility で色分け
       map.addLayer({
         id: "visit-pins",
         type: "circle",
         source: "places",
         paint: {
-          "circle-radius": 6,
+          "circle-radius": [
+            "case",
+            ["==", ["get", "visitedByMe"], true],
+            7.5, // 行った → ちょい大きめ
+            ["==", ["get", "wantedByMe"], true],
+            7, // 行きたい → ちょい大きめ
+            6, // その他
+          ],
           "circle-color": [
             "case",
-            // 行った（visited）→ 緑
+            // ✅ 行った！（visited）→ 黄〜ゴールド
             ["==", ["get", "visitedByMe"], true],
-            "#10b981", // emerald-500
-            // 行きたい（wanted）→ 黄〜ゴールド
-            ["==", ["get", "wantedByMe"], true],
             "#eab308", // amber-500
+            // ⭐ 行きたい！（wanted）→ 緑
+            ["==", ["get", "wantedByMe"], true],
+           "#10b981", // emerald-500
             // それ以外は visibility で振り分け
             ["==", ["get", "visibility"], "public"],
             "#2563eb", // 公開：青
@@ -130,6 +137,7 @@ export default function MapView({
           "circle-stroke-width": 2,
         },
       });
+
 
       // ★ 行きたい / 行った 用のアイコンレイヤー（⭐ / ✓ を上に重ねる）
       map.addLayer({
