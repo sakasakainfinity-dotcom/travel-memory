@@ -144,23 +144,7 @@ export default function AccountPage() {
           margin: "0 auto",
         }}
       >
-        {/* 戻るボタン */}
-        <button
-          type="button"
-          onClick={() => router.push("/")}
-          style={{
-            marginBottom: 14,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid #475569",
-            background: "rgba(15,23,42,0.9)",
-            color: "#e2e8f0",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          ← マップに戻る
-        </button>
+        
 
         <h1
           style={{
@@ -288,6 +272,29 @@ export default function AccountPage() {
             {saving ? "保存中…" : "表示名を保存する"}
           </button>
         </section>
+
+
+        {/* 🔙 戻る（右下固定） */}
+<button
+  onClick={() => router.back()}
+  style={{
+    position: "fixed",
+    right: "20px",
+    bottom: "20px",
+    zIndex: 9999,
+    padding: "10px 16px",
+    background: "#111827",
+    color: "#fff",
+    borderRadius: "999px",
+    border: "1px solid #000",
+    fontSize: "14px",
+    fontWeight: 700,
+    boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
+    cursor: "pointer",
+  }}
+>
+  戻る
+</button>
 
         {/* ログアウト */}
         <section
