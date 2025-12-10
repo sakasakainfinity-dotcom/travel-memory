@@ -52,22 +52,22 @@ export default function MapView({
   }, [places]);
 
   // GeoJSON に変換（visibility + wantedByMe + visitedByMe）
-  const geojson = useMemo(() => {
-    return {
-      type: "FeatureCollection",
-      features: (places || []).map((p) => ({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-        properties: {
-          id: p.id,
-          title: p.name ?? "",
-          visibility: p.visibility ?? "private",
-          wantedByMe: !!p.wantedByMe,
-          visitedByMe: !!p.visitedByMe,
-        },
-      })),
-    } as GeoJSON.FeatureCollection;
-  }, [places]);
+ const geojson = useMemo(() => {
+  return {
+    type: "FeatureCollection",
+    features: (places || []).map((p) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+      properties: {
+        id: p.id,
+        title: p.name ?? "",
+        visibility: p.visibility ?? "private",
+        wantedByMe: !!p.wantedByMe,
+        visitedByMe: !!p.visitedByMe,
+      },
+    })),
+  } as GeoJSON.FeatureCollection;
+}, [places]);
 
   // 初期化：OSM ラスタ
   useEffect(() => {
@@ -83,7 +83,8 @@ export default function MapView({
           attribution: "© OpenStreetMap contributors",
         },
       },
-      layers: [{ id: "osm", type: "raster", source: "osm" }],
+       glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+　　  layers: [{ id: "osm", type: "raster", source: "osm" }],
     };
 
     const map = new maplibregl.Map({
@@ -139,7 +140,7 @@ export default function MapView({
       });
 
 
-      // ★ 行きたい / 行った 用のアイコンレイヤー（⭐ / ✓ を上に重ねる）
+            // ★ 行きたい / 行った 用のアイコンレイヤー（⭐ / ✓ をピンの上に重ねる）
       map.addLayer({
         id: "visit-icons",
         type: "symbol",
@@ -148,13 +149,13 @@ export default function MapView({
           "text-field": [
             "case",
             ["==", ["get", "visitedByMe"], true],
-            "✓",
+            "✓", // 行った！
             ["==", ["get", "wantedByMe"], true],
-            "⭐",
+            "⭐", // 行きたい！
             "",
           ],
           "text-size": 18,
-          "text-offset": [0, -1.4], // ピンのちょい上
+          "text-offset": [0, -1.4], // ピンの少し上
           "text-anchor": "bottom",
           "text-allow-overlap": true,
         },
@@ -162,9 +163,9 @@ export default function MapView({
           "text-color": [
             "case",
             ["==", ["get", "visitedByMe"], true],
-            "#065f46", // visited → 濃い緑
+            "#b45309", // visited（黄色ピン）のチェック → 濃いめブラウン
             ["==", ["get", "wantedByMe"], true],
-            "#b45309", // wanted → 濃い黄土
+            "#166534", // wanted（緑ピン）の星 → 濃い緑
             "#00000000",
           ],
           "text-halo-color": "#ffffff",
