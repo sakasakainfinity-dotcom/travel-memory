@@ -40,21 +40,7 @@ export default function AboutPage() {
         lineHeight: 1.6,
       }}
     >
-      {/* 戻るボタン */}
-      <button
-        onClick={() => router.push("/")}
-        style={{
-          marginBottom: 14,
-          padding: "6px 12px",
-          borderRadius: 8,
-          background: "#1e293b",
-          color: "#fff",
-          border: "1px solid #334155",
-          cursor: "pointer",
-        }}
-      >
-        ← ホームに戻る
-      </button>
+      
 
       {/* 開発者プロフィール */}
       <section
@@ -171,6 +157,28 @@ export default function AboutPage() {
           ▶ 公式サイトを見る
         </a>
       </section>
+
+       {/* 🔙 戻る（右下固定） */}
+<button
+  onClick={() => router.back()}
+  style={{
+    position: "fixed",
+    right: "20px",
+    bottom: "20px",
+    zIndex: 9999,
+    padding: "10px 16px",
+    background: "#111827",
+    color: "#fff",
+    borderRadius: "999px",
+    border: "1px solid #000",
+    fontSize: "14px",
+    fontWeight: 700,
+    boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
+    cursor: "pointer",
+  }}
+>
+  戻る
+</button>
 
       {/* フィードバック */}
       <section
