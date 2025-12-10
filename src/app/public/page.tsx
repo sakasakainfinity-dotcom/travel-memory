@@ -12,10 +12,17 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 type View = { lat: number; lng: number; zoom: number };
 
+// 🔥 Public 専用：Place を拡張
+type PublicPlace = MapPlace & {
+  createdByName?: string;
+  createdAt?: Date | null;
+};
+
 export default function PublicPage() {
   const router = useRouter();
 
-  const [places, setPlaces] = useState<MapPlace[]>([]);
+  // 🔥 PublicPlace に修正（ここが1番重要）
+  const [places, setPlaces] = useState<PublicPlace[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
@@ -23,14 +30,15 @@ export default function PublicPage() {
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
 
-  // 🔹 公開投稿だけを全ユーザー分取得
+  // -------------------------------------------------------
+  // 🔹 公開投稿の取得
+  // -------------------------------------------------------
   useEffect(() => {
     (async () => {
       try {
-        // places: visibility = 'public' だけ
-       const { data: ps, error } = await supabase
- 　　　　 .from("places")
- 　　　　 .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+        const { data: ps, error } = await supabase
+          .from("places")
+          .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
           .eq("visibility", "public")
           .order("created_at", { ascending: false });
 
@@ -39,7 +47,7 @@ export default function PublicPage() {
         const rows = (ps ?? []) as any[];
         const ids = rows.map((p) => p.id as string);
 
-        // 写真をまとめて取得
+        // 写真まとめて取得
         let photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
           const { data: phs, error: ePh } = await supabase
@@ -56,25 +64,27 @@ export default function PublicPage() {
           }
         }
 
-        // MapView 用の型に整形
-       setPlaces(
-        (ps ?? []).map((p) => ({
-          id: p.id,
-        name: p.title,
-        memo: p.memo ?? undefined,
-        lat: p.lat,
-        lng: p.lng,
-        photos: photosBy[p.id] ?? [],
-        createdByName: (p as any).created_by_name ?? "名無しの旅人",
-         createdAt: p.created_at ? new Date(p.created_at) : null,
-       }))
-      );
+        // 🔥 MapView 用の拡張データに整形
+        setPlaces(
+          (rows ?? []).map((p: any) => ({
+            id: p.id,
+            name: p.title,
+            memo: p.memo ?? undefined,
+            lat: p.lat,
+            lng: p.lng,
+            photos: photosBy[p.id] ?? [],
+            visibility: "public",
+            createdByName: p.created_by_name ?? "名無しの旅人",
+            createdAt: p.created_at ? new Date(p.created_at) : null,
+          }))
+        );
       } catch (e) {
         console.error(e);
       }
     })();
   }, []);
 
+  // 選択中
   const selected = useMemo(
     () => places.find((x) => x.id === selectedId) || null,
     [places, selectedId]
@@ -82,7 +92,7 @@ export default function PublicPage() {
 
   return (
     <>
-      {/* 右上トグル：Publicページ版（Publicがアクティブ） */}
+      {/* 右上トグル */}
       <div
         style={{
           position: "fixed",
@@ -91,10 +101,6 @@ export default function PublicPage() {
           zIndex: 10001,
           pointerEvents: "auto",
         }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
       >
         <div
           style={{
@@ -106,20 +112,20 @@ export default function PublicPage() {
             fontSize: 12,
           }}
         >
-          {/* ← Private 側（今回は非アクティブ） */}
+          {/* Private */}
           <button
             type="button"
-            onClick={() => router.push("/")} // ★Privateへ
+            onClick={() => router.push("/")}
             style={{
               padding: "6px 14px",
-              border: "none",
               background: "#ffffff",
               color: "#111827",
+              border: "none",
               cursor: "pointer",
+              fontWeight: 600,
               display: "flex",
               alignItems: "center",
               gap: 6,
-              fontWeight: 600,
             }}
           >
             <span
@@ -127,13 +133,13 @@ export default function PublicPage() {
                 width: 8,
                 height: 8,
                 borderRadius: "999px",
-                background: "#22c55e", // 緑
+                background: "#22c55e",
               }}
             />
             Private
           </button>
 
-          {/* → Public 側（アクティブ） */}
+          {/* Public */}
           <div
             style={{
               padding: "6px 14px",
@@ -150,7 +156,7 @@ export default function PublicPage() {
                 width: 8,
                 height: 8,
                 borderRadius: "999px",
-                background: "#2563eb", // 青
+                background: "#2563eb",
               }}
             />
             Public
@@ -158,56 +164,42 @@ export default function PublicPage() {
         </div>
       </div>
 
-     {/* 左上：公開投稿のキーワード検索 */}
-<div
-  style={{
-    position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 50px)",
-    left: "max(12px, env(safe-area-inset-left, 0px))",
-    zIndex: 10000,
-    pointerEvents: "auto",
-  }}
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => e.stopPropagation()}
-  onWheel={(e) => e.stopPropagation()}
-  onTouchStart={(e) => e.stopPropagation()}
->
-  <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
-    <SearchBox
-      places={places}
-      onPick={(p) => {
-        setFlyTo({
-          lat: p.lat,
-          lng: p.lng,
-          zoom: p.zoom ?? 15,
-        });
-        if (p.id) setSelectedId(p.id);
-      }}
-    />
-  </div>
-</div>
+      {/* 検索 */}
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 50px)",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          zIndex: 10000,
+          pointerEvents: "auto",
+        }}
+      >
+        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+          <SearchBox
+            places={places}
+            onPick={(p) => {
+              setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
+              if (p.id) setSelectedId(p.id);
+            }}
+          />
+        </div>
+      </div>
 
-
-      {/* 🗺 公開マップ本体 */}
+      {/* マップ */}
       <MapView
         places={places}
-        onRequestNew={() => {
-          // 公開マップでは投稿禁止（投稿は / 側で）
-          alert("公開マップでは投稿できんよ。自分のマップ（Private）で投稿してね。");
-        }}
+        onRequestNew={() =>
+          alert("公開マップでは投稿できんよ。Private で投稿してね。")
+        }
         onSelect={(p) => setSelectedId(p.id)}
         selectedId={selectedId}
         flyTo={flyTo}
-        bindGetView={(fn) => {
-          getViewRef.current = fn;
-        }}
-        bindSetView={(fn) => {
-          setViewRef.current = fn;
-        }}
+        bindGetView={(fn) => (getViewRef.current = fn)}
+        bindSetView={(fn) => (setViewRef.current = fn)}
         initialView={initialView}
       />
 
-      {/* 下プレビュー（Private とだいたい同じ構成） */}
+      {/* プレビュー */}
       {selected && (
         <div
           style={{
@@ -223,7 +215,6 @@ export default function PublicPage() {
             boxShadow: "0 18px 50px rgba(0,0,0,.25)",
             zIndex: 9000,
             padding: 12,
-            pointerEvents: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -235,21 +226,16 @@ export default function PublicPage() {
               style={{
                 fontWeight: 900,
                 fontSize: 18,
-                lineHeight: 1.2,
-                maxWidth: "90%",
-                margin: "0 auto",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                letterSpacing: "0.02em",
               }}
-              title={selected.name || "無題"}
             >
               {selected.name || "無題"}
             </div>
           </div>
 
-          {/* 閉じるボタン */}
+          {/* ✖ */}
           <button
             onClick={() => setSelectedId(null)}
             style={{
@@ -266,59 +252,45 @@ export default function PublicPage() {
             ×
           </button>
 
-          {/* 投稿者 + 投稿日時 */}
-<div
-  style={{
-    fontSize: 11,
-    color: "#6b7280",
-    textAlign: "center",
-    marginTop: 4,
-  }}
->
-  {selected.createdByName}{" "}
-  {selected.createdAt &&
-    `・${selected.createdAt.toLocaleDateString("ja-JP")}`}
-</div>
-
-          {/* メモ */}
+          {/* 投稿者 + 日付 */}
           <div
             style={{
-              fontSize: 13,
-              color: "#374151",
-              lineHeight: 1.5,
-              maxHeight: "16vh",
-              overflow: "auto",
+              fontSize: 11,
+              color: "#6b7280",
+              textAlign: "center",
+              marginTop: 4,
             }}
           >
+            {selected.createdByName}{" "}
+            {selected.createdAt &&
+              `・${selected.createdAt.toLocaleDateString("ja-JP")}`}
+          </div>
+
+          {/* メモ */}
+          <div style={{ fontSize: 13, color: "#374151" }}>
             {selected.memo || "（メモなし）"}
           </div>
 
-          {/* 写真一覧 */}
+          {/* 写真 */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
               gap: 8,
-              overflowY: "auto",
               flex: 1,
+              overflowY: "auto",
             }}
           >
-            {(selected.photos ?? []).length === 0 && (
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
-            )}
             {(selected.photos ?? []).map((u) => (
               <img
                 key={u}
                 src={u}
-                loading="lazy"
                 style={{
                   width: "100%",
                   height: "24vh",
                   objectFit: "cover",
                   borderRadius: 10,
-                  border: "1px solid #eee",
                 }}
-                alt=""
               />
             ))}
           </div>
