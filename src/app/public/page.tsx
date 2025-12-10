@@ -75,22 +75,24 @@ export default function PublicPage() {
           }
         }
 
-        // リアクションまとめて取得
+              // リアクションをまとめて取得
         type ReactionRow = {
           place_id: string;
           user_id: string;
-          kind: "like" | "want" | "visited";
+          kind: "like" | "want" | "visited"; // ← visited 追加
         };
 
-       let reactionBy: Record<string, {
-  likeCount: number;
-  wantCount: number;
-  visitedCount: number;
-  likedByMe: boolean;
-  wantedByMe: boolean;
-  visitedByMe: boolean;
-}> = {};
-
+        let reactionBy: Record<
+          string,
+          {
+            likeCount: number;
+            wantCount: number;
+            visitedCount: number;
+            likedByMe: boolean;
+            wantedByMe: boolean;
+            visitedByMe: boolean;
+          }
+        > = {};
 
         if (ids.length > 0) {
           const { data: rs, error: eR } = await supabase
@@ -106,30 +108,39 @@ export default function PublicPage() {
               reactionBy[pid] = {
                 likeCount: 0,
                 wantCount: 0,
+                visitedCount: 0,
                 likedByMe: false,
                 wantedByMe: false,
+                visitedByMe: false,
               };
             }
             const bucket = reactionBy[pid];
+
             if (r.kind === "like") {
               bucket.likeCount++;
               if (uid && r.user_id === uid) bucket.likedByMe = true;
             } else if (r.kind === "want") {
               bucket.wantCount++;
               if (uid && r.user_id === uid) bucket.wantedByMe = true;
+            } else if (r.kind === "visited") {
+              bucket.visitedCount++;
+              if (uid && r.user_id === uid) bucket.visitedByMe = true;
             }
           }
         }
 
-        // PublicPlace に整形
+        // 🔥 MapView 用の拡張データに整形
         setPlaces(
-          rows.map((p: any) => {
-            const react = reactionBy[p.id] ?? {
-              likeCount: 0,
-              wantCount: 0,
-              likedByMe: false,
-              wantedByMe: false,
-            };
+          (rows ?? []).map((p: any) => {
+            const react =
+              reactionBy[p.id] ?? {
+                likeCount: 0,
+                wantCount: 0,
+                visitedCount: 0,
+                likedByMe: false,
+                wantedByMe: false,
+                visitedByMe: false,
+              };
             return {
               id: p.id,
               name: p.title,
@@ -144,6 +155,7 @@ export default function PublicPage() {
               wantCount: react.wantCount,
               likedByMe: react.likedByMe,
               wantedByMe: react.wantedByMe,
+              visitedByMe: react.visitedByMe, // ← ここが MapView に飛んでいく
             } as PublicPlace;
           })
         );
