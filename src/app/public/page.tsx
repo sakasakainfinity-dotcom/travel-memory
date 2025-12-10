@@ -30,7 +30,7 @@ export default function PublicPage() {
         // places: visibility = 'public' だけ
         const { data, error } = await supabase
           .from("places")
-          .select("id, title, memo, lat, lng, visibility")
+          .select("id, title, memo, lat, lng, visibility",created_by_name, created_at")
           .eq("visibility", "public")
           .order("created_at", { ascending: false });
 
@@ -57,17 +57,18 @@ export default function PublicPage() {
         }
 
         // MapView 用の型に整形
-        setPlaces(
-          rows.map((p) => ({
-            id: p.id,
-            name: p.title,
-            memo: p.memo ?? undefined,
-            lat: p.lat,
-            lng: p.lng,
-            visibility: p.visibility ?? "public",
-            photos: photosBy[p.id] ?? [],
-          }))
-        );
+       setPlaces(
+        (ps ?? []).map((p) => ({
+          id: p.id,
+        name: p.title,
+        memo: p.memo ?? undefined,
+        lat: p.lat,
+        lng: p.lng,
+        photos: photosBy[p.id] ?? [],
+        createdByName: (p as any).created_by_name ?? "名無しの旅人",
+         createdAt: p.created_at ? new Date(p.created_at) : null,
+       }))
+      );
       } catch (e) {
         console.error(e);
       }
@@ -264,6 +265,20 @@ export default function PublicPage() {
           >
             ×
           </button>
+
+          {/* 投稿者 + 投稿日時 */}
+<div
+  style={{
+    fontSize: 11,
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 4,
+  }}
+>
+  {selected.createdByName}{" "}
+  {selected.createdAt &&
+    `・${selected.createdAt.toLocaleDateString("ja-JP")}`}
+</div>
 
           {/* メモ */}
           <div
