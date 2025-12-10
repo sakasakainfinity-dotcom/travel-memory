@@ -217,7 +217,7 @@ export default function MapView({
     if (src) src.setData(geojson);
   }, [geojson]);
 
-  // 行きたい／行ったの⭐／✓マーカーを更新
+    // 行きたい／行ったの「デカ星バッジ」マーカーを更新
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -226,23 +226,53 @@ export default function MapView({
     flagMarkersRef.current.forEach((m) => m.remove());
     flagMarkersRef.current = [];
 
-    // wanted / visited の投稿にだけ小さいマーカーを置く
     for (const p of places ?? []) {
+      // 両方 false ならバッジなし
       if (!p.wantedByMe && !p.visitedByMe) continue;
 
       const el = document.createElement("div");
-      el.style.fontSize = "16px";
-      el.style.fontWeight = "bold";
-      el.style.color = p.visitedByMe ? "#b45309" : "#166534"; // visited：濃い黄土 / wanted：濃い緑
-      el.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
-      el.style.pointerEvents = "none"; // タップ邪魔せんように
-      el.textContent = p.visitedByMe ? "✓" : "★";
+      el.style.position = "relative";
+      el.style.width = "30px";
+      el.style.height = "30px";
+      el.style.pointerEvents = "none"; // マップ操作の邪魔をしない
+
+      // ★ 土台の星
+      const star = document.createElement("div");
+      star.textContent = "★";
+      star.style.position = "absolute";
+      star.style.inset = "0";
+      star.style.display = "flex";
+      star.style.alignItems = "center";
+      star.style.justifyContent = "center";
+      star.style.fontSize = "26px";
+      star.style.fontWeight = "900";
+      // 行きたい / 行った どっちも金色だけど、行ったは少し濃いめ
+      star.style.color = p.visitedByMe ? "#f59e0b" : "#facc15";
+      star.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
+
+      el.appendChild(star);
+
+      // ✅ 行った場合だけ、真ん中にチェック or 「済」を重ねる
+      if (p.visitedByMe) {
+        const check = document.createElement("div");
+        check.textContent = "✓"; // 「済」がよければここを "済" に
+        check.style.position = "absolute";
+        check.style.inset = "0";
+        check.style.display = "flex";
+        check.style.alignItems = "center";
+        check.style.justifyContent = "center";
+        check.style.fontSize = "14px";
+        check.style.fontWeight = "900";
+        check.style.color = "#166534"; // 濃い緑
+        check.style.textShadow = "0 0 3px rgba(255,255,255,0.95)";
+        el.appendChild(check);
+      }
 
       const marker = new maplibregl.Marker({
         element: el,
         anchor: "bottom",
-        // ピンの「右斜め上」あたりに出す
-        offset: [16, -22],
+        // ピンの中心にかぶさる感じにしたいので、少しだけ下げる
+        offset: [0, -4],
       })
         .setLngLat([p.lng, p.lat])
         .addTo(map);
