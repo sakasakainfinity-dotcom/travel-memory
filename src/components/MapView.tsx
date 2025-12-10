@@ -12,7 +12,10 @@ export type Place = {
   lat: number;
   lng: number;
   photos?: string[];
-  visibility?: "public" | "private" | "pair"; // ★追加
+  visibility?: "public" | "private" | "pair";
+  // 🔥 追加：行きたい / 行った フラグ（public 側で使う）
+  wantedByMe?: boolean;
+  visitedByMe?: boolean;
 };
 
 type View = { lat: number; lng: number; zoom: number };
@@ -42,13 +45,13 @@ export default function MapView({
   // 検索一時ピン（毎回置き換え）
   const searchMarkerRef = useRef<Marker | null>(null);
 
-  // 最新の places を常に参照するための ref
+  // 最新 places を参照するための ref
   const placesRef = useRef<Place[]>(places);
   useEffect(() => {
     placesRef.current = places;
   }, [places]);
 
-  // GeoJSON へ変換（visibility も含める）
+  // GeoJSON に変換（visibility + wantedByMe + visitedByMe）
   const geojson = useMemo(() => {
     return {
       type: "FeatureCollection",
@@ -59,6 +62,8 @@ export default function MapView({
           id: p.id,
           title: p.name ?? "",
           visibility: p.visibility ?? "private",
+          wantedByMe: !!p.wantedByMe,
+          visitedByMe: !!p.visitedByMe,
         },
       })),
     } as GeoJSON.FeatureCollection;
@@ -99,7 +104,7 @@ export default function MapView({
       // データソース
       map.addSource("places", { type: "geojson", data: geojson });
 
-      // ★ ピン：visibility で色分け
+      // ★ ピン：行った / 行きたい / visibility で色分け
       map.addLayer({
         id: "visit-pins",
         type: "circle",
@@ -108,12 +113,54 @@ export default function MapView({
           "circle-radius": 6,
           "circle-color": [
             "case",
-            ["==", ["get", "visibility"], "public"], "#2563eb", // 公開：青
-            ["==", ["get", "visibility"], "pair"], "#eab308",   // ペア：黄
-            "#ef4444",                                          // それ以外（非公開）：赤
+            // 行った（visited）→ 緑
+            ["==", ["get", "visitedByMe"], true],
+            "#10b981", // emerald-500
+            // 行きたい（wanted）→ 黄〜ゴールド
+            ["==", ["get", "wantedByMe"], true],
+            "#eab308", // amber-500
+            // それ以外は visibility で振り分け
+            ["==", ["get", "visibility"], "public"],
+            "#2563eb", // 公開：青
+            ["==", ["get", "visibility"], "pair"],
+            "#eab308", // ペア：黄
+            "#ef4444", // 非公開：赤
           ],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
+        },
+      });
+
+      // ★ 行きたい / 行った 用のアイコンレイヤー（⭐ / ✓ を上に重ねる）
+      map.addLayer({
+        id: "visit-icons",
+        type: "symbol",
+        source: "places",
+        layout: {
+          "text-field": [
+            "case",
+            ["==", ["get", "visitedByMe"], true],
+            "✓",
+            ["==", ["get", "wantedByMe"], true],
+            "⭐",
+            "",
+          ],
+          "text-size": 18,
+          "text-offset": [0, -1.4], // ピンのちょい上
+          "text-anchor": "bottom",
+          "text-allow-overlap": true,
+        },
+        paint: {
+          "text-color": [
+            "case",
+            ["==", ["get", "visitedByMe"], true],
+            "#065f46", // visited → 濃い緑
+            ["==", ["get", "wantedByMe"], true],
+            "#b45309", // wanted → 濃い黄土
+            "#00000000",
+          ],
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1.5,
         },
       });
 
@@ -141,7 +188,7 @@ export default function MapView({
         filter: ["==", ["get", "id"], ""],
       });
 
-      // ピンをクリック → 最新の placesRef から探す
+      // ピンをクリック → 最新 placesRef から探す
       map.on("click", "visit-pins", (e) => {
         const f = e.features?.[0];
         if (!f) return;
@@ -210,7 +257,9 @@ export default function MapView({
       searchMarkerRef.current = null;
     }
 
-    const popup = new maplibregl.Popup({ offset: 12 }).setText(flyTo.label ?? "検索地点");
+    const popup = new maplibregl.Popup({ offset: 12 }).setText(
+      flyTo.label ?? "検索地点"
+    );
     const marker = new maplibregl.Marker({ color: "#E11D48" })
       .setLngLat([flyTo.lng, flyTo.lat])
       .setPopup(popup)
@@ -238,5 +287,10 @@ export default function MapView({
     }
   }, [selectedId]);
 
-  return <div ref={containerRef} style={{ position: "fixed", inset: 0, zIndex: 0 }} />;
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: "fixed", inset: 0, zIndex: 0 }}
+    />
+  );
 }
