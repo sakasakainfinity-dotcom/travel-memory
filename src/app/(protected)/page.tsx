@@ -700,7 +700,7 @@ async function insertPlace({
   memo,
   visitedAt,
   files,
-  visibility, // ★追加
+  visibility,
 }: {
   lat: number;
   lng: number;
@@ -708,17 +708,26 @@ async function insertPlace({
   memo?: string;
   visitedAt?: string;
   files: File[];
-  visibility: "public" | "private" | "pair"; // ★追加
+  visibility: "public" | "private" | "pair";
 }) {
   // 認証
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
   if (!uid) throw new Error("ログインが必要です（sessionなし）");
 
+  // 👇★ ここで displayName を作る
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes.user;
+  const displayName =
+    (user?.user_metadata as any)?.display_name ||
+    (user?.user_metadata as any)?.name ||
+    (user?.email?.split("@")[0] ?? "名無しの旅人");
+
   // 自分のスペース
   const sp = await ensureMySpace();
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
+  // 1) places 行を先に作る（★ created_by_name を保存）
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
@@ -729,10 +738,12 @@ async function insertPlace({
       lng,
       visited_at: visitedAt ?? null,
       created_by: uid,
-      created_by_name: displayName, // ★追加
+      created_by_name: displayName, // ★ここでさっきの変数を使う
       visibility,
     })
-    .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+    .select(
+      "id, title, memo, lat, lng, visibility, created_by_name, created_at"
+    )
     .single();
 
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
@@ -767,7 +778,7 @@ async function insertPlace({
   }
 
   // 呼び出し側が使う返り値
-    return {
+  return {
     id: placeRow.id,
     title: placeRow.title,
     memo: placeRow.memo,
@@ -779,6 +790,7 @@ async function insertPlace({
     photos: urls,
   };
 }
+
 
 
 
