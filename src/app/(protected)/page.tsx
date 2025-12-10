@@ -719,7 +719,6 @@ async function insertPlace({
   const sp = await ensureMySpace();
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
-  // 1) places行を先に作る（★ visibility を保存）
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
@@ -730,9 +729,10 @@ async function insertPlace({
       lng,
       visited_at: visitedAt ?? null,
       created_by: uid,
-      visibility, // ★ここ追加
+      created_by_name: displayName, // ★追加
+      visibility,
     })
-    .select("id, title, memo, lat, lng, visibility")
+    .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
     .single();
 
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
@@ -767,13 +767,15 @@ async function insertPlace({
   }
 
   // 呼び出し側が使う返り値
-  return {
+    return {
     id: placeRow.id,
     title: placeRow.title,
     memo: placeRow.memo,
     lat: placeRow.lat,
     lng: placeRow.lng,
-    visibility: placeRow.visibility, // ★反映
+    visibility: placeRow.visibility,
+    createdByName: placeRow.created_by_name,
+    createdAt: placeRow.created_at,
     photos: urls,
   };
 }
