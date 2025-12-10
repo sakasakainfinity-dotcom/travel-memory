@@ -120,12 +120,12 @@ export default function MapView({
           ],
           "circle-color": [
             "case",
-            // ✅ 行った！（visited）→ 黄〜ゴールド
+            // ✅ 行った！（visited）→ 緑
             ["==", ["get", "visitedByMe"], true],
-            "#eab308", // amber-500
-            // ⭐ 行きたい！（wanted）→ 緑
+            "#10b981", // emerald-500
+            // ⭐ 行きたい！（wanted）→ ゴールド
             ["==", ["get", "wantedByMe"], true],
-           "#10b981", // emerald-500
+            "#eab308", // amber-500
             // それ以外は visibility で振り分け
             ["==", ["get", "visibility"], "public"],
             "#2563eb", // 公開：青
