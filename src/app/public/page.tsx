@@ -20,6 +20,8 @@ type PublicPlace = MapPlace & {
   wantCount?: number;
   likedByMe?: boolean;
   wantedByMe?: boolean;
+  visitedByMe?: boolean;
+　visitedCount?: number; 
 };
 
 export default function PublicPage() {
@@ -77,13 +79,18 @@ export default function PublicPage() {
         type ReactionRow = {
           place_id: string;
           user_id: string;
-          kind: "like" | "want";
+          kind: "like" | "want" | "visited";
         };
 
-        let reactionBy: Record<
-          string,
-          { likeCount: number; wantCount: number; likedByMe: boolean; wantedByMe: boolean }
-        > = {};
+       let reactionBy: Record<string, {
+  likeCount: number;
+  wantCount: number;
+  visitedCount: number;
+  likedByMe: boolean;
+  wantedByMe: boolean;
+  visitedByMe: boolean;
+}> = {};
+
 
         if (ids.length > 0) {
           const { data: rs, error: eR } = await supabase
