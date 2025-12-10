@@ -36,7 +36,7 @@ export default function PublicPage() {
 
         if (error) throw error;
 
-        const rows = (data ?? []) as any[];
+        const rows = (ps ?? []) as any[];
         const ids = rows.map((p) => p.id as string);
 
         // 写真をまとめて取得
