@@ -13,7 +13,7 @@ export type Place = {
   lng: number;
   photos?: string[];
   visibility?: "public" | "private" | "pair";
-  // 🔥 追加：行きたい / 行った フラグ（public 側で使う）
+  // ★ 行きたい・行ったフラグ（public 用）
   wantedByMe?: boolean;
   visitedByMe?: boolean;
 };
@@ -42,8 +42,10 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
-  // 検索一時ピン（毎回置き換え）
+  // 検索一時ピン
   const searchMarkerRef = useRef<Marker | null>(null);
+  // 行きたい／行ったのアイコン用マーカー
+  const flagMarkersRef = useRef<Marker[]>([]);
 
   // 最新 places を参照するための ref
   const placesRef = useRef<Place[]>(places);
@@ -51,23 +53,23 @@ export default function MapView({
     placesRef.current = places;
   }, [places]);
 
-  // GeoJSON に変換（visibility + wantedByMe + visitedByMe）
- const geojson = useMemo(() => {
-  return {
-    type: "FeatureCollection",
-    features: (places || []).map((p) => ({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-      properties: {
-        id: p.id,
-        title: p.name ?? "",
-        visibility: p.visibility ?? "private",
-        wantedByMe: !!p.wantedByMe,
-        visitedByMe: !!p.visitedByMe,
-      },
-    })),
-  } as GeoJSON.FeatureCollection;
-}, [places]);
+  // GeoJSON へ変換（wantedByMe / visitedByMe も含める）
+  const geojson = useMemo(() => {
+    return {
+      type: "FeatureCollection",
+      features: (places || []).map((p) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        properties: {
+          id: p.id,
+          title: p.name ?? "",
+          visibility: p.visibility ?? "private",
+          wantedByMe: !!p.wantedByMe,
+          visitedByMe: !!p.visitedByMe,
+        },
+      })),
+    } as GeoJSON.FeatureCollection;
+  }, [places]);
 
   // 初期化：OSM ラスタ
   useEffect(() => {
@@ -83,8 +85,7 @@ export default function MapView({
           attribution: "© OpenStreetMap contributors",
         },
       },
-       glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-　　  layers: [{ id: "osm", type: "raster", source: "osm" }],
+      layers: [{ id: "osm", type: "raster", source: "osm" }],
     };
 
     const map = new maplibregl.Map({
@@ -105,7 +106,7 @@ export default function MapView({
       // データソース
       map.addSource("places", { type: "geojson", data: geojson });
 
-            // ★ ピン：行った / 行きたい / visibility で色分け
+      // ★ ピン：行きたい（緑） / 行った（黄） / visibility で色分け
       map.addLayer({
         id: "visit-pins",
         type: "circle",
@@ -121,55 +122,21 @@ export default function MapView({
           ],
           "circle-color": [
             "case",
-            // ✅ 行った！（visited）→ 緑
+            // ✅ 行った！（visited）→ 緑色
             ["==", ["get", "visitedByMe"], true],
-            "#10b981", // emerald-500
-            // ⭐ 行きたい！（wanted）→ ゴールド
+             "#22c55e", // green-500
+            // ✅ 行きたい！（wanted）→ 黄色
             ["==", ["get", "wantedByMe"], true],
-            "#eab308", // amber-500
+            "#facc15", // yellow-400
             // それ以外は visibility で振り分け
             ["==", ["get", "visibility"], "public"],
             "#2563eb", // 公開：青
             ["==", ["get", "visibility"], "pair"],
             "#eab308", // ペア：黄
-            "#ef4444", // 非公開：赤
+            "#ef4444", // 非公開 / private：赤
           ],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
-        },
-      });
-
-
-            // ★ 行きたい / 行った 用のアイコンレイヤー（⭐ / ✓ をピンの上に重ねる）
-      map.addLayer({
-        id: "visit-icons",
-        type: "symbol",
-        source: "places",
-        layout: {
-          "text-field": [
-            "case",
-            ["==", ["get", "visitedByMe"], true],
-            "✓", // 行った！
-            ["==", ["get", "wantedByMe"], true],
-            "⭐", // 行きたい！
-            "",
-          ],
-          "text-size": 18,
-          "text-offset": [0, -1.4], // ピンの少し上
-          "text-anchor": "bottom",
-          "text-allow-overlap": true,
-        },
-        paint: {
-          "text-color": [
-            "case",
-            ["==", ["get", "visitedByMe"], true],
-            "#b45309", // visited（黄色ピン）のチェック → 濃いめブラウン
-            ["==", ["get", "wantedByMe"], true],
-            "#166534", // wanted（緑ピン）の星 → 濃い緑
-            "#00000000",
-          ],
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 1.5,
         },
       });
 
@@ -197,7 +164,7 @@ export default function MapView({
         filter: ["==", ["get", "id"], ""],
       });
 
-      // ピンをクリック → 最新 placesRef から探す
+      // ピンをクリック → 最新の placesRef から探す
       map.on("click", "visit-pins", (e) => {
         const f = e.features?.[0];
         if (!f) return;
@@ -235,18 +202,54 @@ export default function MapView({
       // 片付け
       searchMarkerRef.current?.remove();
       searchMarkerRef.current = null;
+      flagMarkersRef.current.forEach((m) => m.remove());
+      flagMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // データ更新
+  // データ更新（ピン位置＆色）
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const src = map.getSource("places") as any;
     if (src) src.setData(geojson);
   }, [geojson]);
+
+  // 行きたい／行ったの⭐／✓マーカーを更新
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // 既存のフラグマーカーを全部削除
+    flagMarkersRef.current.forEach((m) => m.remove());
+    flagMarkersRef.current = [];
+
+    // wanted / visited の投稿にだけ小さいマーカーを置く
+    for (const p of places ?? []) {
+      if (!p.wantedByMe && !p.visitedByMe) continue;
+
+      const el = document.createElement("div");
+      el.style.fontSize = "16px";
+      el.style.fontWeight = "bold";
+      el.style.color = p.visitedByMe ? "#b45309" : "#166534"; // visited：濃い黄土 / wanted：濃い緑
+      el.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
+      el.style.pointerEvents = "none"; // タップ邪魔せんように
+      el.textContent = p.visitedByMe ? "✓" : "★";
+
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: "bottom",
+        // ピンの「右斜め上」あたりに出す
+        offset: [16, -22],
+      })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map);
+
+      flagMarkersRef.current.push(marker);
+    }
+  }, [places]);
 
   // 検索ジャンプ（一時ピン付き）
   useEffect(() => {
@@ -303,3 +306,4 @@ export default function MapView({
     />
   );
 }
+
