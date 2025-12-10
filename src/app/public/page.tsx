@@ -30,7 +30,7 @@ export default function PublicPage() {
         // places: visibility = 'public' だけ
         const { data, error } = await supabase
           .from("places")
-          .select("id, title, memo, lat, lng, visibility",created_by_name, created_at")
+          .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
           .eq("visibility", "public")
           .order("created_at", { ascending: false });
 
