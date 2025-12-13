@@ -741,22 +741,24 @@ async function insertPlace({
 
   // 1) places 行を先に作る（★ created_by_name を保存）
   const { data: placeRow, error: ePlace } = await supabase
-    .from("places")
-    .insert({
+  .from("places")
+  .upsert(
+    {
       space_id: sp.id,
+      client_request_id: clientRequestId,
       title: title ?? null,
       memo: memo ?? null,
       lat,
       lng,
       visited_at: visitedAt ?? null,
       created_by: uid,
-      created_by_name: displayName, // ★ここでさっきの変数を使う
+      created_by_name: displayName,
       visibility,
-    })
-    .select(
-      "id, title, memo, lat, lng, visibility, created_by_name, created_at"
-    )
-    .single();
+    },
+    { onConflict: "space_id,client_request_id" }
+  )
+  .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+  .single();
 
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
