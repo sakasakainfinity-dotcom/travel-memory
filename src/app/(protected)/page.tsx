@@ -950,7 +950,7 @@ export default function Page() {
   );
 
   return (
-  <>
+  <div>
     {/* 右上トグル（private 側） */}
     <div
       style={{
