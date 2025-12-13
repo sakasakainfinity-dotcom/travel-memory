@@ -93,6 +93,7 @@ function PostModal({
 
   try {
     await onSubmit({
+      clientRequestId,
       title: title.trim(),
       memo,
       address: address.trim() || undefined,
