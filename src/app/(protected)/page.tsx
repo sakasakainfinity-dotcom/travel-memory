@@ -25,8 +25,6 @@ type PhotoRow = {
   storage_path: string;
 };
 
-
-
 /* ================== 投稿モーダル（新規作成） ================== */
 function PostModal({
   open,
@@ -38,7 +36,7 @@ function PostModal({
   place: { lat: number; lng: number };
   onClose: () => void;
   onSubmit: (d: {
-    clientRequestId: string; 
+    clientRequestId: string;
     title: string;
     memo: string;
     address?: string;
@@ -49,7 +47,7 @@ function PostModal({
     visibility: "public" | "private" | "pair";
   }) => Promise<void>;
 }) {
-    const [title, setTitle] = useState("");
+  const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [address, setAddress] = useState("");
   const [visitedAt, setVisitedAt] = useState<string>(() => {
@@ -61,13 +59,18 @@ function PostModal({
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">("private");
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
+    "private"
+  );
 
   // ★ 投稿の「リクエスト番号」（開くたび新規発行）
-  const [clientRequestId, setClientRequestId] = useState<string>(() => crypto.randomUUID());
+  const [clientRequestId, setClientRequestId] = useState<string>(() =>
+    crypto.randomUUID()
+  );
 
-  // ★ 二重実行ガード
+  // ★ 二重実行ガード + ボタン無効化
   const creatingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
   // 開くたび完全リセット + requestId も更新
   useEffect(() => {
@@ -79,36 +82,55 @@ function PostModal({
     setTitle("");
     setMemo("");
     setAddress("");
-    setVisitedAt(`${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`);
+    setVisitedAt(
+      `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`
+    );
 
     setLat(place.lat);
     setLng(place.lng);
     setFiles([]);
     setVisibility("private");
 
-    // ★ここで投稿番号を作り直す（保存連打でも同じ番号）
+    // ★ここで投稿番号を作り直す（保存連打でも同じ番号のまま）
     setClientRequestId(crypto.randomUUID());
+
+    // 念のためリセット
+    creatingRef.current = false;
+    setSaving(false);
   }, [open, place.lat, place.lng]);
 
+  const previews = useMemo(
+    () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
+    [files]
+  );
+  useEffect(() => {
+    return () => previews.forEach((p) => URL.revokeObjectURL(p.url));
+  }, [previews]);
 
-  try {
-    await onSubmit({
-      clientRequestId,
-      title: title.trim(),
-      memo,
-      address: address.trim() || undefined,
-      visitedAt,
-      lat,
-      lng,
-      photos: files,
-      visibility,
-    });
-  } finally {
-    creatingRef.current = false;
+  async function submit() {
+    // ★二重実行ガード
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    setSaving(true);
+
+    try {
+      await onSubmit({
+        clientRequestId,
+        title: title.trim(),
+        memo,
+        address: address.trim() || undefined,
+        visitedAt,
+        lat,
+        lng,
+        photos: files,
+        visibility,
+      });
+    } finally {
+      creatingRef.current = false;
+      setSaving(false);
+    }
   }
-}
 
-  
   if (!open) return null;
 
   return (
@@ -139,46 +161,43 @@ function PostModal({
           投稿
         </div>
 
-       {/* 📍 場所を検索して反映（Yahoo 2ステップ） */}
-<div style={{ marginTop: 10 }}>
-  <label
-    style={{
-      fontSize: 12,
-      color: "#555",
-      display: "block",
-      marginBottom: 4,
-    }}
-  >
-    場所を検索して反映
-  </label>
+        {/* 📍 場所を検索して反映（Yahoo 2ステップ） */}
+        <div style={{ marginTop: 10 }}>
+          <label
+            style={{
+              fontSize: 12,
+              color: "#555",
+              display: "block",
+              marginBottom: 4,
+            }}
+          >
+            場所を検索して反映
+          </label>
 
-<PlaceGeocodeSearch
-  onPick={({ lat, lng, name, address: addr }) => {
-    setLat(lat);
-    setLng(lng);
-    if (name && !title) setTitle(name);
-    if (addr && !address) setAddress(addr);
-  }}
-  onReset={() => {
-    // 🔽 検索し直したタイミングで一度リセット
-    setTitle("");
-    setAddress("");
-  }}
-/>
+          <PlaceGeocodeSearch
+            onPick={({ lat, lng, name, address: addr }) => {
+              setLat(lat);
+              setLng(lng);
+              if (name && !title) setTitle(name);
+              if (addr && !address) setAddress(addr);
+            }}
+            onReset={() => {
+              setTitle("");
+              setAddress("");
+            }}
+          />
 
-
-  <div
-    style={{
-      marginTop: 4,
-      fontSize: 11,
-      color: "#6b7280",
-      lineHeight: 1.5,
-    }}
-  >
-    🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
-  </div>
-</div>
-
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              color: "#6b7280",
+              lineHeight: 1.5,
+            }}
+          >
+            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
+          </div>
+        </div>
 
         {/* 緯度・経度（必要なら手でいじれる） */}
         <div
@@ -216,8 +235,6 @@ function PostModal({
             />
           </label>
         </div>
-
-       
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
@@ -432,27 +449,34 @@ function PostModal({
         >
           <button
             onClick={onClose}
+            disabled={saving}
             style={{
               padding: "8px 12px",
               border: "1px solid #ddd",
               borderRadius: 8,
               background: "#fff",
+              opacity: saving ? 0.6 : 1,
+              cursor: saving ? "not-allowed" : "pointer",
             }}
           >
             閉じる
           </button>
+
           <button
-  onClick={submit}
-　　　　  style={{
- 　　　　   padding: "10px 14px",
-   　　　　 borderRadius: 10,
-  　　　　  background: "#000",
-   　　　　 color: "#fff",
-   　　　　 fontWeight: 700,
- 　　　　 }}
-　　　　　>
- 　　　　　 保存
-　　　　　</button>
+            onClick={submit}
+            disabled={saving}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#000",
+              color: "#fff",
+              fontWeight: 700,
+              opacity: saving ? 0.7 : 1,
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? "保存中…" : "保存"}
+          </button>
         </div>
       </div>
     </div>
