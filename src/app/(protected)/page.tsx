@@ -80,6 +80,13 @@ function PostModal({
     setFiles([]);
   }, [open, place.lat, place.lng]);
 
+  const [clientRequestId, setClientRequestId] = useState<string>(() => crypto.randomUUID());
+
+useEffect(() => {
+  if (!open) return;
+  setClientRequestId(crypto.randomUUID()); // 開くたび新しい投稿番号
+}, [open]);
+
   const previews = useMemo(
     () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
     [files]
