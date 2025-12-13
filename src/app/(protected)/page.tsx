@@ -46,7 +46,7 @@ function PostModal({
     lng: number;
     photos: File[];
     visibility: "public" | "private" | "pair";
-  }) => void;
+  }) => Promise<void>;
 }) {
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
@@ -56,6 +56,7 @@ function PostModal({
     const z = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
   });
+  const creatingRef = useRef(false);
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
@@ -88,6 +89,28 @@ function PostModal({
     [previews]
   );
 
+async function submit() {
+  // ★二重実行ガード
+  if (creatingRef.current) return;
+  creatingRef.current = true;
+
+  try {
+    await onSubmit({
+      title: title.trim(),
+      memo,
+      address: address.trim() || undefined,
+      visitedAt,
+      lat,
+      lng,
+      photos: files,
+      visibility,
+    });
+  } finally {
+    creatingRef.current = false;
+  }
+}
+
+  
   if (!open) return null;
 
   return (
@@ -421,28 +444,17 @@ function PostModal({
             閉じる
           </button>
           <button
-            onClick={() =>
-              onSubmit({
-                title: title.trim(),
-                memo,
-                address: address.trim() || undefined,
-                visitedAt,
-                lat,
-                lng,
-                photos: files,
-                visibility,
-              })
-            }
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              background: "#000",
-              color: "#fff",
-              fontWeight: 700,
-            }}
-          >
-            保存
-          </button>
+  onClick={submit}
+　　　　  style={{
+ 　　　　   padding: "10px 14px",
+   　　　　 borderRadius: 10,
+  　　　　  background: "#000",
+   　　　　 color: "#fff",
+   　　　　 fontWeight: 700,
+ 　　　　 }}
+　　　　　>
+ 　　　　　 保存
+　　　　　</button>
         </div>
       </div>
     </div>
