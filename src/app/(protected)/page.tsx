@@ -728,6 +728,7 @@ if (newFiles.length > 0) {
 
 /* =============== DB 保存（新規） =============== */
 async function insertPlace({
+  clientRequestId, 
   lat,
   lng,
   title,
@@ -736,6 +737,7 @@ async function insertPlace({
   files,
   visibility,
 }: {
+  clientRequestId: string;
   lat: number;
   lng: number;
   title?: string;
