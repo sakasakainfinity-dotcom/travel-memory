@@ -1333,16 +1333,16 @@ export default function Page() {
           setTimeout(() => setViewRef.current(snap), 0);
         }}
         onSubmit={async (d) => {
-          try {
-            const created = await insertPlace({
-              title: d.title,
-              memo: d.memo,
-              lat: d.lat,
-              lng: d.lng,
-              visitedAt: d.visitedAt,
-              files: d.photos,
-              visibility: d.visibility,
-            });
+　　　  await insertPlace({
+  　　　 　　clientRequestId: d.clientRequestId, // ★追加
+    　　　　 lat: d.lat,
+  　　　　　  lng: d.lng,
+ 　　　　　   title: d.title,
+  　　　　　  memo: d.memo,
+  　　　　　  visitedAt: d.visitedAt,
+   　　　　　 files: d.photos,
+   　　　　　 visibility: d.visibility,
+　　　　　　  });
             setPlaces((prev) => [
               {
                 id: created.id,
