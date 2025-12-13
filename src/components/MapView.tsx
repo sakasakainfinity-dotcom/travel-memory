@@ -12,6 +12,7 @@ export type Place = {
   lat: number;
   lng: number;
   photos?: string[];
+  postCount?: number; // ★追加
   visibility?: "public" | "private" | "pair";
   // ★ 行きたい・行ったフラグ（public 用）
   wantedByMe?: boolean;
@@ -66,6 +67,7 @@ export default function MapView({
           visibility: p.visibility ?? "private",
           wantedByMe: !!p.wantedByMe,
           visitedByMe: !!p.visitedByMe,
+          postCount: p.postCount ?? 0,
         },
       })),
     } as GeoJSON.FeatureCollection;
@@ -139,6 +141,32 @@ export default function MapView({
           "circle-stroke-width": 2,
         },
       });
+
+      // ★ 投稿数（postCount）を表示するテキストレイヤー
+map.addLayer({
+  id: "postcount-labels",
+  type: "symbol",
+  source: "places",
+  layout: {
+    // postCount > 1 だけ出す（1は出さない）
+    "text-field": [
+      "case",
+      [">", ["get", "postCount"], 1],
+      ["to-string", ["get", "postCount"]],
+      "",
+    ],
+    "text-size": 12,
+    "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+    "text-allow-overlap": true,
+    "text-ignore-placement": true,
+    "text-offset": [0, -1.2], // ピンの上に少し浮かす
+  },
+  paint: {
+    "text-color": "#ffffff",
+    "text-halo-color": "rgba(0,0,0,0.55)",
+    "text-halo-width": 2,
+  },
+});
 
       // 選択リング（外）
       map.addLayer({
