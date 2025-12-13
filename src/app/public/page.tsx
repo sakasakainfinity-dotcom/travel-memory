@@ -22,13 +22,29 @@ type PublicPlace = MapPlace & {
   likedByMe?: boolean;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
+
+  // ★追加：同一場所に紐づく投稿数（マーカー用）
+  postCount?: number;
 };
+
+// ★同じ場所判定キー（title + lat/lng 丸め）
+function makePlaceKey(title: string | null | undefined, lat: number, lng: number) {
+  const normTitle = (title ?? "").replace(/\s+/g, "").toLowerCase();
+  const r = (n: number) => Math.round(n * 1e4) / 1e4; // 小数4桁
+  return `${normTitle}|${r(lat)}|${r(lng)}`;
+}
 
 export default function PublicPage() {
   const router = useRouter();
 
+  // MapView に渡す「1場所=1マーカー」の配列
   const [places, setPlaces] = useState<PublicPlace[]>([]);
+  // ★その場所キーに紐づく投稿全部（下パネルで使う）
+  const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPlace[]>>({});
+
+  // 選択は「場所キー」
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
@@ -126,50 +142,85 @@ export default function PublicPage() {
           }
         }
 
-        // MapView 用に整形
-        setPlaces(
-          rows.map((p: any) => {
-            const react =
-              reactionBy[p.id] ?? {
-                likeCount: 0,
-                wantCount: 0,
-                visitedCount: 0,
-                likedByMe: false,
-                wantedByMe: false,
-                visitedByMe: false,
-              };
+        // ===== ここが今回の本体：同じ場所を「束ねる」 =====
+        // 1) まず「1投稿=1件」の PublicPlace を作る（idは place.id のまま）
+        const postPlaces: PublicPlace[] = rows.map((p: any) => {
+          const react =
+            reactionBy[p.id] ?? {
+              likeCount: 0,
+              wantCount: 0,
+              visitedCount: 0,
+              likedByMe: false,
+              wantedByMe: false,
+              visitedByMe: false,
+            };
 
-            return {
-              id: p.id,
-              name: p.title,
-              memo: p.memo ?? undefined,
-              lat: p.lat,
-              lng: p.lng,
-              photos: photosBy[p.id] ?? [],
-              visibility: "public",
-              createdByName: p.created_by_name ?? "名無しの旅人",
-              createdAt: p.created_at ? new Date(p.created_at) : null,
-              likeCount: react.likeCount,
-              wantCount: react.wantCount,
-              visitedCount: react.visitedCount,
-              likedByMe: react.likedByMe,
-              wantedByMe: react.wantedByMe,
-              visitedByMe: react.visitedByMe,
-            } as PublicPlace;
-          })
-        );
+          return {
+            id: p.id, // ←ここは「投稿ID（places.id）」のまま保持
+            name: p.title,
+            memo: p.memo ?? undefined,
+            lat: p.lat,
+            lng: p.lng,
+            photos: photosBy[p.id] ?? [],
+            visibility: "public",
+            createdByName: p.created_by_name ?? "名無しの旅人",
+            createdAt: p.created_at ? new Date(p.created_at) : null,
+            likeCount: react.likeCount,
+            wantCount: react.wantCount,
+            visitedCount: react.visitedCount,
+            likedByMe: react.likedByMe,
+            wantedByMe: react.wantedByMe,
+            visitedByMe: react.visitedByMe,
+          } as PublicPlace;
+        });
+
+        // 2) placeKey -> 投稿配列
+        const grouped: Record<string, PublicPlace[]> = {};
+        for (const post of postPlaces) {
+          const key = makePlaceKey(post.name, post.lat, post.lng);
+          (grouped[key] ||= []).push(post);
+        }
+
+        // 3) MapView 用の「1場所=1マーカー」を作る（代表1件を使う）
+        //    id は placeKey にする（選択・検索・マーカー識別が安定する）
+        const markerPlaces: PublicPlace[] = Object.entries(grouped).map(([key, posts]) => {
+          // ルール：グループ内は createdAt 新しい順（rowsが降順なので基本そのまま）
+          const sorted = [...posts].sort((a, b) => {
+            const ad = a.createdAt?.getTime() ?? 0;
+            const bd = b.createdAt?.getTime() ?? 0;
+            return bd - ad;
+          });
+
+          const repr = sorted[0]; // 代表（最新）
+          return {
+            ...repr,
+            id: key, // ★重要：MapViewに渡すIDは「場所キー」
+            postCount: posts.length, // ★投稿数
+          } as PublicPlace;
+        });
+
+        setPostsByPlaceKey(grouped);
+        setPlaces(markerPlaces);
       } catch (e) {
         console.error(e);
       }
     })();
   }, []);
 
-  const selected = useMemo(
-    () => places.find((x) => x.id === selectedId) || null,
-    [places, selectedId]
-  );
+  // 選択中の「場所の投稿全部」
+  const selectedPosts = useMemo(() => {
+    if (!selectedId) return [];
+    return postsByPlaceKey[selectedId] ?? [];
+  }, [postsByPlaceKey, selectedId]);
+
+  const selectedTitle = useMemo(() => {
+    if (!selectedId) return "";
+    const marker = places.find((x) => x.id === selectedId);
+    return marker?.name ?? "";
+  }, [places, selectedId]);
 
   // リアクションのトグル（like / want / visited 共通）
+  // ★注意：placeId は「投稿（places.id）」の方を渡す
   async function toggleReaction(placeId: string, kind: "like" | "want" | "visited") {
     try {
       setReactBusyId(`${placeId}:${kind}`);
@@ -181,7 +232,16 @@ export default function PublicPage() {
         return;
       }
 
-      const target = places.find((p) => p.id === placeId);
+      // 今は places(マーカー) には投稿の likedByMe が無いので、
+      // postsByPlaceKey 全体から対象投稿を探す
+      let target: PublicPlace | null = null;
+      for (const posts of Object.values(postsByPlaceKey)) {
+        const hit = posts.find((p) => p.id === placeId);
+        if (hit) {
+          target = hit;
+          break;
+        }
+      }
       if (!target) return;
 
       const already =
@@ -202,26 +262,26 @@ export default function PublicPage() {
 
         if (error) throw error;
 
-        setPlaces((prev) =>
-          prev.map((p) =>
-            p.id !== placeId
-              ? p
-              : {
-                  ...p,
-                  likeCount:
-                    kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-                  wantCount:
-                    kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-                  visitedCount:
-                    kind === "visited"
-                      ? Math.max(0, (p.visitedCount ?? 0) - 1)
-                      : p.visitedCount,
-                  likedByMe: kind === "like" ? false : p.likedByMe,
-                  wantedByMe: kind === "want" ? false : p.wantedByMe,
-                  visitedByMe: kind === "visited" ? false : p.visitedByMe,
-                }
-          )
-        );
+        setPostsByPlaceKey((prev) => {
+          const next: Record<string, PublicPlace[]> = {};
+          for (const [k, arr] of Object.entries(prev)) {
+            next[k] = arr.map((p) =>
+              p.id !== placeId
+                ? p
+                : {
+                    ...p,
+                    likeCount: kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
+                    wantCount: kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+                    visitedCount:
+                      kind === "visited" ? Math.max(0, (p.visitedCount ?? 0) - 1) : p.visitedCount,
+                    likedByMe: kind === "like" ? false : p.likedByMe,
+                    wantedByMe: kind === "want" ? false : p.wantedByMe,
+                    visitedByMe: kind === "visited" ? false : p.visitedByMe,
+                  }
+            );
+          }
+          return next;
+        });
       } else {
         // まだ押してない → 追加
         const { error } = await supabase
@@ -234,24 +294,25 @@ export default function PublicPage() {
 
         if (error) throw error;
 
-        setPlaces((prev) =>
-          prev.map((p) =>
-            p.id !== placeId
-              ? p
-              : {
-                  ...p,
-                  likeCount:
-                    kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-                  wantCount:
-                    kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-                  visitedCount:
-                    kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-                  likedByMe: kind === "like" ? true : p.likedByMe,
-                  wantedByMe: kind === "want" ? true : p.wantedByMe,
-                  visitedByMe: kind === "visited" ? true : p.visitedByMe,
-                }
-          )
-        );
+        setPostsByPlaceKey((prev) => {
+          const next: Record<string, PublicPlace[]> = {};
+          for (const [k, arr] of Object.entries(prev)) {
+            next[k] = arr.map((p) =>
+              p.id !== placeId
+                ? p
+                : {
+                    ...p,
+                    likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+                    wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+                    visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+                    likedByMe: kind === "like" ? true : p.likedByMe,
+                    wantedByMe: kind === "want" ? true : p.wantedByMe,
+                    visitedByMe: kind === "visited" ? true : p.visitedByMe,
+                  }
+            );
+          }
+          return next;
+        });
       }
     } catch (e) {
       console.error(e);
@@ -354,7 +415,7 @@ export default function PublicPage() {
                 lng: p.lng,
                 zoom: p.zoom ?? 15,
               });
-              if (p.id) setSelectedId(p.id);
+              if (p.id) setSelectedId(p.id); // ← placeKey が入ってくる
             }}
           />
         </div>
@@ -366,7 +427,7 @@ export default function PublicPage() {
         onRequestNew={() => {
           alert("公開マップでは投稿できんよ。自分のマップ（Private）で投稿してね。");
         }}
-        onSelect={(p) => setSelectedId(p.id)}
+        onSelect={(p) => setSelectedId(p.id)} // ← placeKey
         selectedId={selectedId}
         flyTo={flyTo}
         bindGetView={(fn) => {
@@ -378,8 +439,8 @@ export default function PublicPage() {
         initialView={initialView}
       />
 
-      {/* 下プレビュー */}
-      {selected && (
+      {/* 下パネル：同じ場所の投稿を全部（スクロール） */}
+      {selectedId && (
         <div
           style={{
             position: "fixed",
@@ -400,7 +461,7 @@ export default function PublicPage() {
             gap: 10,
           }}
         >
-          {/* タイトル */}
+          {/* タイトル（場所） */}
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -414,9 +475,9 @@ export default function PublicPage() {
                 textOverflow: "ellipsis",
                 letterSpacing: "0.02em",
               }}
-              title={selected.name || "無題"}
+              title={selectedTitle || "無題"}
             >
-              {selected.name || "無題"}
+              {selectedTitle || "無題"}（{selectedPosts.length}件）
             </div>
           </div>
 
@@ -437,142 +498,122 @@ export default function PublicPage() {
             ×
           </button>
 
-          {/* 投稿者 + 投稿日時 */}
-          <div
-            style={{
-              fontSize: 11,
-              color: "#6b7280",
-              textAlign: "center",
-              marginTop: 4,
-            }}
-          >
-            {selected.createdByName}{" "}
-            {selected.createdAt &&
-              `・${selected.createdAt.toLocaleDateString("ja-JP")}`}
-          </div>
-
-          {/* リアクションボタン（3つ） */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: 8,
-              marginTop: 6,
-              flexWrap: "wrap",
-            }}
-          >
-            {/* いいね */}
-            <button
-              type="button"
-              disabled={reactBusyId === `${selected.id}:like`}
-              onClick={() => toggleReaction(selected.id, "like")}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: selected.likedByMe
-                  ? "1px solid #f97316"
-                  : "1px solid #fed7aa",
-                background: selected.likedByMe ? "#f97316" : "#fff7ed",
-                color: selected.likedByMe ? "#fff" : "#9a3412",
-                fontSize: 12,
-                cursor:
-                  reactBusyId === `${selected.id}:like`
-                    ? "default"
-                    : "pointer",
-              }}
-            >
-              ❤️ いいね（{selected.likeCount ?? 0}）
-            </button>
-
-            {/* 行きたい！ */}
-            <button
-              type="button"
-              disabled={reactBusyId === `${selected.id}:want`}
-              onClick={() => toggleReaction(selected.id, "want")}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: selected.wantedByMe
-                  ? "1px solid #fbbf24"
-                  : "1px solid #fef3c7",
-                background: selected.wantedByMe ? "#fbbf24" : "#fffbeb",
-                color: selected.wantedByMe ? "#78350f" : "#92400e",
-                fontSize: 12,
-                cursor:
-                  reactBusyId === `${selected.id}:want`
-                    ? "default"
-                    : "pointer",
-              }}
-            >
-              ⭐ 行きたい！（{selected.wantCount ?? 0}）
-            </button>
-
-            {/* 行った！ */}
-            <button
-              type="button"
-              disabled={reactBusyId === `${selected.id}:visited`}
-              onClick={() => toggleReaction(selected.id, "visited")}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: selected.visitedByMe
-                  ? "1px solid #10b981"
-                  : "1px solid #d1fae5",
-                background: selected.visitedByMe ? "#10b981" : "#ecfdf5",
-                color: selected.visitedByMe ? "#ecfdf5" : "#065f46",
-                fontSize: 12,
-                cursor:
-                  reactBusyId === `${selected.id}:visited`
-                    ? "default"
-                    : "pointer",
-              }}
-            >
-              ✓ 行った！（{selected.visitedCount ?? 0}）
-            </button>
-          </div>
-
-          {/* メモ */}
-          <div
-            style={{
-              fontSize: 13,
-              color: "#374151",
-              lineHeight: 1.5,
-              maxHeight: "16vh",
-              overflow: "auto",
-            }}
-          >
-            {selected.memo || "（メモなし）"}
-          </div>
-
-          {/* 写真一覧 */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-              gap: 8,
-              overflowY: "auto",
-              flex: 1,
-            }}
-          >
-            {(selected.photos ?? []).length === 0 && (
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                写真はまだありません
+          {/* 投稿一覧（スクロール） */}
+          <div style={{ overflowY: "auto", display: "grid", gap: 12, paddingTop: 4 }}>
+            {selectedPosts.length === 0 && (
+              <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: 20 }}>
+                投稿が見つからんかった…
               </div>
             )}
-            {(selected.photos ?? []).map((u) => (
-              <img
-                key={u}
-                src={u}
-                loading="lazy"
+
+            {selectedPosts.map((post) => (
+              <div
+                key={post.id}
                 style={{
-                  width: "100%",
-                  height: "24vh",
-                  objectFit: "cover",
-                  borderRadius: 10,
-                  border: "1px solid #eee",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 12,
+                  padding: 12,
+                  background: "#fff",
+                  display: "grid",
+                  gap: 10,
                 }}
-                alt=""
-              />
+              >
+                {/* 投稿者 + 投稿日時 */}
+                <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>
+                  {post.createdByName ?? "名無しの旅人"}{" "}
+                  {post.createdAt && `・${post.createdAt.toLocaleDateString("ja-JP")}`}
+                </div>
+
+                {/* リアクションボタン（3つ） */}
+                <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+                  {/* いいね */}
+                  <button
+                    type="button"
+                    disabled={reactBusyId === `${post.id}:like`}
+                    onClick={() => toggleReaction(post.id, "like")}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      border: post.likedByMe ? "1px solid #f97316" : "1px solid #fed7aa",
+                      background: post.likedByMe ? "#f97316" : "#fff7ed",
+                      color: post.likedByMe ? "#fff" : "#9a3412",
+                      fontSize: 12,
+                      cursor: reactBusyId === `${post.id}:like` ? "default" : "pointer",
+                    }}
+                  >
+                    ❤️ いいね（{post.likeCount ?? 0}）
+                  </button>
+
+                  {/* 行きたい！ */}
+                  <button
+                    type="button"
+                    disabled={reactBusyId === `${post.id}:want`}
+                    onClick={() => toggleReaction(post.id, "want")}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      border: post.wantedByMe ? "1px solid #fbbf24" : "1px solid #fef3c7",
+                      background: post.wantedByMe ? "#fbbf24" : "#fffbeb",
+                      color: post.wantedByMe ? "#78350f" : "#92400e",
+                      fontSize: 12,
+                      cursor: reactBusyId === `${post.id}:want` ? "default" : "pointer",
+                    }}
+                  >
+                    ⭐ 行きたい！（{post.wantCount ?? 0}）
+                  </button>
+
+                  {/* 行った！ */}
+                  <button
+                    type="button"
+                    disabled={reactBusyId === `${post.id}:visited`}
+                    onClick={() => toggleReaction(post.id, "visited")}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      border: post.visitedByMe ? "1px solid #10b981" : "1px solid #d1fae5",
+                      background: post.visitedByMe ? "#10b981" : "#ecfdf5",
+                      color: post.visitedByMe ? "#ecfdf5" : "#065f46",
+                      fontSize: 12,
+                      cursor: reactBusyId === `${post.id}:visited` ? "default" : "pointer",
+                    }}
+                  >
+                    ✓ 行った！（{post.visitedCount ?? 0}）
+                  </button>
+                </div>
+
+                {/* メモ */}
+                <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                  {post.memo || "（メモなし）"}
+                </div>
+
+                {/* 写真一覧 */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  {(post.photos ?? []).length === 0 && (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+                  )}
+                  {(post.photos ?? []).map((u) => (
+                    <img
+                      key={u}
+                      src={u}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        height: "22vh",
+                        objectFit: "cover",
+                        borderRadius: 10,
+                        border: "1px solid #eee",
+                      }}
+                      alt=""
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
