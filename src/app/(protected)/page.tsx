@@ -38,6 +38,7 @@ function PostModal({
   place: { lat: number; lng: number };
   onClose: () => void;
   onSubmit: (d: {
+    clientRequestId: string; 
     title: string;
     memo: string;
     address?: string;
@@ -48,7 +49,7 @@ function PostModal({
     visibility: "public" | "private" | "pair";
   }) => Promise<void>;
 }) {
-  const [title, setTitle] = useState("");
+    const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [address, setAddress] = useState("");
   const [visitedAt, setVisitedAt] = useState<string>(() => {
@@ -56,50 +57,39 @@ function PostModal({
     const z = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
   });
-  const creatingRef = useRef(false);
+
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
-    "private"
-  );
+  const [visibility, setVisibility] = useState<"public" | "private" | "pair">("private");
 
-  // 開くたび完全リセット
+  // ★ 投稿の「リクエスト番号」（開くたび新規発行）
+  const [clientRequestId, setClientRequestId] = useState<string>(() => crypto.randomUUID());
+
+  // ★ 二重実行ガード
+  const creatingRef = useRef(false);
+
+  // 開くたび完全リセット + requestId も更新
   useEffect(() => {
     if (!open) return;
+
     const d = new Date();
     const z = (n: number) => String(n).padStart(2, "0");
+
     setTitle("");
     setMemo("");
     setAddress("");
-    setVisitedAt(
-      `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`
-    );
+    setVisitedAt(`${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`);
+
     setLat(place.lat);
     setLng(place.lng);
     setFiles([]);
+    setVisibility("private");
+
+    // ★ここで投稿番号を作り直す（保存連打でも同じ番号）
+    setClientRequestId(crypto.randomUUID());
   }, [open, place.lat, place.lng]);
 
-  const [clientRequestId, setClientRequestId] = useState<string>(() => crypto.randomUUID());
-
-useEffect(() => {
-  if (!open) return;
-  setClientRequestId(crypto.randomUUID()); // 開くたび新しい投稿番号
-}, [open]);
-
-  const previews = useMemo(
-    () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
-    [files]
-  );
-  useEffect(
-    () => () => previews.forEach((p) => URL.revokeObjectURL(p.url)),
-    [previews]
-  );
-
-async function submit() {
-  // ★二重実行ガード
-  if (creatingRef.current) return;
-  creatingRef.current = true;
 
   try {
     await onSubmit({
