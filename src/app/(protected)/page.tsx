@@ -949,197 +949,191 @@ export default function Page() {
     [places, selectedId]
   );
 
-  return (
-  <div>
-    {/* 右上トグル（private 側） */}
-    <div
-      style={{
-        position: "fixed",
-        top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-        right: "max(12px, env(safe-area-inset-right, 0px))",
-        zIndex: 11000,
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-    >
+   return (
+    <>
+      {/* 右上トグル（private 側） */}
       <div
         style={{
-          display: "inline-flex",
-          borderRadius: 999,
-          border: "1px solid #d1d5db",
-          overflow: "hidden",
-          background: "#fff",
-          fontSize: 12,
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          right: "max(12px, env(safe-area-inset-right, 0px))",
+          zIndex: 11000,
         }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Private 側（ここではON） */}
-        <button
-          type="button"
+        <div
           style={{
-            padding: "6px 10px",
-            border: "none",
-            background: "#0f172a",
-            color: "#fff",
-            cursor: "default",
             display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontWeight: 700,
-          }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "999px",
-              background: "#22c55e",
-            }}
-          />
-          Private
-        </button>
-
-        {/* Public 側（ここではOFF） */}
-        <button
-          type="button"
-          onClick={() => router.push("/public")}
-          style={{
-            padding: "6px 10px",
-            border: "none",
+            borderRadius: 999,
+            border: "1px solid #d1d5db",
+            overflow: "hidden",
             background: "#fff",
-            color: "#6b7280",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
+            fontSize: 12,
           }}
         >
-          <span
+          {/* Private 側（ここではON） */}
+          <button
+            type="button"
             style={{
-              width: 8,
-              height: 8,
-              borderRadius: "999px",
-              border: "1px solid #9ca3af",
+              padding: "6px 10px",
+              border: "none",
+              background: "#0f172a",
+              color: "#fff",
+              cursor: "default",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontWeight: 700,
             }}
-          />
-          Public
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                background: "#22c55e",
+              }}
+            />
+            Private
+          </button>
+
+          {/* Public 側（ここではOFF） */}
+          <button
+            type="button"
+            onClick={() => router.push("/public")}
+            style={{
+              padding: "6px 10px",
+              border: "none",
+              background: "#fff",
+              color: "#6b7280",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "999px",
+                border: "1px solid #9ca3af",
+              }}
+            />
+            Public
+          </button>
+        </div>
+      </div>
+
+      {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 56px)",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          zIndex: 10000,
+          pointerEvents: "auto",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
+          <div style={{ position: "relative" }}>
+            <SearchBox
+              places={places}
+              onPick={(p) => {
+                setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
+                if (p.id) setSelectedId(p.id);
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ハンバーガーメニュー */}
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 52px)",
+          right: "max(12px, env(safe-area-inset-right, 0px))",
+          zIndex: 11000,
+        }}
+        onClick={() => setMenuOpen(true)}
+      >
+        <button
+          type="button"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: "#fff",
+            border: "1px solid #ddd",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20,
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+          }}
+        >
+          ≡
         </button>
       </div>
-    </div>
 
-  {/* 🔍 検索（左寄せ・小さめ・ノッチ対応） */}
-<div
-  style={{
-    position: "fixed",
-    // トグルのすぐ下に来るように、少しだけ下げる
-    top: "calc(env(safe-area-inset-top, 0px) + 56px)",
-    left: "max(12px, env(safe-area-inset-left, 0px))",
-    zIndex: 10000,
-    pointerEvents: "auto",
-  }}
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => e.stopPropagation()}
-  onWheel={(e) => e.stopPropagation()}
-  onTouchStart={(e) => e.stopPropagation()}
->
-  <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
-    <div style={{ position: "relative" }}>
-      <SearchBox
-        places={places}
-        onPick={(p) => {
-          setFlyTo({
-            lat: p.lat,
-            lng: p.lng,
-            zoom: p.zoom ?? 15,
-          });
-          if (p.id) setSelectedId(p.id);
-        }}
-      />
-    </div>
-  </div>
-</div>
+      {/* スライドメニュー */}
+      {menuOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            width: "70vw",
+            maxWidth: 300,
+            height: "100vh",
+            background: "#ffffff",
+            zIndex: 20000,
+            boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
+            padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+          }}
+        >
+          <button
+            onClick={() => setMenuOpen(false)}
+            style={{
+              width: "100%",
+              textAlign: "right",
+              fontSize: 22,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              marginBottom: 10,
+            }}
+          >
+            ×
+          </button>
 
-{/* ハンバーガーメニュー */}
-<div
-  style={{
-    position: "fixed",
-    top: "calc(env(safe-area-inset-top, 0px) + 52px)",
-    right: "max(12px, env(safe-area-inset-right, 0px))",
-    zIndex: 11000,
-  }}
-  onClick={() => setMenuOpen(true)}
->
-  <button
-    type="button"
-    style={{
-      width: 34,
-      height: 34,
-      borderRadius: 8,
-      background: "#fff",
-      border: "1px solid #ddd",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 20,
-      cursor: "pointer",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-    }}
-  >
-    ≡
-  </button>
-</div>
-
-{/* スライドメニュー */}
-{menuOpen && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      right: 0,
-      width: "70vw",
-      maxWidth: 300,
-      height: "100vh",
-      background: "#ffffff",
-      zIndex: 20000,
-      boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
-      padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 20px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 18,
-    }}
-  >
-    <button
-      onClick={() => setMenuOpen(false)}
-      style={{
-        width: "100%",
-        textAlign: "right",
-        fontSize: 22,
-        border: "none",
-        background: "none",
-        cursor: "pointer",
-        marginBottom: 10,
-      }}
-    >
-      ×
-    </button>
-
-    <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
-    <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
-    <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
-    <MenuButton label="ペア機能" onClick={() => router.push("/pair")} />
-    <MenuButton label="シェアする" onClick={() => router.push("/share")} />
-    <MenuButton label="巡礼マップ" onClick={() => router.push("/pilgrimage")} />
-    <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
-    <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
-    <MenuButton
-      label="ログアウト"
-      onClick={async () => {
-        await supabase.auth.signOut();
-        router.push("/login");
-      }}
-    />
-  </div>
-)}
-
+          <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
+          <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
+          <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
+          <MenuButton label="ペア機能" onClick={() => router.push("/pair")} />
+          <MenuButton label="シェアする" onClick={() => router.push("/share")} />
+          <MenuButton label="巡礼マップ" onClick={() => router.push("/pilgrimage")} />
+          <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
+          <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
+          <MenuButton
+            label="ログアウト"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/login");
+            }}
+          />
+        </div>
+      )}
 
       {/* 🗺 マップ（1つだけ） */}
       <MapView
@@ -1148,12 +1142,16 @@ export default function Page() {
         onSelect={(p) => setSelectedId(p.id)}
         selectedId={selectedId}
         flyTo={flyTo}
-        bindGetView={(fn) => { getViewRef.current = fn; }}
-        bindSetView={(fn) => { setViewRef.current = fn; }}
+        bindGetView={(fn) => {
+          getViewRef.current = fn;
+        }}
+        bindSetView={(fn) => {
+          setViewRef.current = fn;
+        }}
         initialView={initialView}
       />
 
-       {/* 🗺 ヒント：地図クリックで投稿できる */}
+      {/* 🗺 ヒント：地図クリックで投稿できる */}
       <div
         style={{
           position: "fixed",
@@ -1174,7 +1172,7 @@ export default function Page() {
         <br />
         その場所に投稿できるよ
       </div>
-    
+
       {/* ➕ 投稿フローティングボタン */}
       <button
         onClick={() => {
@@ -1221,7 +1219,6 @@ export default function Page() {
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* タイトル（中央） */}
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -1241,7 +1238,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* 閉じる */}
           <button
             onClick={() => setSelectedId(null)}
             style={{
@@ -1259,7 +1255,6 @@ export default function Page() {
             ×
           </button>
 
-          {/* 編集 */}
           <button
             onClick={() => setEditOpen(true)}
             style={{
@@ -1278,7 +1273,6 @@ export default function Page() {
             編集
           </button>
 
-          {/* メモ */}
           <div
             style={{
               fontSize: 13,
@@ -1291,7 +1285,6 @@ export default function Page() {
             {selected.memo || "（メモなし）"}
           </div>
 
-          {/* 写真 */}
           <div
             style={{
               display: "grid",
@@ -1323,47 +1316,52 @@ export default function Page() {
         </div>
       )}
 
-      {/* 📝 投稿モーダル */}
-      <PostModal
-        open={!!newAt}
-        place={{ lat: newAt?.lat ?? 0, lng: newAt?.lng ?? 0 }}
-        onClose={() => {
-          setNewAt(null);
-          const snap = initialView ?? getViewRef.current();
-          setTimeout(() => setViewRef.current(snap), 0);
-        }}
-        onSubmit={async (d) => {
-　　　  await insertPlace({
-  　　　 　　clientRequestId: d.clientRequestId, // ★追加
-    　　　　 lat: d.lat,
-  　　　　　  lng: d.lng,
- 　　　　　   title: d.title,
-  　　　　　  memo: d.memo,
-  　　　　　  visitedAt: d.visitedAt,
-   　　　　　 files: d.photos,
-   　　　　　 visibility: d.visibility,
-　　　　　　  });
-            setPlaces((prev) => [
-              {
-                id: created.id,
-                name: created.title ?? "新規",
-                memo: created.memo ?? undefined,
-                lat: created.lat,
-                lng: created.lng,
-                photos: created.photos ?? [],
-                visibility: created.visibility ?? "private",
-              },
-              ...prev,
-            ]);
+      {/* 📝 投稿モーダル：newAt がある時だけ表示 */}
+      {newAt && (
+        <PostModal
+          open={true}
+          place={{ lat: newAt.lat, lng: newAt.lng }}
+          onClose={() => {
             setNewAt(null);
             const snap = initialView ?? getViewRef.current();
             setTimeout(() => setViewRef.current(snap), 0);
-          } catch (e: any) {
-            alert(`保存に失敗しました: ${e?.message ?? e}`);
-            console.error(e);
-          }
-        }}
-      />
+          }}
+          onSubmit={async (d) => {
+            try {
+              const created = await insertPlace({
+                clientRequestId: d.clientRequestId,
+                lat: d.lat,
+                lng: d.lng,
+                title: d.title,
+                memo: d.memo,
+                visitedAt: d.visitedAt,
+                files: d.photos,
+                visibility: d.visibility,
+              });
+
+              setPlaces((prev) => [
+                {
+                  id: created.id,
+                  name: created.title ?? "新規",
+                  memo: created.memo ?? undefined,
+                  lat: created.lat,
+                  lng: created.lng,
+                  photos: created.photos ?? [],
+                  visibility: created.visibility ?? "private",
+                },
+                ...prev,
+              ]);
+
+              setNewAt(null);
+              const snap = initialView ?? getViewRef.current();
+              setTimeout(() => setViewRef.current(snap), 0);
+            } catch (e: any) {
+              alert(`保存に失敗しました: ${e?.message ?? e}`);
+              console.error(e);
+            }
+          }}
+        />
+      )}
 
       {/* ✏️ 編集モーダル */}
       {selected && (
@@ -1394,6 +1392,7 @@ export default function Page() {
     </>
   );
 }
+
 // 👇 Page のすぐ下にこれを置く（場所はここでOK）
 function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
