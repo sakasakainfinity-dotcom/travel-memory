@@ -228,121 +228,118 @@ setPlaceIdToKey(idMap);
     return marker?.name ?? "";
   }, [places, selectedId]);
 
-  // リアクションのトグル（like / want / visited 共通）
+// リアクションのトグル（like / want / visited 共通）
 // ★注意：placeId は「投稿（places.id）」の方を渡す
 async function toggleReaction(
   placeId: string,
   kind: "like" | "want" | "visited"
 ) {
   const busyKey = `${placeId}:${kind}`;
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+
+  if (!uid) {
+    alert("リアクションするにはログインが必要じゃよ。");
+    return;
+  }
+
+  // placeId → placeKey
+  const key = placeIdToKey[placeId];
+  if (!key) return;
+
+  // 今の状態を prev から読んで、次の状態を作る（ここが大事）
+  let already = false;
+  let snapshot: Record<string, PublicPlace[]> | null = null;
+
   try {
     setReactBusyId(busyKey);
 
-    const { data: ses } = await supabase.auth.getSession();
-    const uid = ses.session?.user.id;
-    if (!uid) {
-      alert("リアクションするにはログインが必要じゃよ。");
-      return;
-    }
+    // ✅ 1) 先にUI更新（楽観的更新）
+    setPostsByPlaceKey((prev) => {
+      snapshot = prev; // 失敗時に戻す用
 
-    // ★ placeId → placeKey を一発で引く（辞書がある前提）
-    const key = placeIdToKey[placeId];
-    if (!key) return;
+      const arr = prev[key] ?? [];
+      const target = arr.find((p) => p.id === placeId);
+      if (!target) return prev;
 
-    // ★ 対象投稿をその key の配列から探す（全走査しない）
-    const target = (postsByPlaceKey[key] ?? []).find((p) => p.id === placeId);
-    if (!target) return;
+      already =
+        kind === "like"
+          ? !!target.likedByMe
+          : kind === "want"
+          ? !!target.wantedByMe
+          : !!target.visitedByMe;
 
-    const already =
-      kind === "like"
-        ? !!target.likedByMe
-        : kind === "want"
-        ? !!target.wantedByMe
-        : !!target.visitedByMe;
+      const nextArr = arr.map((p) => {
+        if (p.id !== placeId) return p;
 
+        if (already) {
+          // 押してた → 取り消し
+          return {
+            ...p,
+            likeCount:
+              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
+            wantCount:
+              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+            visitedCount:
+              kind === "visited"
+                ? Math.max(0, (p.visitedCount ?? 0) - 1)
+                : p.visitedCount,
+            likedByMe: kind === "like" ? false : p.likedByMe,
+            wantedByMe: kind === "want" ? false : p.wantedByMe,
+            visitedByMe: kind === "visited" ? false : p.visitedByMe,
+          };
+        } else {
+          // 押してない → 追加
+          return {
+            ...p,
+            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+            visitedCount:
+              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+            likedByMe: kind === "like" ? true : p.likedByMe,
+            wantedByMe: kind === "want" ? true : p.wantedByMe,
+            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+          };
+        }
+      });
+
+      return { ...prev, [key]: nextArr };
+    });
+
+    // ✅ 2) あとからDB更新
     if (already) {
-      // すでに押している → 取り消し
       const { error } = await supabase
         .from("place_reactions")
         .delete()
         .eq("place_id", placeId)
         .eq("user_id", uid)
         .eq("kind", kind);
-
       if (error) throw error;
-
-      // ★ UI即時反映（この1回だけ）
-      setPostsByPlaceKey((prev) => {
-        const arr = prev[key] ?? [];
-        return {
-          ...prev,
-          [key]: arr.map((p) =>
-            p.id !== placeId
-              ? p
-              : {
-                  ...p,
-                  likeCount:
-                    kind === "like"
-                      ? Math.max(0, (p.likeCount ?? 0) - 1)
-                      : p.likeCount,
-                  wantCount:
-                    kind === "want"
-                      ? Math.max(0, (p.wantCount ?? 0) - 1)
-                      : p.wantCount,
-                  visitedCount:
-                    kind === "visited"
-                      ? Math.max(0, (p.visitedCount ?? 0) - 1)
-                      : p.visitedCount,
-                  likedByMe: kind === "like" ? false : p.likedByMe,
-                  wantedByMe: kind === "want" ? false : p.wantedByMe,
-                  visitedByMe: kind === "visited" ? false : p.visitedByMe,
-                }
-          ),
-        };
-      });
     } else {
-      // まだ押してない → 追加
       const { error } = await supabase.from("place_reactions").insert({
         place_id: placeId,
         user_id: uid,
         kind,
       });
-
       if (error) throw error;
-
-      // ★ UI即時反映（この1回だけ）
-      setPostsByPlaceKey((prev) => {
-        const arr = prev[key] ?? [];
-        return {
-          ...prev,
-          [key]: arr.map((p) =>
-            p.id !== placeId
-              ? p
-              : {
-                  ...p,
-                  likeCount:
-                    kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-                  wantCount:
-                    kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-                  visitedCount:
-                    kind === "visited"
-                      ? (p.visitedCount ?? 0) + 1
-                      : p.visitedCount,
-                  likedByMe: kind === "like" ? true : p.likedByMe,
-                  wantedByMe: kind === "want" ? true : p.wantedByMe,
-                  visitedByMe: kind === "visited" ? true : p.visitedByMe,
-                }
-          ),
-        };
-      });
     }
+
+    // （デバッグ用）押した瞬間にUIが変わってるか確認
+    console.log("optimistic updated", placeId, kind, "already:", already);
   } catch (e) {
     console.error(e);
+
+    // ✅ 3) 失敗したらUIを戻す
+    if (snapshot) {
+      setPostsByPlaceKey(snapshot);
+    }
+
     alert("反応の更新に失敗したかも…時間をおいてもう一度試してみて。");
   } finally {
     setReactBusyId(null);
   }
 }
+
 
   return (
     <>
