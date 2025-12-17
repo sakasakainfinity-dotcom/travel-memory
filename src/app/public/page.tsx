@@ -271,26 +271,27 @@ setPlaceIdToKey(idMap);
         if (error) throw error;
 
         setPostsByPlaceKey((prev) => {
-          const next: Record<string, PublicPlace[]> = {};
           const key = placeIdToKey[placeId];
-if (!key) return;
+          if (!key) return prev;
 
-setPostsByPlaceKey(prev => ({
-  ...prev,
-  [key]: prev[key].map(p =>
-    p.id !== placeId
-      ? p
-      : {
-          ...p,
-          likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-          wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-          visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-          likedByMe: kind === "like" ? true : p.likedByMe,
-          wantedByMe: kind === "want" ? true : p.wantedByMe,
-          visitedByMe: kind === "visited" ? true : p.visitedByMe,
-        }
-  )
-}));
+const arr = prev[key] ?? [];
+  return {
+    ...prev,
+    [key]: arr.map((p) =>
+      p.id !== placeId
+        ? p
+        : {
+            ...p,
+            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+            visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+            likedByMe: kind === "like" ? true : p.likedByMe,
+            wantedByMe: kind === "want" ? true : p.wantedByMe,
+            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+          }
+    ),
+  };
+});
           return next;
         });
       } else {
