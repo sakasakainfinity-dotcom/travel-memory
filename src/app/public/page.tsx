@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import SearchBox from "@/components/SearchBox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -201,6 +202,13 @@ export default function PublicPage() {
 
         setPostsByPlaceKey(grouped);
         setPlaces(markerPlaces);
+        const idMap: Record<string, string> = {};
+for (const [key, posts] of Object.entries(grouped)) {
+  for (const p of posts) {
+    idMap[p.id] = key;
+  }
+}
+setPlaceIdToKey(idMap);
       } catch (e) {
         console.error(e);
       }
@@ -264,22 +272,25 @@ export default function PublicPage() {
 
         setPostsByPlaceKey((prev) => {
           const next: Record<string, PublicPlace[]> = {};
-          for (const [k, arr] of Object.entries(prev)) {
-            next[k] = arr.map((p) =>
-              p.id !== placeId
-                ? p
-                : {
-                    ...p,
-                    likeCount: kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-                    wantCount: kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-                    visitedCount:
-                      kind === "visited" ? Math.max(0, (p.visitedCount ?? 0) - 1) : p.visitedCount,
-                    likedByMe: kind === "like" ? false : p.likedByMe,
-                    wantedByMe: kind === "want" ? false : p.wantedByMe,
-                    visitedByMe: kind === "visited" ? false : p.visitedByMe,
-                  }
-            );
-          }
+          const key = placeIdToKey[placeId];
+if (!key) return;
+
+setPostsByPlaceKey(prev => ({
+  ...prev,
+  [key]: prev[key].map(p =>
+    p.id !== placeId
+      ? p
+      : {
+          ...p,
+          likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+          wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+          visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+          likedByMe: kind === "like" ? true : p.likedByMe,
+          wantedByMe: kind === "want" ? true : p.wantedByMe,
+          visitedByMe: kind === "visited" ? true : p.visitedByMe,
+        }
+  )
+}));
           return next;
         });
       } else {
