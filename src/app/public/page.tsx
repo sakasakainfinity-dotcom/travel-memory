@@ -326,18 +326,19 @@ async function toggleReaction(
 
     // （デバッグ用）押した瞬間にUIが変わってるか確認
     console.log("optimistic updated", placeId, kind, "already:", already);
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+  console.error("toggleReaction failed:", e);
 
-    // ✅ 3) 失敗したらUIを戻す
-    if (snapshot) {
-      setPostsByPlaceKey(snapshot);
-    }
+  // Supabaseのエラーは e.message か e?.error?.message に入ることが多い
+  const msg =
+    e?.message ||
+    e?.error?.message ||
+    (typeof e === "string" ? e : JSON.stringify(e));
 
-    alert("反応の更新に失敗したかも…時間をおいてもう一度試してみて。");
-  } finally {
-    setReactBusyId(null);
-  }
+  alert("反応の更新に失敗: " + msg);
+　} finally {
+　  setReactBusyId(null);
+　}
 }
 
 
