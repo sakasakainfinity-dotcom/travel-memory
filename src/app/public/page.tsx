@@ -40,7 +40,8 @@ export default function PublicPage() {
   // MapView に渡す「1場所=1マーカー」の配列
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   // ★その場所キーに紐づく投稿全部（下パネルで使う）
-  const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
+ const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
+  const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPlace[]>>({});
 
 
   // 選択は「場所キー」
