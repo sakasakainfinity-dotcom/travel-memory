@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import SearchBox from "@/components/SearchBox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
-const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -41,7 +40,8 @@ export default function PublicPage() {
   // MapView に渡す「1場所=1マーカー」の配列
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   // ★その場所キーに紐づく投稿全部（下パネルで使う）
-  const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPlace[]>>({});
+  const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
+
 
   // 選択は「場所キー」
   const [selectedId, setSelectedId] = useState<string | null>(null);
