@@ -246,23 +246,103 @@ async function toggleReaction(
   const key = placeIdToKey[placeId];
   if (!key) return;
 
+  // rollback用
+  let snapshotPosts: Record<string, PublicPlace[]> | null = null;
+  let snapshotPlaces: typeof places | null = null;
+
+  // いま押されとるか（UI状態から判定）
+  const getAlready = () => {
+    const arr = postsByPlaceKey[key] ?? [];
+    const t = arr.find((p) => p.id === placeId);
+    if (!t) return false;
+    if (kind === "like") return !!t.likedByMe;
+    if (kind === "want") return !!t.wantedByMe;
+    return !!t.visitedByMe;
+  };
+
+  const already = getAlready();
+
   try {
     setReactBusyId(busyKey);
 
-    // ① まずDBに「もうある？」を確認
-    const { data: existsRow, error: existsErr } = await supabase
-      .from("place_reactions")
-      .select("place_id")
-      .eq("place_id", placeId)
-      .eq("user_id", uid)
-      .eq("kind", kind)
-      .maybeSingle();
+    // ✅ 1) 先にUIを即時更新（postsByPlaceKey）
+    setPostsByPlaceKey((prev) => {
+      snapshotPosts = prev;
 
-    if (existsErr) throw existsErr;
+      const arr = prev[key] ?? [];
+      const nextArr = arr.map((p) => {
+        if (p.id !== placeId) return p;
 
-    const already = !!existsRow;
+        if (already) {
+          return {
+            ...p,
+            likeCount:
+              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
+            wantCount:
+              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+            visitedCount:
+              kind === "visited"
+                ? Math.max(0, (p.visitedCount ?? 0) - 1)
+                : p.visitedCount,
+            likedByMe: kind === "like" ? false : p.likedByMe,
+            wantedByMe: kind === "want" ? false : p.wantedByMe,
+            visitedByMe: kind === "visited" ? false : p.visitedByMe,
+          };
+        } else {
+          return {
+            ...p,
+            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+            visitedCount:
+              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+            likedByMe: kind === "like" ? true : p.likedByMe,
+            wantedByMe: kind === "want" ? true : p.wantedByMe,
+            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+          };
+        }
+      });
 
-    // ② あるなら削除 / 無いなら追加
+      return { ...prev, [key]: nextArr };
+    });
+
+    // ✅ 2) 先にUIを即時更新（places）※地図の星/チェックがこれ見とる
+    setPlaces((prev) => {
+      snapshotPlaces = prev;
+
+      return prev.map((p) => {
+        if (p.id !== placeId) return p;
+
+        if (already) {
+          return {
+            ...p,
+            likeCount:
+              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
+            wantCount:
+              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+            visitedCount:
+              kind === "visited"
+                ? Math.max(0, (p.visitedCount ?? 0) - 1)
+                : p.visitedCount,
+            likedByMe: kind === "like" ? false : p.likedByMe,
+            wantedByMe: kind === "want" ? false : p.wantedByMe,
+            visitedByMe: kind === "visited" ? false : p.visitedByMe,
+          };
+        } else {
+          return {
+            ...p,
+            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+            visitedCount:
+              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+            likedByMe: kind === "like" ? true : p.likedByMe,
+            wantedByMe: kind === "want" ? true : p.wantedByMe,
+            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+          };
+        }
+      });
+    });
+
+    // ✅ 3) DB更新（duplicate対策：upsert）
     if (already) {
       const { error } = await supabase
         .from("place_reactions")
@@ -271,56 +351,28 @@ async function toggleReaction(
         .eq("user_id", uid)
         .eq("kind", kind);
       if (error) throw error;
-
-      // UI反映（カウントとフラグを戻す）
-      setPostsByPlaceKey((prev) => {
-        const arr = prev[key] ?? [];
-        const nextArr = arr.map((p) => {
-          if (p.id !== placeId) return p;
-          return {
-            ...p,
-            likeCount: kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-            wantCount: kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-            visitedCount: kind === "visited" ? Math.max(0, (p.visitedCount ?? 0) - 1) : p.visitedCount,
-            likedByMe: kind === "like" ? false : p.likedByMe,
-            wantedByMe: kind === "want" ? false : p.wantedByMe,
-            visitedByMe: kind === "visited" ? false : p.visitedByMe,
-          };
-        });
-        return { ...prev, [key]: nextArr };
-      });
-
     } else {
       const { error } = await supabase
         .from("place_reactions")
-        .insert({ place_id: placeId, user_id: uid, kind });
+        .upsert(
+          { place_id: placeId, user_id: uid, kind },
+          { onConflict: "place_id,user_id,kind" }
+        );
       if (error) throw error;
-
-      // UI反映（カウントとフラグを立てる）
-      setPostsByPlaceKey((prev) => {
-        const arr = prev[key] ?? [];
-        const nextArr = arr.map((p) => {
-          if (p.id !== placeId) return p;
-          return {
-            ...p,
-            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-            visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-            likedByMe: kind === "like" ? true : p.likedByMe,
-            wantedByMe: kind === "want" ? true : p.wantedByMe,
-            visitedByMe: kind === "visited" ? true : p.visitedByMe,
-          };
-        });
-        return { ...prev, [key]: nextArr };
-      });
     }
   } catch (e: any) {
     console.error("toggleReaction failed:", e);
+
+    // ✅ 失敗したら戻す
+    if (snapshotPosts) setPostsByPlaceKey(snapshotPosts);
+    if (snapshotPlaces) setPlaces(snapshotPlaces);
+
     alert("反応の更新に失敗: " + (e?.message ?? JSON.stringify(e)));
   } finally {
     setReactBusyId(null);
   }
 }
+
 
 
   return (
