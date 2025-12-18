@@ -235,78 +235,34 @@ async function toggleReaction(
   kind: "like" | "want" | "visited"
 ) {
   const busyKey = `${placeId}:${kind}`;
+
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
-
   if (!uid) {
     alert("リアクションするにはログインが必要じゃよ。");
     return;
   }
 
-  // placeId → placeKey
   const key = placeIdToKey[placeId];
   if (!key) return;
-
-  // 今の状態を prev から読んで、次の状態を作る（ここが大事）
-  let already = false;
-  let snapshot: Record<string, PublicPlace[]> | null = null;
 
   try {
     setReactBusyId(busyKey);
 
-    // ✅ 1) 先にUI更新（楽観的更新）
-    setPostsByPlaceKey((prev) => {
-      snapshot = prev; // 失敗時に戻す用
+    // ① まずDBに「もうある？」を確認
+    const { data: existsRow, error: existsErr } = await supabase
+      .from("place_reactions")
+      .select("place_id")
+      .eq("place_id", placeId)
+      .eq("user_id", uid)
+      .eq("kind", kind)
+      .maybeSingle();
 
-      const arr = prev[key] ?? [];
-      const target = arr.find((p) => p.id === placeId);
-      if (!target) return prev;
+    if (existsErr) throw existsErr;
 
-      already =
-        kind === "like"
-          ? !!target.likedByMe
-          : kind === "want"
-          ? !!target.wantedByMe
-          : !!target.visitedByMe;
+    const already = !!existsRow;
 
-      const nextArr = arr.map((p) => {
-        if (p.id !== placeId) return p;
-
-        if (already) {
-          // 押してた → 取り消し
-          return {
-            ...p,
-            likeCount:
-              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-            wantCount:
-              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-            visitedCount:
-              kind === "visited"
-                ? Math.max(0, (p.visitedCount ?? 0) - 1)
-                : p.visitedCount,
-            likedByMe: kind === "like" ? false : p.likedByMe,
-            wantedByMe: kind === "want" ? false : p.wantedByMe,
-            visitedByMe: kind === "visited" ? false : p.visitedByMe,
-          };
-        } else {
-          // 押してない → 追加
-          return {
-            ...p,
-            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-            visitedCount:
-              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-            likedByMe: kind === "like" ? true : p.likedByMe,
-            wantedByMe: kind === "want" ? true : p.wantedByMe,
-            visitedByMe: kind === "visited" ? true : p.visitedByMe,
-          };
-        }
-      });
-
-      return { ...prev, [key]: nextArr };
-    });
-
-    // ✅ 2) あとからDB更新
+    // ② あるなら削除 / 無いなら追加
     if (already) {
       const { error } = await supabase
         .from("place_reactions")
@@ -315,30 +271,55 @@ async function toggleReaction(
         .eq("user_id", uid)
         .eq("kind", kind);
       if (error) throw error;
-    } else {
-      const { error } = await supabase.from("place_reactions").insert({
-        place_id: placeId,
-        user_id: uid,
-        kind,
+
+      // UI反映（カウントとフラグを戻す）
+      setPostsByPlaceKey((prev) => {
+        const arr = prev[key] ?? [];
+        const nextArr = arr.map((p) => {
+          if (p.id !== placeId) return p;
+          return {
+            ...p,
+            likeCount: kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
+            wantCount: kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
+            visitedCount: kind === "visited" ? Math.max(0, (p.visitedCount ?? 0) - 1) : p.visitedCount,
+            likedByMe: kind === "like" ? false : p.likedByMe,
+            wantedByMe: kind === "want" ? false : p.wantedByMe,
+            visitedByMe: kind === "visited" ? false : p.visitedByMe,
+          };
+        });
+        return { ...prev, [key]: nextArr };
       });
+
+    } else {
+      const { error } = await supabase
+        .from("place_reactions")
+        .insert({ place_id: placeId, user_id: uid, kind });
       if (error) throw error;
+
+      // UI反映（カウントとフラグを立てる）
+      setPostsByPlaceKey((prev) => {
+        const arr = prev[key] ?? [];
+        const nextArr = arr.map((p) => {
+          if (p.id !== placeId) return p;
+          return {
+            ...p,
+            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
+            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
+            visitedCount: kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
+            likedByMe: kind === "like" ? true : p.likedByMe,
+            wantedByMe: kind === "want" ? true : p.wantedByMe,
+            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+          };
+        });
+        return { ...prev, [key]: nextArr };
+      });
     }
-
-    // （デバッグ用）押した瞬間にUIが変わってるか確認
-    console.log("optimistic updated", placeId, kind, "already:", already);
   } catch (e: any) {
-  console.error("toggleReaction failed:", e);
-
-  // Supabaseのエラーは e.message か e?.error?.message に入ることが多い
-  const msg =
-    e?.message ||
-    e?.error?.message ||
-    (typeof e === "string" ? e : JSON.stringify(e));
-
-  alert("反応の更新に失敗: " + msg);
-　} finally {
-　  setReactBusyId(null);
-　}
+    console.error("toggleReaction failed:", e);
+    alert("反応の更新に失敗: " + (e?.message ?? JSON.stringify(e)));
+  } finally {
+    setReactBusyId(null);
+  }
 }
 
 
