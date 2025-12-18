@@ -297,13 +297,13 @@ map.addLayer({
       }
 
       const marker = new maplibregl.Marker({
-        element: el,
-        anchor: "bottom",
-        // ピンの中心にかぶさる感じにしたいので、少しだけ下げる
-        offset: [0, -4],
-      })
-        .setLngLat([p.lng, p.lat])
-        .addTo(map);
+  element: el,
+  anchor: "center", // ← bottomやめる
+  // offset: [0, -4], // ← 消す
+})
+  .setLngLat([p.lng, p.lat])
+  .addTo(map);
+
 
       flagMarkersRef.current.push(marker);
     }
