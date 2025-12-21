@@ -51,7 +51,8 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const searchMarkerRef = useRef<Marker | null>(null);
-
+　const flagMarkersRef = useRef<maplibregl.Marker[]>([]);
+  
   // 最新 places を参照する ref（クリック時に使う）
   const placesRef = useRef<Place[]>(places);
   useEffect(() => {
@@ -264,10 +265,75 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function rebuildFlagMarkers(map: maplibregl.Map, places: Place[]) {
+  // 既存を全部削除
+  flagMarkersRef.current.forEach((m) => m.remove());
+  flagMarkersRef.current = [];
+
+  for (const p of places ?? []) {
+    if (!p.wantedByMe && !p.visitedByMe) continue;
+
+    const el = document.createElement("div");
+    el.style.width = "26px";
+    el.style.height = "26px";
+    el.style.pointerEvents = "none";
+    el.style.position = "relative";
+    el.style.display = "flex";
+    el.style.alignItems = "center";
+    el.style.justifyContent = "center";
+
+    // ★
+    const star = document.createElement("div");
+    star.textContent = "★";
+    star.style.fontSize = "22px";
+    star.style.fontWeight = "900";
+    star.style.lineHeight = "1";
+    star.style.color = "#facc15";
+    star.style.textShadow = "0 0 4px rgba(255,255,255,0.95)";
+    el.appendChild(star);
+
+    // ✓（行っただけ）
+    if (p.visitedByMe) {
+      const check = document.createElement("div");
+      check.textContent = "✓";
+      check.style.position = "absolute";
+      check.style.inset = "0";
+      check.style.display = "flex";
+      check.style.alignItems = "center";
+      check.style.justifyContent = "center";
+      check.style.fontSize = "12px";
+      check.style.fontWeight = "900";
+      check.style.lineHeight = "1";
+      check.style.color = "#166534";
+      check.style.textShadow = "0 0 3px rgba(255,255,255,0.95)";
+      el.appendChild(check);
+    }
+
+    const m = new maplibregl.Marker({
+      element: el,
+      anchor: "center",   // ✅ 地点の中心に重ねる
+      offset: [0, 0],     // ✅ ズレの原因を作らない
+    })
+      .setLngLat([p.lng, p.lat])
+      .addTo(map);
+
+    flagMarkersRef.current.push(m);
+  }
+}
+
+
   // source更新
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+if (!map) return;
+
+if (autoMode === "public") {
+  rebuildFlagMarkers(map, placesRef.current);
+} else {
+  // privateなら消しとく
+  flagMarkersRef.current.forEach((m) => m.remove());
+  flagMarkersRef.current = [];
+}
 
     const src = map.getSource("places") as any;
     if (src) src.setData(geojson);
@@ -360,6 +426,37 @@ export default function MapView({
     apply(autoMode);
   }, [geojson, autoMode]);
 
+if (mode === "private") {
+  map.setPaintProperty("pins", "circle-color", [
+    "case",
+    ["==", ["get", "visibility"], "public"],
+    "#2563eb",
+    ["==", ["get", "visibility"], "pair"],
+    "#eab308",
+    "#ef4444",
+  ]);
+  map.setPaintProperty("pins", "circle-opacity", 1);
+
+  // ✅ public用の★/✓ DOMマーカーを消す
+  flagMarkersRef.current.forEach((m) => m.remove());
+  flagMarkersRef.current = [];
+} else {
+  map.setPaintProperty("pins", "circle-color", "#2563eb");
+  map.setPaintProperty("pins", "circle-opacity", [
+    "case",
+    [
+      "any",
+      ["==", ["get", "wantedByMe"], true],
+      ["==", ["get", "visitedByMe"], true],
+    ],
+    0,
+    1,
+  ]);
+
+  // ✅ ★/✓ をDOMで重ねる（ズレない）
+  rebuildFlagMarkers(map, placesRef.current);
+}
+  
   // 検索ジャンプ（一時ピン）
   useEffect(() => {
     const map = mapRef.current;
