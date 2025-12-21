@@ -260,8 +260,8 @@ map.addLayer({
 
       const el = document.createElement("div");
       el.style.position = "relative";
-      el.style.width = "30px";
-      el.style.height = "30px";
+      el.style.width = "26px";
+      el.style.height = "26px";
       el.style.pointerEvents = "none"; // マップ操作の邪魔をしない
 
       // ★ 土台の星
@@ -272,7 +272,7 @@ map.addLayer({
       star.style.display = "flex";
       star.style.alignItems = "center";
       star.style.justifyContent = "center";
-      star.style.fontSize = "26px";
+      star.style.fontSize = "24px";
       star.style.fontWeight = "900";
       // 行きたい / 行った どっちも金色だけど、行ったは少し濃いめ
       star.style.color = p.visitedByMe ? "#f59e0b" : "#facc15";
@@ -296,10 +296,10 @@ map.addLayer({
         el.appendChild(check);
       }
 
-      const marker = new maplibregl.Marker({
+     const marker = new maplibregl.Marker({
   element: el,
-  anchor: "center", // ← bottomやめる
-  // offset: [0, -4], // ← 消す
+  anchor: "bottom",
+  offset: [0, -18], // ✅ ピンの上に持ち上げる（数値は後で調整）
 })
   .setLngLat([p.lng, p.lat])
   .addTo(map);
