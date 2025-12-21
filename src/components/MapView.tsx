@@ -217,7 +217,7 @@ export default function MapView({
         ],
         layout: {
           "icon-image": "star-icon",
-          "icon-size": 0.45, // サイズ調整（必要なら 0.35〜0.6）
+          "icon-size": 0.9, // サイズ調整（必要なら 0.35〜0.6）
           "icon-anchor": "center",
           "icon-offset": [0, 0],
           "icon-allow-overlap": true,
@@ -233,7 +233,7 @@ export default function MapView({
         filter: ["==", ["get", "visitedByMe"], true],
         layout: {
           "icon-image": "check-icon",
-          "icon-size": 0.45,
+          "icon-size": 0.9,
           "icon-anchor": "center",
           "icon-offset": [0, 0],
           "icon-allow-overlap": true,
