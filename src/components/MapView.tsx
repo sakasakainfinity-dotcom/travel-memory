@@ -14,10 +14,10 @@ export type Place = {
   photos?: string[];
   postCount?: number;
 
-  // private側で使う
+  // private側
   visibility?: "public" | "private" | "pair" | string;
 
-  // public側で使う
+  // public側
   wantedByMe?: boolean;
   visitedByMe?: boolean;
 };
@@ -25,15 +25,37 @@ export type Place = {
 type View = { lat: number; lng: number; zoom: number };
 
 function isPublicModeCandidate(p: Place) {
-  // wanted/visited が boolean で来てる（or どっちかが存在する）なら public表示ルールにする
   return typeof p.wantedByMe === "boolean" || typeof p.visitedByMe === "boolean";
+}
+
+function svgToDataUrl(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+async function addSvgImage(map: Map, name: string, svg: string, pixelRatio = 2) {
+  if (map.hasImage(name)) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        map.addImage(name, img, { pixelRatio });
+        resolve();
+      } catch (e) {
+        // すでに追加済み等
+        resolve();
+      }
+    };
+    img.onerror = () => reject(new Error(`Failed to load SVG image: ${name}`));
+    img.src = svgToDataUrl(svg);
+  });
 }
 
 export default function MapView({
   places,
   onRequestNew,
   onSelect,
-  selectedId, // ※使ってなくてもOK（既存props維持）
+  selectedId, // 使わなくてもOK（既存互換）
   flyTo,
   bindGetView,
   bindSetView,
@@ -50,14 +72,8 @@ export default function MapView({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
-
-  // 検索一時ピン
   const searchMarkerRef = useRef<Marker | null>(null);
 
-  // ★/✓ DOMマーカー（publicモード時だけ使う）
-  const flagMarkersRef = useRef<Marker[]>([]);
-
-  // 最新 places を参照する ref（クリック時に使う）
   const placesRef = useRef<Place[]>(places);
   useEffect(() => {
     placesRef.current = places;
@@ -68,7 +84,6 @@ export default function MapView({
     return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
   }, [places]);
 
-  // GeoJSON（visibility/wanted/visited を必ず入れる）
   const geojson = useMemo(() => {
     return {
       type: "FeatureCollection",
@@ -87,86 +102,27 @@ export default function MapView({
     } as GeoJSON.FeatureCollection;
   }, [places]);
 
-  // ★/✓ DOMマーカーを作り直す（publicモード用）
-  function rebuildFlagMarkers(map: Map, rows: Place[]) {
-    // 既存削除
-    flagMarkersRef.current.forEach((m) => m.remove());
-    flagMarkersRef.current = [];
-
-    for (const p of rows ?? []) {
-      if (!p.wantedByMe && !p.visitedByMe) continue;
-
-      const el = document.createElement("div");
-      el.style.width = "26px";
-      el.style.height = "26px";
-      el.style.pointerEvents = "none";
-      el.style.position = "relative";
-      el.style.display = "flex";
-      el.style.alignItems = "center";
-      el.style.justifyContent = "center";
-
-      const star = document.createElement("div");
-      star.textContent = "★";
-      star.style.fontSize = "22px";
-      star.style.fontWeight = "900";
-      star.style.lineHeight = "1";
-      star.style.color = "#facc15";
-      star.style.textShadow = "0 0 4px rgba(255,255,255,0.95)";
-      el.appendChild(star);
-
-      if (p.visitedByMe) {
-        const check = document.createElement("div");
-        check.textContent = "✓";
-        check.style.position = "absolute";
-        check.style.inset = "0";
-        check.style.display = "flex";
-        check.style.alignItems = "center";
-        check.style.justifyContent = "center";
-        check.style.fontSize = "12px";
-        check.style.fontWeight = "900";
-        check.style.lineHeight = "1";
-        check.style.color = "#166534";
-        check.style.textShadow = "0 0 3px rgba(255,255,255,0.95)";
-        el.appendChild(check);
-      }
-
-      // ✅ ズレない：中心に重ねる／offset 0
-      const m = new maplibregl.Marker({
-        element: el,
-        anchor: "center",
-        offset: [0, 0],
-      })
-        .setLngLat([p.lng, p.lat])
-        .addTo(map);
-
-      flagMarkersRef.current.push(m);
-    }
-  }
-
-  // pins の表示ルールを適用（public/private）
+  // mode適用（pinsの色/透明、星/チェックの表示）
   function applyMode(map: Map, mode: "private" | "public") {
     if (!map.getLayer("pins")) return;
 
     if (mode === "private") {
-      // 色分け（public=青 / pair=黄 / private=赤）
       map.setPaintProperty("pins", "circle-color", [
         "case",
         ["==", ["get", "visibility"], "public"],
-        "#2563eb",
+        "#2563eb", // 公開=青
         ["==", ["get", "visibility"], "pair"],
-        "#eab308",
-        "#ef4444",
+        "#eab308", // ペア=黄
+        "#ef4444", // private=赤
       ]);
       map.setPaintProperty("pins", "circle-opacity", 1);
 
-      // public用★/✓を消す
-      flagMarkersRef.current.forEach((m) => m.remove());
-      flagMarkersRef.current = [];
+      // public用の星/チェックは非表示に
+      if (map.getLayer("pin-star")) map.setLayoutProperty("pin-star", "visibility", "none");
+      if (map.getLayer("pin-check")) map.setLayoutProperty("pin-check", "visibility", "none");
     } else {
-      // publicは青固定
+      // public：通常青、wanted/visited は透明
       map.setPaintProperty("pins", "circle-color", "#2563eb");
-
-      // wanted/visited はピンを透明にする
       map.setPaintProperty("pins", "circle-opacity", [
         "case",
         [
@@ -178,12 +134,12 @@ export default function MapView({
         1,
       ]);
 
-      // ★/✓ を DOM で重ねる（確実に出る）
-      rebuildFlagMarkers(map, placesRef.current);
+      // 星/チェック表示
+      if (map.getLayer("pin-star")) map.setLayoutProperty("pin-star", "visibility", "visible");
+      if (map.getLayer("pin-check")) map.setLayoutProperty("pin-check", "visibility", "visible");
     }
   }
 
-  // 初期化
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -209,15 +165,15 @@ export default function MapView({
     });
     mapRef.current = map;
 
-    // ダブルクリックで新規作成
     map.on("dblclick", (e) => {
       onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
     });
 
-    map.on("load", () => {
+    map.on("load", async () => {
+      // 1) source
       map.addSource("places", { type: "geojson", data: geojson });
 
-      // pins（共通）
+      // 2) pins
       map.addLayer({
         id: "pins",
         type: "circle",
@@ -231,14 +187,70 @@ export default function MapView({
         },
       });
 
-      // クリック：pinsから id 取って placesRef で探す
+      // 3) ★ / ✓ のSVGアイコン登録（フォント不要）
+      const STAR_SVG = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <path d="M32 4l8.2 16.7 18.4 2.7-13.3 13 3.1 18.3L32 46.9 15.6 54.7l3.1-18.3L5.4 23.4l18.4-2.7L32 4z"
+                fill="#facc15" stroke="#ffffff" stroke-width="4" />
+        </svg>
+      `.trim();
+
+      const CHECK_SVG = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <path d="M18 34l9 9 19-22" fill="none" stroke="#166534" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 34l9 9 19-22" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `.trim();
+
+      await addSvgImage(map, "star-icon", STAR_SVG, 2);
+      await addSvgImage(map, "check-icon", CHECK_SVG, 2);
+
+      // 4) ★レイヤー（wanted or visited）
+      map.addLayer({
+        id: "pin-star",
+        type: "symbol",
+        source: "places",
+        filter: [
+          "any",
+          ["==", ["get", "wantedByMe"], true],
+          ["==", ["get", "visitedByMe"], true],
+        ],
+        layout: {
+          "icon-image": "star-icon",
+          "icon-size": 0.45, // サイズ調整（必要なら 0.35〜0.6）
+          "icon-anchor": "center",
+          "icon-offset": [0, 0],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
+
+      // 5) ✓レイヤー（visited）
+      map.addLayer({
+        id: "pin-check",
+        type: "symbol",
+        source: "places",
+        filter: ["==", ["get", "visitedByMe"], true],
+        layout: {
+          "icon-image": "check-icon",
+          "icon-size": 0.45,
+          "icon-anchor": "center",
+          "icon-offset": [0, 0],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
+
+      // 順番：pinsの上に★、その上に✓
+      map.moveLayer("pin-star");
+      map.moveLayer("pin-check");
+
+      // クリックは pins で取る（透明でも判定残る）
       map.on("click", "pins", (e) => {
         const f = e.features?.[0];
         if (!f) return;
         const id = String((f.properties as any)?.id);
-
-        const latest = placesRef.current;
-        const p = latest.find((x) => x.id === id);
+        const p = placesRef.current.find((x) => x.id === id);
         if (p) onSelect?.(p);
       });
 
@@ -256,11 +268,6 @@ export default function MapView({
     });
 
     return () => {
-      // ★/✓掃除
-      flagMarkersRef.current.forEach((m) => m.remove());
-      flagMarkersRef.current = [];
-
-      // 検索ピン掃除
       searchMarkerRef.current?.remove();
       searchMarkerRef.current = null;
 
@@ -270,7 +277,7 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // データ更新（GeoJSON差し替え + ルール再適用）
+  // データ更新（GeoJSON差し替え + mode適用）
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -287,10 +294,9 @@ export default function MapView({
     const map = mapRef.current;
     if (!map || !flyTo) return;
 
-    const targetZoom = flyTo.zoom ?? 17;
     map.easeTo({
       center: [flyTo.lng, flyTo.lat],
-      zoom: targetZoom,
+      zoom: flyTo.zoom ?? 17,
       duration: 600,
     });
 
