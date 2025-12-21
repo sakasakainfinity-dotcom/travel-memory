@@ -75,6 +75,9 @@ export default function MapView({
 
     const style: any = {
       version: 8,
+
+      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+      
       sources: {
         osm: {
           type: "raster",
