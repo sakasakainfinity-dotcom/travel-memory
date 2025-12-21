@@ -42,12 +42,13 @@ export default function PublicPage() {
   const router = useRouter();
 
  const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
-const [selectedId, setSelectedId] = useState<string | null>(null); // placeKey
 
 
+const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
+const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
