@@ -33,10 +33,11 @@ type PublicMarkerPlace = MapPlace & {
 
 // ★同じ場所判定キー（title + lat/lng 丸め）
 function makePlaceKey(title: string | null | undefined, lat: number, lng: number) {
-  const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});const normTitle = (title ?? "").replace(/\s+/g, "").toLowerCase();
+  const normTitle = (title ?? "").replace(/\s+/g, "").toLowerCase();
   const r = (n: number) => Math.round(n * 1e4) / 1e4; // 小数4桁
   return `${normTitle}|${r(lat)}|${r(lng)}`;
 }
+
 
 export default function PublicPage() {
   const router = useRouter();
@@ -44,7 +45,6 @@ export default function PublicPage() {
  const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
 
 
-const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
