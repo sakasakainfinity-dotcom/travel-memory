@@ -33,7 +33,7 @@ type PublicMarkerPlace = MapPlace & {
 
 // ★同じ場所判定キー（title + lat/lng 丸め）
 function makePlaceKey(title: string | null | undefined, lat: number, lng: number) {
-  const normTitle = (title ?? "").replace(/\s+/g, "").toLowerCase();
+  const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});const normTitle = (title ?? "").replace(/\s+/g, "").toLowerCase();
   const r = (n: number) => Math.round(n * 1e4) / 1e4; // 小数4桁
   return `${normTitle}|${r(lat)}|${r(lng)}`;
 }
@@ -42,13 +42,8 @@ export default function PublicPage() {
   const router = useRouter();
 
  const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
-const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPost[]>>({});
 const [selectedId, setSelectedId] = useState<string | null>(null); // placeKey
 
-
-
-  // 選択は「場所キー」
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
@@ -119,7 +114,6 @@ const [selectedId, setSelectedId] = useState<string | null>(null); // placeKey
           lat: p.lat,
           lng: p.lng,
           photos: photosBy[p.id] ?? [],
-          visibility: "public",
           createdByName: p.created_by_name ?? "名無しの旅人",
           createdAt: p.created_at ? new Date(p.created_at) : null,
           likeCount: like.likeCount,
