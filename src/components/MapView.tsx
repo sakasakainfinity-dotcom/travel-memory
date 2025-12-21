@@ -12,14 +12,32 @@ export type Place = {
   lat: number;
   lng: number;
   photos?: string[];
-  postCount?: number; // ★追加
+  postCount?: number;
   visibility?: "public" | "private" | "pair";
-  // ★ 行きたい・行ったフラグ（public 用）
   wantedByMe?: boolean;
   visitedByMe?: boolean;
 };
 
 type View = { lat: number; lng: number; zoom: number };
+
+/**
+ * ✅ 丸ピン（circle layer）の半径を Place の状態と同じルールで返す
+ * ここは map.addLayer の "circle-radius" と必ず一致させる
+ */
+function circleRadiusForPlace(p: Place) {
+  if (p.visitedByMe) return 7.5;
+  if (p.wantedByMe) return 7;
+  return 6;
+}
+
+/**
+ * ✅ “丸ピンの真上”に置くためのYオフセットを計算（px）
+ * anchor を "center" にする前提で、座標＝要素の中心
+ */
+function calcBadgeOffsetY(circleRadius: number, badgeSize: number, gap: number) {
+  const badgeHalf = badgeSize / 2;
+  return -(circleRadius + gap + badgeHalf);
+}
 
 export default function MapView({
   places,
@@ -124,18 +142,15 @@ export default function MapView({
           ],
           "circle-color": [
             "case",
-            // ✅ 行った！（visited）→ 緑色
             ["==", ["get", "visitedByMe"], true],
-             "#22c55e", // green-500
-            // ✅ 行きたい！（wanted）→ 黄色
+            "#22c55e", // visited → 緑
             ["==", ["get", "wantedByMe"], true],
-            "#facc15", // yellow-400
-            // それ以外は visibility で振り分け
+            "#facc15", // wanted → 黄
             ["==", ["get", "visibility"], "public"],
             "#2563eb", // 公開：青
             ["==", ["get", "visibility"], "pair"],
             "#eab308", // ペア：黄
-            "#ef4444", // 非公開 / private：赤
+            "#ef4444", // private：赤
           ],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
@@ -143,30 +158,29 @@ export default function MapView({
       });
 
       // ★ 投稿数（postCount）を表示するテキストレイヤー
-map.addLayer({
-  id: "postcount-labels",
-  type: "symbol",
-  source: "places",
-  layout: {
-    // postCount > 1 だけ出す（1は出さない）
-    "text-field": [
-      "case",
-      [">", ["get", "postCount"], 1],
-      ["to-string", ["get", "postCount"]],
-      "",
-    ],
-    "text-size": 12,
-    "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-    "text-allow-overlap": true,
-    "text-ignore-placement": true,
-    "text-offset": [0, -1.2], // ピンの上に少し浮かす
-  },
-  paint: {
-    "text-color": "#ffffff",
-    "text-halo-color": "rgba(0,0,0,0.55)",
-    "text-halo-width": 2,
-  },
-});
+      map.addLayer({
+        id: "postcount-labels",
+        type: "symbol",
+        source: "places",
+        layout: {
+          "text-field": [
+            "case",
+            [">", ["get", "postCount"], 1],
+            ["to-string", ["get", "postCount"]],
+            "",
+          ],
+          "text-size": 12,
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+          "text-offset": [0, -1.2], // ピンの上に少し浮かす（symbol側）
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.55)",
+          "text-halo-width": 2,
+        },
+      });
 
       // 選択リング（外）
       map.addLayer({
@@ -177,7 +191,7 @@ map.addLayer({
           "circle-radius": 14,
           "circle-color": "rgba(29,78,216,0.12)",
         },
-        filter: ["==", ["get", "id"], ""], // 初期非表示
+        filter: ["==", ["get", "id"], ""],
       });
 
       // 選択リング（内）
@@ -230,8 +244,10 @@ map.addLayer({
       // 片付け
       searchMarkerRef.current?.remove();
       searchMarkerRef.current = null;
+
       flagMarkersRef.current.forEach((m) => m.remove());
       flagMarkersRef.current = [];
+
       map.remove();
       mapRef.current = null;
     };
@@ -245,7 +261,41 @@ map.addLayer({
     if (src) src.setData(geojson);
   }, [geojson]);
 
-    // 行きたい／行ったの「デカ星バッジ」マーカーを更新
+  /**
+   * ✅ フラグ（★/✓）のオフセットを「丸ピンの真上」に揃える
+   * - anchor:"center" 前提で、座標＝要素中心
+   * - 要素の data-radius を読んで個別にオフセット計算
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const BADGE_SIZE = 26; // el の幅/高さと一致させる
+    const GAP = 6; // 丸ピンからちょい浮かす量（好みで4〜10）
+
+    function updateFlagOffsets() {
+      for (const m of flagMarkersRef.current) {
+        const el = m.getElement() as HTMLElement;
+        const r = Number(el.dataset.circleRadius ?? "6");
+        const y = calcBadgeOffsetY(r, BADGE_SIZE, GAP);
+        m.setOffset([0, y]);
+      }
+    }
+
+    // 初回
+    updateFlagOffsets();
+
+    // ズーム等で微妙にズレたのも常に補正（B方式）
+    map.on("zoom", updateFlagOffsets);
+    map.on("zoomend", updateFlagOffsets);
+
+    return () => {
+      map.off("zoom", updateFlagOffsets);
+      map.off("zoomend", updateFlagOffsets);
+    };
+  }, [places]);
+
+  // 行きたい／行ったの「デカ星バッジ」マーカーを更新
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -254,15 +304,22 @@ map.addLayer({
     flagMarkersRef.current.forEach((m) => m.remove());
     flagMarkersRef.current = [];
 
+    const BADGE_SIZE = 26;
+    const GAP = 6;
+
     for (const p of places ?? []) {
-      // 両方 false ならバッジなし
       if (!p.wantedByMe && !p.visitedByMe) continue;
+
+      // 丸ピン半径（circle layer と同じルール）
+      const circleR = circleRadiusForPlace(p);
 
       const el = document.createElement("div");
       el.style.position = "relative";
-      el.style.width = "26px";
-      el.style.height = "26px";
-      el.style.pointerEvents = "none"; // マップ操作の邪魔をしない
+      el.style.width = `${BADGE_SIZE}px`;
+      el.style.height = `${BADGE_SIZE}px`;
+      el.style.pointerEvents = "none";
+      // ✅ 後で updateFlagOffsets が読む
+      el.dataset.circleRadius = String(circleR);
 
       // ★ 土台の星
       const star = document.createElement("div");
@@ -274,16 +331,15 @@ map.addLayer({
       star.style.justifyContent = "center";
       star.style.fontSize = "24px";
       star.style.fontWeight = "900";
-      // 行きたい / 行った どっちも金色だけど、行ったは少し濃いめ
+      star.style.lineHeight = "1";
       star.style.color = p.visitedByMe ? "#f59e0b" : "#facc15";
       star.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
-
       el.appendChild(star);
 
-      // ✅ 行った場合だけ、真ん中にチェック or 「済」を重ねる
+      // ✅ 行った場合だけ真ん中にチェック
       if (p.visitedByMe) {
         const check = document.createElement("div");
-        check.textContent = "✓"; // 「済」がよければここを "済" に
+        check.textContent = "✓";
         check.style.position = "absolute";
         check.style.inset = "0";
         check.style.display = "flex";
@@ -291,19 +347,22 @@ map.addLayer({
         check.style.justifyContent = "center";
         check.style.fontSize = "14px";
         check.style.fontWeight = "900";
-        check.style.color = "#166534"; // 濃い緑
+        check.style.lineHeight = "1";
+        check.style.color = "#166534";
         check.style.textShadow = "0 0 3px rgba(255,255,255,0.95)";
         el.appendChild(check);
       }
 
-     const marker = new maplibregl.Marker({
-  element: el,
-  anchor: "bottom",
-  offset: [0, -18], // ✅ ピンの上に持ち上げる（数値は後で調整）
-})
-  .setLngLat([p.lng, p.lat])
-  .addTo(map);
+      // ✅ ここが本命：anchor を "center" にして、常に“丸ピン中心”基準で上に出す
+      const y = calcBadgeOffsetY(circleR, BADGE_SIZE, GAP);
 
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: "center",
+        offset: [0, y],
+      })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map);
 
       flagMarkersRef.current.push(marker);
     }
@@ -327,9 +386,7 @@ map.addLayer({
       searchMarkerRef.current = null;
     }
 
-    const popup = new maplibregl.Popup({ offset: 12 }).setText(
-      flyTo.label ?? "検索地点"
-    );
+    const popup = new maplibregl.Popup({ offset: 12 }).setText(flyTo.label ?? "検索地点");
     const marker = new maplibregl.Marker({ color: "#E11D48" })
       .setLngLat([flyTo.lng, flyTo.lat])
       .setPopup(popup)
@@ -357,11 +414,8 @@ map.addLayer({
     }
   }, [selectedId]);
 
-  return (
-    <div
-      ref={containerRef}
-      style={{ position: "fixed", inset: 0, zIndex: 0 }}
-    />
-  );
+  return <div ref={containerRef} style={{ position: "fixed", inset: 0, zIndex: 0 }} />;
 }
+
+
 
