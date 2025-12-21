@@ -43,8 +43,9 @@ export default function PublicPage() {
   const router = useRouter();
 
  const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
-
-
+const [postsByPlaceKey, setPostsByPlaceKey] =
+  useState<Record<string, PublicPost[]>>({});
+const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
