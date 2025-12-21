@@ -29,6 +29,7 @@ export default function MapView({
   bindGetView,
   bindSetView,
   initialView,
+  mode = "private", // ✅ 追加（デフォルト private）
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
@@ -38,7 +39,9 @@ export default function MapView({
   bindGetView?: (fn: () => View) => void;
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
+  mode?: "private" | "public"; // ✅ 追加
 }) {
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
@@ -115,77 +118,95 @@ export default function MapView({
   source: "places",
   paint: {
     "circle-radius": 6.5,
-    "circle-color": "#2563eb", // 青
+
+    // ✅ private: visibilityで色分け
+    // ✅ public : 常に青
+    "circle-color":
+      mode === "private"
+        ? [
+            "case",
+            ["==", ["get", "visibility"], "public"],
+            "#2563eb", // 青
+            ["==", ["get", "visibility"], "pair"],
+            "#eab308", // 黄
+            "#ef4444", // 赤（private）
+          ]
+        : "#2563eb",
+
     "circle-stroke-color": "#ffffff",
     "circle-stroke-width": 2,
 
-    // ✅ 行きたい or 行った のときは青ピンを消す
-    "circle-opacity": [
-      "case",
-      [
-        "any",
-        ["==", ["get", "wantedByMe"], true],
-        ["==", ["get", "visitedByMe"], true],
-      ],
-      0,
-      1,
+    // ✅ publicだけ：行きたい/行った はピン透明にする
+    ...(mode === "public"
+      ? {
+          "circle-opacity": [
+            "case",
+            [
+              "any",
+              ["==", ["get", "wantedByMe"], true],
+              ["==", ["get", "visitedByMe"], true],
+            ],
+            0,
+            1,
+          ],
+        }
+      : {}),
+  },
+});
+      
+      if (mode === "public") {
+  // ★（行きたい or 行った）
+  map.addLayer({
+    id: "pin-star",
+    type: "symbol",
+    source: "places",
+    filter: [
+      "any",
+      ["==", ["get", "wantedByMe"], true],
+      ["==", ["get", "visitedByMe"], true],
     ],
-  },
-});
+    layout: {
+      "text-field": "★",
+      "text-size": 18,
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-anchor": "center",
+      "text-offset": [0, 0],
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#facc15",
+      "text-halo-color": "rgba(255,255,255,0.95)",
+      "text-halo-width": 2,
+    },
+  });
 
-      /**
-       * ✅ 2) 行きたい or 行った → ☆を重ねる（同一座標なのでズレない）
-       * ※ フォントは環境差が出にくい並びにする
-       */
-      map.addLayer({
-  id: "pin-star",
-  type: "symbol",
-  source: "places",
-  filter: [
-    "any",
-    ["==", ["get", "wantedByMe"], true],
-    ["==", ["get", "visitedByMe"], true],
-  ],
-  layout: {
-    "text-field": "★",
-    "text-size": 18,
-    "text-font": ["Noto Sans Regular", "Arial Unicode MS Regular", "sans-serif"],
-    "text-anchor": "center",
-    "text-offset": [0, 0],
-    "text-allow-overlap": true,
-    "text-ignore-placement": true,
-  },
-  paint: {
-    "text-color": "#facc15",
-    "text-halo-color": "rgba(255,255,255,0.95)",
-    "text-halo-width": 2,
-  },
-});
+  // ✓（行った）
+  map.addLayer({
+    id: "pin-check",
+    type: "symbol",
+    source: "places",
+    filter: ["==", ["get", "visitedByMe"], true],
+    layout: {
+      "text-field": "✓",
+      "text-size": 12,
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-anchor": "center",
+      "text-offset": [0, 0],
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#166534",
+      "text-halo-color": "rgba(255,255,255,0.95)",
+      "text-halo-width": 2,
+    },
+  });
 
-
-      /**
-       * ✅ 3) 行った → ☆の上に☑（✓）を重ねる
-       */
-     map.addLayer({
-  id: "pin-check",
-  type: "symbol",
-  source: "places",
-  filter: ["==", ["get", "visitedByMe"], true],
-  layout: {
-    "text-field": "✓",
-    "text-size": 12,
-    "text-font": ["Noto Sans Regular", "Arial Unicode MS Regular", "sans-serif"],
-    "text-anchor": "center",
-    "text-offset": [0, 0],
-    "text-allow-overlap": true,
-    "text-ignore-placement": true,
-  },
-  paint: {
-    "text-color": "#166534",
-    "text-halo-color": "rgba(255,255,255,0.95)",
-    "text-halo-width": 2,
-  },
-});
+  // 念のため順番固定
+  map.moveLayer("pin-star");
+  map.moveLayer("pin-check");
+}
 
       /**
        * ✅ 4) 投稿数ラベル（必要なら残す）
