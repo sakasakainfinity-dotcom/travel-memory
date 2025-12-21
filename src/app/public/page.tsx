@@ -12,20 +12,24 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 type View = { lat: number; lng: number; zoom: number };
 
-// Public 用に拡張した Place 型
-type PublicPlace = MapPlace & {
+type PublicPost = MapPlace & {
   createdByName?: string;
   createdAt?: Date | null;
+  memo?: string;
+  photos?: string[];
   likeCount?: number;
+  likedByMe?: boolean;
+};
+
+type PublicMarkerPlace = MapPlace & {
+  postCount?: number;
+  // 場所単位（place_key）で持つ
   wantCount?: number;
   visitedCount?: number;
-  likedByMe?: boolean;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
-
-  // ★追加：同一場所に紐づく投稿数（マーカー用）
-  postCount?: number;
 };
+
 
 // ★同じ場所判定キー（title + lat/lng 丸め）
 function makePlaceKey(title: string | null | undefined, lat: number, lng: number) {
@@ -37,11 +41,10 @@ function makePlaceKey(title: string | null | undefined, lat: number, lng: number
 export default function PublicPage() {
   const router = useRouter();
 
-  // MapView に渡す「1場所=1マーカー」の配列
-  const [places, setPlaces] = useState<PublicPlace[]>([]);
-  // ★その場所キーに紐づく投稿全部（下パネルで使う）
- const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
-  const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPlace[]>>({});
+ const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
+const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPost[]>>({});
+const [selectedId, setSelectedId] = useState<string | null>(null); // placeKey
+
 
 
   // 選択は「場所キー」
@@ -56,165 +59,149 @@ export default function PublicPage() {
 
   // 公開投稿の読み込み
   useEffect(() => {
-    (async () => {
-      try {
-        // ログインユーザー（リアクション判定用）
-        const { data: ses } = await supabase.auth.getSession();
-        const uid = ses.session?.user.id ?? null;
+  (async () => {
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id ?? null;
 
-        const { data: ps, error } = await supabase
-          .from("places")
-          .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
-          .eq("visibility", "public")
-          .order("created_at", { ascending: false });
+      // 1) 公開投稿（places）取得
+      const { data: ps, error } = await supabase
+        .from("places")
+        .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+        .eq("visibility", "public")
+        .order("created_at", { ascending: false });
 
-        if (error) throw error;
+      if (error) throw error;
+      const rows = (ps ?? []) as any[];
+      const postIds = rows.map((p) => p.id as string);
 
-        const rows = (ps ?? []) as any[];
-        const ids = rows.map((p) => p.id as string);
+      // 2) 写真（photos）取得
+      let photosBy: Record<string, string[]> = {};
+      if (postIds.length > 0) {
+        const { data: phs, error: ePh } = await supabase
+          .from("photos")
+          .select("place_id, file_url")
+          .in("place_id", postIds);
+        if (ePh) throw ePh;
 
-        // 写真をまとめて取得
-        let photosBy: Record<string, string[]> = {};
-        if (ids.length > 0) {
-          const { data: phs, error: ePh } = await supabase
-            .from("photos")
-            .select("place_id, file_url")
-            .in("place_id", ids);
-
-          if (ePh) throw ePh;
-
-          for (const ph of phs ?? []) {
-            const pid = (ph as any).place_id as string;
-            const url = (ph as any).file_url as string;
-            (photosBy[pid] ||= []).push(url);
-          }
+        for (const ph of phs ?? []) {
+          const pid = (ph as any).place_id as string;
+          const url = (ph as any).file_url as string;
+          (photosBy[pid] ||= []).push(url);
         }
-
-        // リアクションをまとめて取得（like / want / visited）
-        type ReactionRow = {
-          place_id: string;
-          user_id: string;
-          kind: "like" | "want" | "visited";
-        };
-
-        let reactionBy: Record<
-          string,
-          {
-            likeCount: number;
-            wantCount: number;
-            visitedCount: number;
-            likedByMe: boolean;
-            wantedByMe: boolean;
-            visitedByMe: boolean;
-          }
-        > = {};
-
-        if (ids.length > 0) {
-          const { data: rs, error: eR } = await supabase
-            .from("place_reactions")
-            .select("place_id, user_id, kind")
-            .in("place_id", ids);
-
-          if (eR) throw eR;
-
-          for (const r of (rs ?? []) as ReactionRow[]) {
-            const pid = r.place_id;
-            if (!reactionBy[pid]) {
-              reactionBy[pid] = {
-                likeCount: 0,
-                wantCount: 0,
-                visitedCount: 0,
-                likedByMe: false,
-                wantedByMe: false,
-                visitedByMe: false,
-              };
-            }
-            const bucket = reactionBy[pid];
-
-            if (r.kind === "like") {
-              bucket.likeCount++;
-              if (uid && r.user_id === uid) bucket.likedByMe = true;
-            } else if (r.kind === "want") {
-              bucket.wantCount++;
-              if (uid && r.user_id === uid) bucket.wantedByMe = true;
-            } else if (r.kind === "visited") {
-              bucket.visitedCount++;
-              if (uid && r.user_id === uid) bucket.visitedByMe = true;
-            }
-          }
-        }
-
-        // ===== ここが今回の本体：同じ場所を「束ねる」 =====
-        // 1) まず「1投稿=1件」の PublicPlace を作る（idは place.id のまま）
-        const postPlaces: PublicPlace[] = rows.map((p: any) => {
-          const react =
-            reactionBy[p.id] ?? {
-              likeCount: 0,
-              wantCount: 0,
-              visitedCount: 0,
-              likedByMe: false,
-              wantedByMe: false,
-              visitedByMe: false,
-            };
-
-          return {
-            id: p.id, // ←ここは「投稿ID（places.id）」のまま保持
-            name: p.title,
-            memo: p.memo ?? undefined,
-            lat: p.lat,
-            lng: p.lng,
-            photos: photosBy[p.id] ?? [],
-            visibility: "public",
-            createdByName: p.created_by_name ?? "名無しの旅人",
-            createdAt: p.created_at ? new Date(p.created_at) : null,
-            likeCount: react.likeCount,
-            wantCount: react.wantCount,
-            visitedCount: react.visitedCount,
-            likedByMe: react.likedByMe,
-            wantedByMe: react.wantedByMe,
-            visitedByMe: react.visitedByMe,
-          } as PublicPlace;
-        });
-
-        // 2) placeKey -> 投稿配列
-        const grouped: Record<string, PublicPlace[]> = {};
-        for (const post of postPlaces) {
-          const key = makePlaceKey(post.name, post.lat, post.lng);
-          (grouped[key] ||= []).push(post);
-        }
-
-        // 3) MapView 用の「1場所=1マーカー」を作る（代表1件を使う）
-        //    id は placeKey にする（選択・検索・マーカー識別が安定する）
-        const markerPlaces: PublicPlace[] = Object.entries(grouped).map(([key, posts]) => {
-          // ルール：グループ内は createdAt 新しい順（rowsが降順なので基本そのまま）
-          const sorted = [...posts].sort((a, b) => {
-            const ad = a.createdAt?.getTime() ?? 0;
-            const bd = b.createdAt?.getTime() ?? 0;
-            return bd - ad;
-          });
-
-          const repr = sorted[0]; // 代表（最新）
-          return {
-            ...repr,
-            id: key, // ★重要：MapViewに渡すIDは「場所キー」
-            postCount: posts.length, // ★投稿数
-          } as PublicPlace;
-        });
-
-        setPostsByPlaceKey(grouped);
-        setPlaces(markerPlaces);
-        const idMap: Record<string, string> = {};
-for (const [key, posts] of Object.entries(grouped)) {
-  for (const p of posts) {
-    idMap[p.id] = key;
-  }
-}
-setPlaceIdToKey(idMap);
-      } catch (e) {
-        console.error(e);
       }
-    })();
-  }, []);
+
+      // 3) 投稿いいね集計（post_likes）
+      type LikeRow = { post_id: string; user_id: string };
+      const likeByPost: Record<string, { likeCount: number; likedByMe: boolean }> = {};
+      if (postIds.length > 0) {
+        const { data: ls, error: eL } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", postIds);
+        if (eL) throw eL;
+
+        for (const r of (ls ?? []) as LikeRow[]) {
+          const pid = r.post_id;
+          if (!likeByPost[pid]) likeByPost[pid] = { likeCount: 0, likedByMe: false };
+          likeByPost[pid].likeCount++;
+          if (uid && r.user_id === uid) likeByPost[pid].likedByMe = true;
+        }
+      }
+
+      // 4) 投稿（PublicPost）生成
+      const postPlaces: PublicPost[] = rows.map((p: any) => {
+        const like = likeByPost[p.id] ?? { likeCount: 0, likedByMe: false };
+        return {
+          id: p.id,
+          name: p.title,
+          memo: p.memo ?? undefined,
+          lat: p.lat,
+          lng: p.lng,
+          photos: photosBy[p.id] ?? [],
+          visibility: "public",
+          createdByName: p.created_by_name ?? "名無しの旅人",
+          createdAt: p.created_at ? new Date(p.created_at) : null,
+          likeCount: like.likeCount,
+          likedByMe: like.likedByMe,
+        } as PublicPost;
+      });
+
+      // 5) placeKey で束ねる（投稿→場所）
+      const grouped: Record<string, PublicPost[]> = {};
+      for (const post of postPlaces) {
+        const key = makePlaceKey(post.name, post.lat, post.lng);
+        (grouped[key] ||= []).push(post);
+      }
+
+      // 6) 場所フラグ集計（place_flags）
+      const placeKeys = Object.keys(grouped);
+
+      type FlagRow = { place_key: string; user_id: string; kind: "want" | "visited" };
+      const flagByKey: Record<
+        string,
+        { wantCount: number; visitedCount: number; wantedByMe: boolean; visitedByMe: boolean }
+      > = {};
+
+      if (placeKeys.length > 0) {
+        const { data: fs, error: eF } = await supabase
+          .from("place_flags")
+          .select("place_key, user_id, kind")
+          .in("place_key", placeKeys);
+        if (eF) throw eF;
+
+        for (const r of (fs ?? []) as FlagRow[]) {
+          const k = r.place_key;
+          if (!flagByKey[k]) {
+            flagByKey[k] = { wantCount: 0, visitedCount: 0, wantedByMe: false, visitedByMe: false };
+          }
+          if (r.kind === "want") {
+            flagByKey[k].wantCount++;
+            if (uid && r.user_id === uid) flagByKey[k].wantedByMe = true;
+          } else {
+            flagByKey[k].visitedCount++;
+            if (uid && r.user_id === uid) flagByKey[k].visitedByMe = true;
+          }
+        }
+      }
+
+      // 7) MapView用の「1場所=1マーカー」生成（代表投稿 + place flags）
+      const markerPlaces: PublicMarkerPlace[] = Object.entries(grouped).map(([key, posts]) => {
+        const sorted = [...posts].sort((a, b) => {
+          const ad = a.createdAt?.getTime() ?? 0;
+          const bd = b.createdAt?.getTime() ?? 0;
+          return bd - ad;
+        });
+        const repr = sorted[0];
+        const f = flagByKey[key] ?? { wantCount: 0, visitedCount: 0, wantedByMe: false, visitedByMe: false };
+
+        return {
+          ...repr,
+          id: key, // MapViewのIDは placeKey（今の方針を踏襲）:contentReference[oaicite:6]{index=6}
+          postCount: posts.length,
+          wantCount: f.wantCount,
+          visitedCount: f.visitedCount,
+          wantedByMe: f.wantedByMe,
+          visitedByMe: f.visitedByMe,
+        } as PublicMarkerPlace;
+      });
+
+      // 8) state反映
+      setPostsByPlaceKey(grouped);
+      setPlaces(markerPlaces);
+
+      // postId -> placeKey の辞書
+      const idMap: Record<string, string> = {};
+      for (const [k, posts] of Object.entries(grouped)) {
+        for (const p of posts) idMap[p.id] = k;
+      }
+      setPlaceIdToKey(idMap);
+    } catch (e) {
+      console.error(e);
+    }
+  })();
+}, []);
+
 
   // 選択中の「場所の投稿全部」
   const selectedPosts = useMemo(() => {
@@ -228,150 +215,113 @@ setPlaceIdToKey(idMap);
     return marker?.name ?? "";
   }, [places, selectedId]);
 
-// リアクションのトグル（like / want / visited 共通）
-// ★注意：placeId は「投稿（places.id）」の方を渡す
-async function toggleReaction(
-  placeId: string,
-  kind: "like" | "want" | "visited"
-) {
-  const busyKey = `${placeId}:${kind}`;
-
-  const { data: ses } = await supabase.auth.getSession();
-  const uid = ses.session?.user.id;
-  if (!uid) {
-    alert("リアクションするにはログインが必要じゃよ。");
-    return;
-  }
-
-  const key = placeIdToKey[placeId];
-  if (!key) return;
-
-  // rollback用
-  let snapshotPosts: Record<string, PublicPlace[]> | null = null;
-  let snapshotPlaces: typeof places | null = null;
-
-  // いま押されとるか（UI状態から判定）
-  const getAlready = () => {
-    const arr = postsByPlaceKey[key] ?? [];
-    const t = arr.find((p) => p.id === placeId);
-    if (!t) return false;
-    if (kind === "like") return !!t.likedByMe;
-    if (kind === "want") return !!t.wantedByMe;
-    return !!t.visitedByMe;
-  };
-
-  const already = getAlready();
-
+ async function togglePostLike(postId: string) {
+  const busyKey = `${postId}:like`;
   try {
     setReactBusyId(busyKey);
 
-    // ✅ 1) 先にUIを即時更新（postsByPlaceKey）
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (!uid) return alert("ログインが必要じゃよ。");
+
+    const key = placeIdToKey[postId];
+    if (!key) return;
+
+    const target = (postsByPlaceKey[key] ?? []).find((p) => p.id === postId);
+    if (!target) return;
+
+    const already = !!target.likedByMe;
+
+    // ✅ UI即時反映（楽観）
     setPostsByPlaceKey((prev) => {
-      snapshotPosts = prev;
-
       const arr = prev[key] ?? [];
-      const nextArr = arr.map((p) => {
-        if (p.id !== placeId) return p;
-
-        if (already) {
-          return {
-            ...p,
-            likeCount:
-              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-            wantCount:
-              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-            visitedCount:
-              kind === "visited"
-                ? Math.max(0, (p.visitedCount ?? 0) - 1)
-                : p.visitedCount,
-            likedByMe: kind === "like" ? false : p.likedByMe,
-            wantedByMe: kind === "want" ? false : p.wantedByMe,
-            visitedByMe: kind === "visited" ? false : p.visitedByMe,
-          };
-        } else {
-          return {
-            ...p,
-            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-            visitedCount:
-              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-            likedByMe: kind === "like" ? true : p.likedByMe,
-            wantedByMe: kind === "want" ? true : p.wantedByMe,
-            visitedByMe: kind === "visited" ? true : p.visitedByMe,
-          };
-        }
-      });
-
-      return { ...prev, [key]: nextArr };
+      return {
+        ...prev,
+        [key]: arr.map((p) =>
+          p.id !== postId
+            ? p
+            : {
+                ...p,
+                likedByMe: !already,
+                likeCount: Math.max(0, (p.likeCount ?? 0) + (already ? -1 : 1)),
+              }
+        ),
+      };
     });
 
-    // ✅ 2) 先にUIを即時更新（places）※地図の星/チェックがこれ見とる
-    setPlaces((prev) => {
-      snapshotPlaces = prev;
+    // DB
+    if (already) {
+      const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", uid);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("post_likes").insert({ post_id: postId, user_id: uid });
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error(e);
+    alert("いいね更新に失敗したかも…");
+  } finally {
+    setReactBusyId(null);
+  }
+}
+ 
+async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
+  const busyKey = `${placeKey}:${kind}`;
+  try {
+    setReactBusyId(busyKey);
 
-      return prev.map((p) => {
-        if (p.id !== placeId) return p;
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (!uid) return alert("ログインが必要じゃよ。");
 
-        if (already) {
+    const marker = places.find((p) => p.id === placeKey);
+    if (!marker) return;
+
+    const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+
+    // ✅ UI即時反映（places側＝ヘッダーとMapViewに効く）
+    setPlaces((prev) =>
+      prev.map((p) => {
+        if (p.id !== placeKey) return p;
+        if (kind === "want") {
           return {
             ...p,
-            likeCount:
-              kind === "like" ? Math.max(0, (p.likeCount ?? 0) - 1) : p.likeCount,
-            wantCount:
-              kind === "want" ? Math.max(0, (p.wantCount ?? 0) - 1) : p.wantCount,
-            visitedCount:
-              kind === "visited"
-                ? Math.max(0, (p.visitedCount ?? 0) - 1)
-                : p.visitedCount,
-            likedByMe: kind === "like" ? false : p.likedByMe,
-            wantedByMe: kind === "want" ? false : p.wantedByMe,
-            visitedByMe: kind === "visited" ? false : p.visitedByMe,
-          };
-        } else {
-          return {
-            ...p,
-            likeCount: kind === "like" ? (p.likeCount ?? 0) + 1 : p.likeCount,
-            wantCount: kind === "want" ? (p.wantCount ?? 0) + 1 : p.wantCount,
-            visitedCount:
-              kind === "visited" ? (p.visitedCount ?? 0) + 1 : p.visitedCount,
-            likedByMe: kind === "like" ? true : p.likedByMe,
-            wantedByMe: kind === "want" ? true : p.wantedByMe,
-            visitedByMe: kind === "visited" ? true : p.visitedByMe,
+            wantedByMe: !already,
+            wantCount: Math.max(0, (p.wantCount ?? 0) + (already ? -1 : 1)),
           };
         }
-      });
-    });
+        return {
+          ...p,
+          visitedByMe: !already,
+          visitedCount: Math.max(0, (p.visitedCount ?? 0) + (already ? -1 : 1)),
+        };
+      })
+    );
 
-    // ✅ 3) DB更新（duplicate対策：upsert）
+    // DB
     if (already) {
       const { error } = await supabase
-        .from("place_reactions")
+        .from("place_flags")
         .delete()
-        .eq("place_id", placeId)
+        .eq("place_key", placeKey)
         .eq("user_id", uid)
         .eq("kind", kind);
       if (error) throw error;
     } else {
       const { error } = await supabase
-        .from("place_reactions")
-        .upsert(
-          { place_id: placeId, user_id: uid, kind },
-          { onConflict: "place_id,user_id,kind" }
-        );
+        .from("place_flags")
+        .insert({ place_key: placeKey, user_id: uid, kind });
       if (error) throw error;
     }
-  } catch (e: any) {
-    console.error("toggleReaction failed:", e);
-
-    // ✅ 失敗したら戻す
-    if (snapshotPosts) setPostsByPlaceKey(snapshotPosts);
-    if (snapshotPlaces) setPlaces(snapshotPlaces);
-
-    alert("反応の更新に失敗: " + (e?.message ?? JSON.stringify(e)));
+  } catch (e) {
+    console.error(e);
+    alert("場所フラグ更新に失敗したかも…");
   } finally {
     setReactBusyId(null);
   }
 }
+
+  
 
 
 
@@ -514,25 +464,79 @@ async function toggleReaction(
             gap: 10,
           }}
         >
-          {/* タイトル（場所） */}
-          <div style={{ textAlign: "center" }}>
-            <div
-              style={{
-                fontWeight: 900,
-                fontSize: 18,
-                lineHeight: 1.2,
-                maxWidth: "90%",
-                margin: "0 auto",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                letterSpacing: "0.02em",
-              }}
-              title={selectedTitle || "無題"}
-            >
-              {selectedTitle || "無題"}（{selectedPosts.length}件）
-            </div>
-          </div>
+          {/* タイトル（場所） + Placeボタン */}
+<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+  <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
+    <div
+      style={{
+        fontWeight: 900,
+        fontSize: 18,
+        lineHeight: 1.2,
+        maxWidth: "90%",
+        margin: "0 auto",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        letterSpacing: "0.02em",
+      }}
+      title={selectedTitle || "無題"}
+    >
+      {selectedTitle || "無題"}（{selectedPosts.length}件）
+    </div>
+  </div>
+
+  {/* 右側：Placeのボタン */}
+  <div style={{ display: "flex", gap: 8, flexWrap: "nowrap" }}>
+    {(() => {
+      const m = places.find((x) => x.id === selectedId);
+      const wanted = !!m?.wantedByMe;
+      const visited = !!m?.visitedByMe;
+
+      return (
+        <>
+          <button
+            type="button"
+            disabled={reactBusyId === `${selectedId}:want`}
+            onClick={() => togglePlaceFlag(selectedId!, "want")}
+            style={{
+              padding: "7px 12px",
+              borderRadius: 999,
+              border: wanted ? "1px solid #f59e0b" : "1px solid #fde68a",
+              background: wanted ? "linear-gradient(180deg,#fcd34d,#f59e0b)" : "#fffbeb",
+              color: wanted ? "#111827" : "#92400e",
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: wanted ? "0 10px 18px rgba(245,158,11,0.25)" : "none",
+            }}
+          >
+            ⭐ 行きたい
+          </button>
+
+          <button
+            type="button"
+            disabled={reactBusyId === `${selectedId}:visited`}
+            onClick={() => togglePlaceFlag(selectedId!, "visited")}
+            style={{
+              padding: "7px 12px",
+              borderRadius: 999,
+              border: visited ? "1px solid #10b981" : "1px solid #bbf7d0",
+              background: visited ? "linear-gradient(180deg,#34d399,#10b981)" : "#ecfdf5",
+              color: visited ? "#052e16" : "#065f46",
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: visited ? "0 10px 18px rgba(16,185,129,0.22)" : "none",
+            }}
+          >
+            ✓ 行った
+          </button>
+        </>
+      );
+    })()}
+  </div>
+</div>
+
 
           {/* 閉じる */}
           <button
@@ -577,62 +581,28 @@ async function toggleReaction(
                   {post.createdAt && `・${post.createdAt.toLocaleDateString("ja-JP")}`}
                 </div>
 
-                {/* リアクションボタン（3つ） */}
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                  {/* いいね */}
-                  <button
-                    type="button"
-                    disabled={reactBusyId === `${post.id}:like`}
-                    onClick={() => toggleReaction(post.id, "like")}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      border: post.likedByMe ? "1px solid #f97316" : "1px solid #fed7aa",
-                      background: post.likedByMe ? "#f97316" : "#fff7ed",
-                      color: post.likedByMe ? "#fff" : "#9a3412",
-                      fontSize: 12,
-                      cursor: reactBusyId === `${post.id}:like` ? "default" : "pointer",
-                    }}
-                  >
-                    ❤️ いいね（{post.likeCount ?? 0}）
-                  </button>
+                {/* Like（投稿単位） */}
+<div style={{ display: "flex", justifyContent: "flex-end" }}>
+  <button
+    type="button"
+    disabled={reactBusyId === `${post.id}:like`}
+    onClick={() => togglePostLike(post.id)}
+    style={{
+      padding: "7px 12px",
+      borderRadius: 999,
+      border: post.likedByMe ? "1px solid #fb7185" : "1px solid #fecdd3",
+      background: post.likedByMe ? "linear-gradient(180deg,#fb7185,#f43f5e)" : "#fff1f2",
+      color: post.likedByMe ? "#fff" : "#9f1239",
+      fontSize: 12,
+      fontWeight: 800,
+      cursor: reactBusyId === `${post.id}:like` ? "default" : "pointer",
+      boxShadow: post.likedByMe ? "0 10px 18px rgba(244,63,94,0.20)" : "none",
+    }}
+  >
+    ❤️ {post.likeCount ?? 0}
+  </button>
+</div>
 
-                  {/* 行きたい！ */}
-                  <button
-                    type="button"
-                    disabled={reactBusyId === `${post.id}:want`}
-                    onClick={() => toggleReaction(post.id, "want")}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      border: post.wantedByMe ? "1px solid #fbbf24" : "1px solid #fef3c7",
-                      background: post.wantedByMe ? "#fbbf24" : "#fffbeb",
-                      color: post.wantedByMe ? "#78350f" : "#92400e",
-                      fontSize: 12,
-                      cursor: reactBusyId === `${post.id}:want` ? "default" : "pointer",
-                    }}
-                  >
-                    ⭐ 行きたい！（{post.wantCount ?? 0}）
-                  </button>
-
-                  {/* 行った！ */}
-                  <button
-                    type="button"
-                    disabled={reactBusyId === `${post.id}:visited`}
-                    onClick={() => toggleReaction(post.id, "visited")}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      border: post.visitedByMe ? "1px solid #10b981" : "1px solid #d1fae5",
-                      background: post.visitedByMe ? "#10b981" : "#ecfdf5",
-                      color: post.visitedByMe ? "#ecfdf5" : "#065f46",
-                      fontSize: 12,
-                      cursor: reactBusyId === `${post.id}:visited` ? "default" : "pointer",
-                    }}
-                  >
-                    ✓ 行った！（{post.visitedCount ?? 0}）
-                  </button>
-                </div>
 
                 {/* メモ */}
                 <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
