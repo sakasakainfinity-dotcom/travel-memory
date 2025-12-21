@@ -75,9 +75,6 @@ export default function MapView({
 
     const style: any = {
       version: 8,
-
-      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-      
       sources: {
         osm: {
           type: "raster",
@@ -111,7 +108,7 @@ export default function MapView({
        * ✅ 1) 通常ピンは “青” 固定（色分けやめ）
        * 半径も固定にして見た目安定させる
        */
-     map.addLayer({
+      map.addLayer({
   id: "pins",
   type: "circle",
   source: "places",
@@ -134,12 +131,12 @@ export default function MapView({
     ],
   },
 });
-      
+
       /**
        * ✅ 2) 行きたい or 行った → ☆を重ねる（同一座標なのでズレない）
        * ※ フォントは環境差が出にくい並びにする
-       
-map.addLayer({
+       */
+      map.addLayer({
   id: "pin-star",
   type: "symbol",
   source: "places",
@@ -163,17 +160,12 @@ map.addLayer({
     "text-halo-width": 2,
   },
 });
-      
+
 
       /**
-       * ✅ 4) 投稿数ラベル（必要なら残す）
-       * 星やチェックと干渉したら offset を変える
+       * ✅ 3) 行った → ☆の上に☑（✓）を重ねる
        */
-      map.addLayer({
-        id: "postcount-labels",
-        type: "symbol",
-        source: "places",
-        layout: map.addLayer({
+     map.addLayer({
   id: "pin-check",
   type: "symbol",
   source: "places",
@@ -192,7 +184,17 @@ map.addLayer({
     "text-halo-color": "rgba(255,255,255,0.95)",
     "text-halo-width": 2,
   },
-});{
+});
+
+      /**
+       * ✅ 4) 投稿数ラベル（必要なら残す）
+       * 星やチェックと干渉したら offset を変える
+       */
+      map.addLayer({
+        id: "postcount-labels",
+        type: "symbol",
+        source: "places",
+        layout: {
           "text-field": [
             "case",
             [">", ["get", "postCount"], 1],
@@ -344,5 +346,3 @@ map.addLayer({
 
   return <div ref={containerRef} style={{ position: "fixed", inset: 0, zIndex: 0 }} />;
 }
-
-
