@@ -81,13 +81,18 @@ export default function WorldHeritagePilgrimagePage() {
 
       <div className="flex-1">
         <MapView
-          places={places as any}
-          onSelect={(p: any) => {
-            const sp = spots.find((x) => x.id === p.id) ?? null;
-            setSelectedSpot(sp);
-          }}
-          selectedId={selectedSpot?.id ?? null}
-        />
+  places={places as any}
+  onRequestNew={(p: { lat: number; lng: number }) => {
+    // 巡礼ページでは「新規投稿」はピンからさせたいなら何もしないでもOK
+    // でも型エラー回避のため必須で渡す
+    console.log("onRequestNew", p);
+  }}
+  onSelect={(p: any) => {
+    const sp = spots.find((x) => x.id === p.id) ?? null;
+    setSelectedSpot(sp);
+ 　　　　　 }}
+　　　　　  selectedId={selectedSpot?.id ?? null}
+　　　　/>
       </div>
 
       {/* 下の簡易パネル：A案の入口 */}
