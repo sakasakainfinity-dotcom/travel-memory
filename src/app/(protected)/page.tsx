@@ -63,14 +63,8 @@ function PostModal({
     "private"
   );
 
-  // ===== 巡礼レイヤー（将来対応・汎用）ここから =====
-const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
-const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
 
-const [layerToggleVisible, setLayerToggleVisible] = useState(false); // 左下UIを出す/出さない
-const [enabledLayerSlugs, setEnabledLayerSlugs] = useState<string[]>([]); // ONのレイヤー(slug)一覧
-const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({}); // slug -> places
-// ===== 巡礼レイヤー（将来対応・汎用）ここまで =====
+  
 
 
   // ★ 投稿の「リクエスト番号」（開くたび新規発行）
@@ -947,6 +941,87 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+
+    // ===== 巡礼レイヤー（将来対応・汎用） =====
+  const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
+  const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+
+  const [layerToggleVisible, setLayerToggleVisible] = useState(false);
+  const [enabledLayerSlugs, setEnabledLayerSlugs] = useState<string[]>([]);
+  const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
+
+    // 巡礼レイヤー：初回に localStorage から復元
+  useEffect(() => {
+    try {
+      const vis = localStorage.getItem(LS_LAYER_TOGGLE_VISIBLE) === "1";
+      setLayerToggleVisible(vis);
+
+      const raw = localStorage.getItem(LS_ENABLED_LAYER_SLUGS);
+      const arr = raw ? JSON.parse(raw) : [];
+      setEnabledLayerSlugs(Array.isArray(arr) ? arr : []);
+    } catch {
+      setLayerToggleVisible(false);
+      setEnabledLayerSlugs([]);
+    }
+  }, []);
+
+    // 巡礼レイヤー：enabledLayerSlugs が変わったら必要な分だけ読み込む
+  useEffect(() => {
+    (async () => {
+      // OFFになったレイヤーは消す
+      setLayerPlacesBySlug((prev) => {
+        const next: Record<string, MapPlace[]> = {};
+        for (const slug of enabledLayerSlugs) {
+          if (prev[slug]) next[slug] = prev[slug];
+        }
+        return next;
+      });
+
+      if (enabledLayerSlugs.length === 0) return;
+
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+      if (!uid) return;
+
+      for (const slug of enabledLayerSlugs) {
+        // すでにロード済みならスキップ
+        if (layerPlacesBySlug[slug]) continue;
+
+        const { data: m } = await supabase
+          .from("pilgrimage_missions")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (!m?.id) continue;
+
+        const { data: spots } = await supabase
+          .from("pilgrimage_spots")
+          .select("id,name,lat,lng")
+          .eq("mission_id", m.id);
+
+        const { data: prog } = await supabase
+          .from("pilgrimage_progress")
+          .select("spot_id")
+          .eq("user_id", uid);
+
+        const achieved = new Set((prog ?? []).map((r: any) => r.spot_id));
+
+        const layerPlaces: MapPlace[] = (spots ?? []).map((s: any) => ({
+          id: `${slug}__${s.id}`,
+          name: `🏯 ${s.name}`,
+          memo: achieved.has(s.id) ? "visited" : undefined,
+          lat: s.lat,
+          lng: s.lng,
+          photos: [],
+          visibility: "private",
+        }));
+
+        setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledLayerSlugs]);
+
 
   // 初回起動イベント（Plausible）
   useEffect(() => {
