@@ -4,7 +4,7 @@ import { inferMimeFromName } from "./mime";
 export type ThumbOptions = { maxSide?: number; quality?: number };
 
 export async function generateThumbnail(file: File, opts: ThumbOptions = {}): Promise<File | null> {
-  const { maxSide = 1280, quality = 0.8 } = opts;
+  const { maxSide = 480, quality = 0.7 } = opts;
   const name = file.name || "image";
 
   // RAW系はスキップ（必要なら対応拡張）
