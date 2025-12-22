@@ -1,11 +1,24 @@
-import BackToMapButton from "@/components/BackToMapButton";
+"use client";
 
-export default function PilgrimagePage() {
+import { useRouter } from "next/navigation";
+import BackToMapButton from "@/components/BackToMapButton";
+export default function PilgrimageHome() {
+  const router = useRouter();
+
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "16px 12px 80px" }}>
-      <h1 style={{ fontWeight: 900, fontSize: 20, marginBottom: 12 }}>巡礼マップ一覧</h1>
-      <p style={{ color: "#4b5563" }}>準備中です。募集/申し込み導線もこのページに載せる予定。</p>
-      <BackToMapButton />
-    </main>
+    <div className="p-4 space-y-4">
+      <h1 className="text-xl font-bold">巡礼マップ</h1>
+
+      <button
+        className="w-full rounded-xl bg-black text-white py-3 font-semibold"
+        onClick={() => router.push("/pilgrimage/jp-world-heritage")}
+      >
+        日本の世界遺産巡礼マップ
+      </button>
+
+      <p className="text-sm text-neutral-600">
+        ピンを塗りつぶしていくやつ。ちゃんと埋めんさいよ。
+      </p>
+    </div>
   );
 }
