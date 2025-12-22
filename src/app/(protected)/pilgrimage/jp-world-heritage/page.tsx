@@ -1,138 +1,155 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
-const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+export default function PilgrimageMenuPage() {
+  const router = useRouter();
 
-type Spot = {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-};
+  const addLayer = (slug: string) => {
+    // 将来：お気に入り/課金の管理もここに入れる
+    localStorage.setItem("tm_layer_toggle_visible", "1");
 
-type ProgressRow = {
-  spot_id: string;
-};
+    // 既存のON一覧に追加（重複は除外）
+    const raw = localStorage.getItem("tm_enabled_layer_slugs");
+    let arr: string[] = [];
+    try {
+      const parsed = raw ? JSON.parse(raw) : [];
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      arr = [];
+    }
+    const next = Array.from(new Set([...arr, slug]));
+    localStorage.setItem("tm_enabled_layer_slugs", JSON.stringify(next));
 
-export default function WorldHeritagePilgrimagePage() {
-  const [spots, setSpots] = useState<Spot[]>([]);
-  const [achievedIds, setAchievedIds] = useState<Set<string>>(new Set());
-  const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return;
-
-      // mission を引く
-      const { data: m, error: me } = await supabase
-        .from("pilgrimage_missions")
-        .select("id")
-        .eq("slug", "jp-world-heritage")
-        .maybeSingle();
-      if (me || !m?.id) return;
-
-      // spots
-      const { data: s, error: se } = await supabase
-        .from("pilgrimage_spots")
-        .select("id,name,lat,lng")
-        .eq("mission_id", m.id)
-        .order("sort_order", { ascending: true });
-      if (se) return;
-
-      // progress（自分）
-      const { data: p, error: pe } = await supabase
-        .from("pilgrimage_progress")
-        .select("spot_id")
-        .eq("user_id", uid);
-      if (pe) return;
-
-      setSpots((s ?? []) as Spot[]);
-      setAchievedIds(new Set((p ?? []).map((r: ProgressRow) => r.spot_id)));
-    })();
-  }, []);
-
-  const places = useMemo(() => {
-    // MapViewが受ける型に寄せる（最低限 id/title/lat/lng）
-    return spots.map((sp) => ({
-      id: sp.id,
-      title: sp.name,
-      lat: sp.lat,
-      lng: sp.lng,
-      // ここに "achieved" を持たせて、MapView側でピン色を変えるのがベスト
-      achieved: achievedIds.has(sp.id),
-    }));
-  }, [spots, achievedIds]);
-
-  // 進捗表示
-  const total = spots.length;
-  const done = achievedIds.size;
+    // private地図へ
+    router.push("/");
+  };
 
   return (
-    <div className="h-[calc(100vh-0px)] flex flex-col">
-      <div className="p-3 border-b flex items-center justify-between">
-        <div className="font-semibold">日本の世界遺産巡礼マップ</div>
-        <div className="text-sm text-neutral-600">{done} / {total} 達成</div>
-      </div>
+    <div className="min-h-[100svh] bg-gradient-to-b from-black via-neutral-950 to-[#060A12] text-white">
+      {/* Top */}
+      <header className="mx-auto max-w-5xl px-4 pt-6 flex items-center justify-between">
+        <button
+          onClick={() => router.push("/")}
+          className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+        >
+          ← 地図へ
+        </button>
 
-      <div className="flex-1">
-        <MapView
-  places={places as any}
-  onRequestNew={(p: { lat: number; lng: number }) => {
-    // 巡礼ページでは「新規投稿」はピンからさせたいなら何もしないでもOK
-    // でも型エラー回避のため必須で渡す
-    console.log("onRequestNew", p);
-  }}
-  onSelect={(p: any) => {
-    const sp = spots.find((x) => x.id === p.id) ?? null;
-    setSelectedSpot(sp);
- 　　　　　 }}
-　　　　　  selectedId={selectedSpot?.id ?? null}
-　　　　/>
-      </div>
+        <div className="text-xs text-white/50">
+          Pilgrimage Mode
+        </div>
+      </header>
 
-      {/* 下の簡易パネル：A案の入口 */}
-      <div className="p-3 border-t">
-        {!selectedSpot ? (
-          <div className="text-sm text-neutral-600">ピンを押して「この遺産に投稿」へ。</div>
-        ) : (
-          <div className="space-y-2">
-            <div className="font-semibold">{selectedSpot.name}</div>
-            <div className="flex gap-2">
+      {/* Hero */}
+      <main className="mx-auto max-w-5xl px-4 pt-8 pb-10">
+        <div className="flex items-end justify-between gap-6">
+          <div>
+            <h1 className="text-2xl md:text-4xl font-semibold tracking-tight">
+              巡礼マップ
+            </h1>
+            <p className="mt-2 text-white/60 text-sm md:text-base">
+              地図にレイヤーを重ねて、ピンを塗れ。
+            </p>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+              🏯 未訪問：輪郭
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+              🏯 訪問：塗り
+            </span>
+          </div>
+        </div>
+
+        {/* Layer Cards */}
+        <section className="mt-8 grid gap-4 md:grid-cols-2">
+          {/* World Heritage */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs text-white/50">LAYER</div>
+                <div className="mt-1 text-lg font-semibold">日本の世界遺産</div>
+                <div className="mt-2 text-sm text-white/60">
+                  地図に重ねて、行った場所を塗る。
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 grid place-items-center text-xl">
+                🏯
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
               <button
-                className="flex-1 rounded-xl bg-black text-white py-2 font-semibold"
-                onClick={() => {
-                  // ここは君の「投稿作成フロー」に合わせて繋ぐ所
-                  // 例: /edit/new?lat=...&lng=...&spotId=...
-                  const q = new URLSearchParams({
-                    lat: String(selectedSpot.lat),
-                    lng: String(selectedSpot.lng),
-                    spotId: selectedSpot.id,
-                  });
-                  location.href = `/edit/new?${q.toString()}`;
-                }}
+                onClick={() => addLayer("jp-world-heritage")}
+                className="flex-1 rounded-2xl bg-white text-black px-4 py-3 font-semibold hover:opacity-90 transition"
               >
-                この遺産に投稿
+                地図に追加 →
               </button>
-
               <button
-                className="rounded-xl border px-3"
-                onClick={() => setSelectedSpot(null)}
+                onClick={() => router.push("/pilgrimage/jp-world-heritage")}
+                className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/85 hover:bg-white/10 transition"
               >
-                閉じる
+                詳細
               </button>
             </div>
 
-            <div className="text-xs text-neutral-500">
-              達成済み：{achievedIds.has(selectedSpot.id) ? "✅" : "—"}
+            <div className="mt-3 text-xs text-white/45">
+              追加すると、地図の左下にON/OFFが出ます。
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Coming Soon */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs text-white/50">COMING SOON</div>
+                <div className="mt-1 text-lg font-semibold">日本の絶景 100</div>
+                <div className="mt-2 text-sm text-white/60">
+                  近日追加。お気に入り登録で管理。
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 grid place-items-center text-xl">
+                ✨
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                disabled
+                className="flex-1 rounded-2xl bg-white/10 text-white/50 px-4 py-3 font-semibold cursor-not-allowed"
+              >
+                準備中
+              </button>
+              <button
+                disabled
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/40 cursor-not-allowed"
+              >
+                詳細
+              </button>
+            </div>
+
+            <div className="mt-3 text-xs text-white/45">
+              ※有料の「お気に入り枠」に対応予定
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom hint (minimal text) */}
+        <div className="mt-8 flex items-center justify-between">
+          <div className="text-xs text-white/45">
+            レイヤーは地図に重ねるだけ。マップは1枚。
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+          >
+            地図へ戻る →
+          </button>
+        </div>
+      </main>
     </div>
   );
 }
+
