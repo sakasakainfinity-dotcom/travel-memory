@@ -1,155 +1,307 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
-export default function PilgrimageMenuPage() {
+type LayerDef = {
+  slug: string;
+  title: string;
+  desc: string;
+  emoji: string;
+  status?: "live" | "coming";
+};
+
+const LAYERS: LayerDef[] = [
+  {
+    slug: "jp-world-heritage",
+    title: "日本の世界遺産",
+    desc: "地図に重ねて、行った場所を塗る。",
+    emoji: "🏯",
+    status: "live",
+  },
+  {
+    slug: "jp-best-views-100",
+    title: "日本の絶景100",
+    desc: "近日追加。お気に入り登録で管理。",
+    emoji: "✨",
+    status: "coming",
+  },
+];
+
+const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
+const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+
+export default function PilgrimagePage() {
   const router = useRouter();
+  const [enabled, setEnabled] = useState<string[]>([]);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
-  console.log("PILGRIMAGE PAGE HIT: src/app/pilgrimage/page.tsx");
-  const addLayer = (slug: string) => {
-    // 将来：お気に入り/課金の管理もここに入れる
-    localStorage.setItem("tm_layer_toggle_visible", "1");
-
-    // 既存のON一覧に追加（重複は除外）
-    const raw = localStorage.getItem("tm_enabled_layer_slugs");
-    let arr: string[] = [];
+  useEffect(() => {
     try {
-      const parsed = raw ? JSON.parse(raw) : [];
-      arr = Array.isArray(parsed) ? parsed : [];
+      const raw = localStorage.getItem(LS_ENABLED_LAYER_SLUGS);
+      const arr = raw ? JSON.parse(raw) : [];
+      setEnabled(Array.isArray(arr) ? arr : []);
     } catch {
-      arr = [];
+      setEnabled([]);
     }
-    const next = Array.from(new Set([...arr, slug]));
-    localStorage.setItem("tm_enabled_layer_slugs", JSON.stringify(next));
+  }, []);
 
-    // private地図へ
+  const addLayer = (slug: string) => {
+    localStorage.setItem(LS_LAYER_TOGGLE_VISIBLE, "1");
+
+    const next = Array.from(new Set([...enabled, slug]));
+    setEnabled(next);
+    localStorage.setItem(LS_ENABLED_LAYER_SLUGS, JSON.stringify(next));
+
+    setJustAdded(slug);
+
+    // private地図へ戻す（あなたの地図ルートが違うならここだけ変えて）
     router.push("/");
   };
 
+  const liveLayers = useMemo(() => LAYERS.filter((l) => l.status !== "coming"), []);
+  const comingLayers = useMemo(() => LAYERS.filter((l) => l.status === "coming"), []);
+
   return (
-    <div className="min-h-[100svh] bg-gradient-to-b from-black via-neutral-950 to-[#060A12] text-white">
-      {/* Top */}
-      <header className="mx-auto max-w-5xl px-4 pt-6 flex items-center justify-between">
-        <button
-          onClick={() => router.push("/")}
-          className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-        >
-          ← 地図へ
-        </button>
+    <div
+      style={{
+        minHeight: "100svh",
+        background: "linear-gradient(135deg, #05070c, #0b1220, #060a12)",
+        color: "#f8fafc",
+        padding: "24px",
+      }}
+    >
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(2,6,23,0.55)",
+              color: "#e2e8f0",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            ← 地図へ
+          </button>
 
-        <div className="text-xs text-white/50">
-          Pilgrimage Mode
-        </div>
-      </header>
-
-      {/* Hero */}
-      <main className="mx-auto max-w-5xl px-4 pt-8 pb-10">
-        <div className="flex items-end justify-between gap-6">
-          <div>
-            <h1 className="text-2xl md:text-4xl font-semibold tracking-tight">
-              巡礼マップ
-            </h1>
-            <p className="mt-2 text-white/60 text-sm md:text-base">
-              地図にレイヤーを重ねて、ピンを塗れ。
-            </p>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-              🏯 未訪問：輪郭
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-              🏯 訪問：塗り
-            </span>
-          </div>
+          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>Pilgrimage Mode</div>
         </div>
 
-        {/* Layer Cards */}
-        <section className="mt-8 grid gap-4 md:grid-cols-2">
-          {/* World Heritage */}
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs text-white/50">LAYER</div>
-                <div className="mt-1 text-lg font-semibold">日本の世界遺産</div>
-                <div className="mt-2 text-sm text-white/60">
-                  地図に重ねて、行った場所を塗る。
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 grid place-items-center text-xl">
-                🏯
-              </div>
-            </div>
+        {/* Hero */}
+        <div style={{ marginTop: 18 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -0.3, marginBottom: 8 }}>
+            巡礼マップ
+          </h1>
+          <p style={{ color: "rgba(203,213,225,0.75)", fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
+            地図にレイヤーを重ねて、ピンを塗る。
+          </p>
 
-            <div className="mt-5 flex gap-3">
-              <button
-                onClick={() => addLayer("jp-world-heritage")}
-                className="flex-1 rounded-2xl bg-white text-black px-4 py-3 font-semibold hover:opacity-90 transition"
-              >
-                地図に追加 →
-              </button>
-              <button
-                onClick={() => router.push("/pilgrimage/jp-world-heritage")}
-                className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/85 hover:bg-white/10 transition"
-              >
-                詳細
-              </button>
-            </div>
-
-            <div className="mt-3 text-xs text-white/45">
-              追加すると、地図の左下にON/OFFが出ます。
-            </div>
+          {/* chips */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Chip text="🏯 未訪問：輪郭" />
+            <Chip text="🏯 訪問：塗り" />
+            <Chip text="マップは1枚（privateと共通）" />
           </div>
+        </div>
 
-          {/* Coming Soon */}
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs text-white/50">COMING SOON</div>
-                <div className="mt-1 text-lg font-semibold">日本の絶景 100</div>
-                <div className="mt-2 text-sm text-white/60">
-                  近日追加。お気に入り登録で管理。
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 grid place-items-center text-xl">
-                ✨
-              </div>
-            </div>
+        {/* Live layers */}
+        <SectionTitle title="LAYER" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+          {liveLayers.map((l) => (
+            <LayerCard
+              key={l.slug}
+              layer={l}
+              enabled={enabled.includes(l.slug)}
+              onAdd={() => addLayer(l.slug)}
+              onDetail={() => router.push(`/pilgrimage/${l.slug}`)}
+            />
+          ))}
+        </div>
 
-            <div className="mt-5 flex gap-3">
-              <button
-                disabled
-                className="flex-1 rounded-2xl bg-white/10 text-white/50 px-4 py-3 font-semibold cursor-not-allowed"
-              >
-                準備中
-              </button>
-              <button
-                disabled
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/40 cursor-not-allowed"
-              >
-                詳細
-              </button>
-            </div>
-
-            <div className="mt-3 text-xs text-white/45">
-              ※有料の「お気に入り枠」に対応予定
-            </div>
+        {/* Coming soon */}
+        <div style={{ marginTop: 18 }}>
+          <SectionTitle title="COMING SOON" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+            {comingLayers.map((l) => (
+              <LayerCard key={l.slug} layer={l} enabled={false} disabled onAdd={() => {}} onDetail={() => {}} />
+            ))}
           </div>
-        </section>
+        </div>
 
-        {/* Bottom hint (minimal text) */}
-        <div className="mt-8 flex items-center justify-between">
-          <div className="text-xs text-white/45">
-            レイヤーは地図に重ねるだけ。マップは1枚。
+        {/* Footer hint */}
+        <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ fontSize: 11, color: "rgba(148,163,184,0.85)" }}>
+            追加すると、地図の左下にON/OFFが出ます。
           </div>
           <button
             onClick={() => router.push("/")}
-            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "rgba(30,41,59,0.8)",
+              border: "1px solid rgba(148,163,184,0.35)",
+              color: "#e2e8f0",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
           >
             地図へ戻る →
           </button>
         </div>
-      </main>
+
+        {/* Tiny toast-ish note (optional) */}
+        {justAdded && (
+          <div
+            style={{
+              marginTop: 14,
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(34,197,94,0.25)",
+              background: "rgba(34,197,94,0.07)",
+              color: "rgba(226,232,240,0.9)",
+              fontSize: 12,
+              lineHeight: 1.5,
+            }}
+          >
+            ✅ レイヤーを追加しました： <b>{justAdded}</b>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div style={{ marginTop: 18, marginBottom: 10, fontSize: 11, color: "rgba(148,163,184,0.9)", letterSpacing: 1 }}>
+      {title}
+    </div>
+  );
+}
+
+function Chip({ text }: { text: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "6px 10px",
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.25)",
+        background: "rgba(2,6,23,0.45)",
+        color: "rgba(226,232,240,0.85)",
+        fontSize: 11,
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function LayerCard({
+  layer,
+  enabled,
+  disabled,
+  onAdd,
+  onDetail,
+}: {
+  layer: LayerDef;
+  enabled: boolean;
+  disabled?: boolean;
+  onAdd: () => void;
+  onDetail: () => void;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        border: "1px solid rgba(148,163,184,0.20)",
+        background: "rgba(255,255,255,0.03)",
+        padding: 14,
+        boxShadow: "0 30px 80px -45px rgba(0,0,0,0.85)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>{disabled ? "COMING SOON" : "LAYER"}</div>
+          <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, letterSpacing: -0.2 }}>
+            {layer.title}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, color: "rgba(203,213,225,0.75)", lineHeight: 1.6 }}>
+            {layer.desc}
+          </div>
+
+          {!disabled && enabled && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(34,197,94,0.85)", fontWeight: 800 }}>
+              ✔ 追加済み
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            height: 48,
+            width: 48,
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(148,163,184,0.20)",
+            display: "grid",
+            placeItems: "center",
+            fontSize: 22,
+            flexShrink: 0,
+          }}
+        >
+          {layer.emoji}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button
+          onClick={onAdd}
+          disabled={disabled}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: disabled ? "rgba(255,255,255,0.06)" : "#ffffff",
+            border: "1px solid rgba(148,163,184,0.25)",
+            color: disabled ? "rgba(226,232,240,0.35)" : "#0b1220",
+            cursor: disabled ? "not-allowed" : "pointer",
+            fontSize: 13,
+            fontWeight: 900,
+          }}
+        >
+          {disabled ? "準備中" : "地図に追加 →"}
+        </button>
+
+        <button
+          onClick={onDetail}
+          disabled={disabled}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "rgba(30,41,59,0.75)",
+            border: "1px solid rgba(148,163,184,0.25)",
+            color: disabled ? "rgba(226,232,240,0.35)" : "rgba(226,232,240,0.9)",
+            cursor: disabled ? "not-allowed" : "pointer",
+            fontSize: 12,
+            fontWeight: 800,
+            whiteSpace: "nowrap",
+          }}
+        >
+          詳細
+        </button>
+      </div>
+    </div>
+  );
+}
+
