@@ -98,6 +98,10 @@ useEffect(() => {
   }
 }, []);
 
+  useEffect(() => {
+  setEnabledLayerSlugs(["jp-world-heritage"]);
+}, []);
+  
   // 巡礼レイヤー：enabledLayerSlugs が変わったら、必要なレイヤーだけ読み込む
 useEffect(() => {
   (async () => {
