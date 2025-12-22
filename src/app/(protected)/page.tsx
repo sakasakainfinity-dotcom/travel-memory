@@ -736,6 +736,7 @@ async function insertPlace({
   visitedAt,
   files,
   visibility,
+  spotId?: string | null;
 }: {
   clientRequestId: string;
   lat: number;
@@ -786,6 +787,16 @@ async function insertPlace({
 
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
+   if (spotId) {
+    const { error: eProg } = await supabase
+      .from("pilgrimage_progress")
+      .upsert(
+        { user_id: uid, spot_id: spotId, post_id: placeRow.id },
+        { onConflict: "user_id,spot_id" }
+      );
+    if (eProg) throw new Error(`[PILGRIMAGE] ${eProg.message}`);
+  }
+  
   // 2) 写真（JPEG化→保存）
   const urls: string[] = [];
   for (const f of files ?? []) {
