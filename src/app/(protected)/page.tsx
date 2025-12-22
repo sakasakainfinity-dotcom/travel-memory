@@ -736,7 +736,7 @@ async function insertPlace({
   visitedAt,
   files,
   visibility,
-  spotId?: string | null;
+  spotId,
 }: {
   clientRequestId: string;
   lat: number;
@@ -746,6 +746,7 @@ async function insertPlace({
   visitedAt?: string;
   files: File[];
   visibility: "public" | "private" | "pair";
+   spotId?: string | null;
 }) {
   // 認証
   const { data: ses } = await supabase.auth.getSession();
