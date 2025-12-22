@@ -2,100 +2,78 @@
 
 import { useRouter } from "next/navigation";
 
-export default function PilgrimageHome() {
+export default function PilgrimageMenuPage() {
   const router = useRouter();
 
-  return (
-    <div className="min-h-[100svh] bg-gradient-to-b from-black via-neutral-950 to-neutral-900 text-white">
-      {/* Top bar */}
-      <header className="mx-auto max-w-5xl px-4 pt-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-white/10 grid place-items-center border border-white/10">
-            🧭
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm text-white/70">Pilgrimage</div>
-            <div className="text-lg font-semibold">巡礼マップ</div>
-          </div>
-        </div>
+  const addWorldHeritageLayer = () => {
+    // 「右下トグルを表示」＋「初期状態ON」
+    localStorage.setItem("tm_layer_wh_toggle_visible", "1");
+    localStorage.setItem("tm_layer_wh_enabled", "1");
+    router.push("/"); // private地図へ戻す（ルートが違うならここ変える）
+  };
 
-        {/* 地図に戻るボタン（復活） */}
+  return (
+    <div className="min-h-[100svh] bg-gradient-to-b from-[#071422] via-[#06101C] to-[#050A12] text-white">
+      <header className="mx-auto max-w-4xl px-4 pt-6 flex items-center justify-between">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.back()}
           className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
         >
-          ← 地図に戻る
+          ← 戻る
         </button>
       </header>
 
-      {/* Hero */}
-      <main className="mx-auto max-w-5xl px-4 pt-10 pb-10">
-        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-10 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)]">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
-                ✨ 日本の絶景を“集める”旅
-              </div>
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight">
-                日本の絶景をめぐって、<br className="hidden md:block" />
-                ピンを塗りつぶせ。
-              </h1>
-              <p className="text-white/70 max-w-xl">
-                行った証拠は写真。達成は地図が覚える。
-                旅のログを“コレクション”に変える巡礼モード。
-              </p>
-            </div>
+      <main className="mx-auto max-w-4xl px-4 pt-8 pb-10">
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          巡礼マップ
+        </h1>
 
-            <div className="flex flex-col gap-3 w-full md:w-auto">
-              <button
-                onClick={() => router.push("/pilgrimage/jp-world-heritage")}
-                className="rounded-2xl bg-white text-black px-5 py-3 font-semibold hover:opacity-90 transition"
-              >
-                日本の世界遺産 巡礼マップへ →
-              </button>
-              <button
-                onClick={() => router.push("/")}
-                className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm text-white/85 hover:bg-white/10 transition"
-              >
-                まずは地図で投稿する
-              </button>
+        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)]">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-sm text-white/60">LAYER</div>
+              <div className="text-lg font-semibold">日本の世界遺産</div>
             </div>
-          </div>
-        </section>
-
-        {/* Cards */}
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-xl">📍</div>
-            <div className="mt-2 font-semibold">ピンを塗る</div>
-            <div className="mt-1 text-sm text-white/70">
-              スポットに投稿すると自動で“達成”に。
+            <div className="h-10 w-10 rounded-2xl bg-white/10 border border-white/10 grid place-items-center">
+              🏯
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-xl">🖼️</div>
-            <div className="mt-2 font-semibold">写真が証明</div>
-            <div className="mt-1 text-sm text-white/70">
-              旅の記録が、次の旅の衝動になる。
-            </div>
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={addWorldHeritageLayer}
+              className="flex-1 rounded-2xl bg-white text-black px-4 py-3 font-semibold hover:opacity-90 transition"
+            >
+              地図に追加 →
+            </button>
+            <button
+              onClick={() => router.push("/")}
+              className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/85 hover:bg-white/10 transition"
+            >
+              地図へ
+            </button>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-xl">🏆</div>
-            <div className="mt-2 font-semibold">達成を見える化</div>
-            <div className="mt-1 text-sm text-white/70">
-              進捗・達成・賞状。全部ここに出す。
-            </div>
+          <div className="mt-3 text-xs text-white/55">
+            ※右下のスイッチで表示ON/OFFできます
           </div>
-        </section>
+        </div>
 
-        {/* Footer hint */}
-        <div className="mt-8 text-xs text-white/50">
-          ※まずは世界遺産から。慣れたら「日本の絶景100」みたいに拡張できる。
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-white/80 text-sm">未訪問</div>
+            <div className="mt-1 text-white/60 text-xs">輪郭アイコン</div>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-white/80 text-sm">訪問済</div>
+            <div className="mt-1 text-white/60 text-xs">塗りアイコン</div>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-white/80 text-sm">投稿</div>
+            <div className="mt-1 text-white/60 text-xs">ピンから作成</div>
+          </div>
         </div>
       </main>
     </div>
   );
 }
-
