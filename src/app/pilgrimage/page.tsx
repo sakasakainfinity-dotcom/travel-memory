@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 export default function PilgrimageMenuPage() {
   const router = useRouter();
 
+  console.log("PILGRIMAGE PAGE HIT: src/app/pilgrimage/page.tsx");
   const addLayer = (slug: string) => {
     // 将来：お気に入り/課金の管理もここに入れる
     localStorage.setItem("tm_layer_toggle_visible", "1");
