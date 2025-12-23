@@ -945,16 +945,18 @@ useEffect(() => {
 
         const achieved = new Set((prog ?? []).map((r: any) => r.spot_id));
 
-        const layerPlaces: MapPlace[] = spots.map((s: any) => ({
-          id: `${slug}__${s.id}`,
-          name: `🏯 ${s.name}`,
-          memo: achieved.has(s.id) ? "visited" : undefined,
-          lat: s.lat,
-          lng: s.lng,
-          photos: [],
-          visibility: "private",
-        }));
-
+        const layerPlaces: MapPlace[] = spots.map((s: any) => {
+  const done = achieved.has(s.id);
+  return {
+    id: `layer:${slug}:${s.id}`,
+    name: done ? `🏯 ${s.name}（済）` : `🏯 ${s.name}`,
+    memo: done ? "visited" : undefined,
+    lat: s.lat,
+    lng: s.lng,
+    photos: [{ url: "", storage_path: "" } as any], // ←重要：MapViewのフィルタ突破
+    visibility: "private",
+  };
+});
         setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
         loadedSlugsRef.current.add(slug);
       }
