@@ -222,9 +222,44 @@ map.addLayer({
 map.moveLayer("pin-castle-outline");
 map.moveLayer("pin-castle-filled");
 
-      map.on("click", "pins", ...)
-map.on("click", "pin-castle-outline", ...)
-map.on("click", "pin-castle-filled", ...)
+      // 🏯 未訪問クリック
+map.on("click", "pin-castle-outline", (e) => {
+  const f = e.features?.[0];
+  if (!f) return;
+
+  new maplibregl.Popup({ offset: 12 })
+    .setLngLat((f.geometry as any).coordinates)
+    .setText(f.properties?.title ?? "")
+    .addTo(map);
+});
+
+// 🏯 訪問済クリック
+map.on("click", "pin-castle-filled", (e) => {
+  const f = e.features?.[0];
+  if (!f) return;
+
+  new maplibregl.Popup({ offset: 12 })
+    .setLngLat((f.geometry as any).coordinates)
+    .setText(f.properties?.title ?? "")
+    .addTo(map);
+});
+
+// カーソル変更（両方）
+map.on("mouseenter", "pin-castle-outline", () => {
+  map.getCanvas().style.cursor = "pointer";
+});
+map.on("mouseleave", "pin-castle-outline", () => {
+  map.getCanvas().style.cursor = "";
+});
+
+map.on("mouseenter", "pin-castle-filled", () => {
+  map.getCanvas().style.cursor = "pointer";
+});
+map.on("mouseleave", "pin-castle-filled", () => {
+  map.getCanvas().style.cursor = "";
+});
+
+    
 
 
       // 通常ピン選択
@@ -234,22 +269,7 @@ map.on("click", "pin-castle-filled", ...)
         if (p) onSelect?.(p);
       });
 
-      // 🏯クリック → タイトル表示
-      map.on("click", "pin-castle", (e) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        new maplibregl.Popup({ offset: 12 })
-          .setLngLat((f.geometry as any).coordinates)
-          .setText(f.properties?.title ?? "")
-          .addTo(map);
-      });
-
-      map.on("mouseenter", "pin-castle", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "pin-castle", () => {
-        map.getCanvas().style.cursor = "";
-      });
+    
 
       bindGetView?.(() => {
         const c = map.getCenter();
