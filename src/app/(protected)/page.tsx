@@ -954,7 +954,7 @@ useEffect(() => {
     lat: s.lat,
     lng: s.lng,
     photos: [{ url: "", storage_path: "" } as any], // ←重要：MapViewのフィルタ突破
-    visibility: "private",
+    visibility: "pilgrimage",
   };
 });
         setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
