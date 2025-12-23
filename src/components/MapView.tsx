@@ -57,41 +57,6 @@ const CASTLE_FILLED_SVG = `
 </svg>
 `.trim();
 
-// 未訪問
-map.addLayer({
-  id: "pin-castle-outline",
-  type: "symbol",
-  source: "places",
-  filter: [
-    "all",
-    ["==", ["get", "visibility"], "pilgrimage"],
-    ["!=", ["get", "visitedByMe"], true],
-  ],
-  layout: {
-    "icon-image": "castle-outline",
-    "icon-size": 0.7,
-    "icon-anchor": "bottom",
-    "icon-allow-overlap": true,
-  },
-});
-
-// 訪問済
-map.addLayer({
-  id: "pin-castle-filled",
-  type: "symbol",
-  source: "places",
-  filter: [
-    "all",
-    ["==", ["get", "visibility"], "pilgrimage"],
-    ["==", ["get", "visitedByMe"], true],
-  ],
-  layout: {
-    "icon-image": "castle-filled",
-    "icon-size": 0.7,
-    "icon-anchor": "bottom",
-    "icon-allow-overlap": true,
-  },
-});
 
 
 export default function MapView({
@@ -213,20 +178,54 @@ export default function MapView({
       });
 
       // 🏯 巡礼ピン
-      await addSvgImage(map, "castle-icon", CASTLE_SVG, 2);
+      // 🔽 先にSVGを登録（これ忘れると表示されん）
+await addSvgImage(map, "castle-outline", CASTLE_OUTLINE_SVG, 2);
+await addSvgImage(map, "castle-filled", CASTLE_FILLED_SVG, 2);
 
-      map.addLayer({
-        id: "pin-castle",
-        type: "symbol",
-        source: "places",
-        filter: ["==", ["get", "visibility"], "pilgrimage"],
-        layout: {
-          "icon-image": "castle-icon",
-          "icon-size": 0.7,
-          "icon-anchor": "bottom",
-          "icon-allow-overlap": true,
-        },
-      });
+// 未訪問（線だけ）
+map.addLayer({
+  id: "pin-castle-outline",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["==", ["get", "visibility"], "pilgrimage"],
+    ["!=", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "castle-outline",
+    "icon-size": 0.7,
+    "icon-anchor": "bottom",
+    "icon-allow-overlap": true,
+  },
+});
+
+// 訪問済（塗り）
+map.addLayer({
+  id: "pin-castle-filled",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["==", ["get", "visibility"], "pilgrimage"],
+    ["==", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "castle-filled",
+    "icon-size": 0.7,
+    "icon-anchor": "bottom",
+    "icon-allow-overlap": true,
+  },
+});
+
+// 重なり順を上に
+map.moveLayer("pin-castle-outline");
+map.moveLayer("pin-castle-filled");
+
+      map.on("click", "pins", ...)
+map.on("click", "pin-castle-outline", ...)
+map.on("click", "pin-castle-filled", ...)
+
 
       // 通常ピン選択
       map.on("click", "pins", (e) => {
