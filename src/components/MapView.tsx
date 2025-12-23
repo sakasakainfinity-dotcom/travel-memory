@@ -43,12 +43,56 @@ async function addSvgImage(map: Map, name: string, svg: string, pixelRatio = 2) 
 }
 
 // 🏯 城アイコン
-const CASTLE_SVG = `
+const CASTLE_OUTLINE_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M8 56h48v-6H8v6zm4-8h40V22l-6-4v-6h-6v6l-8-4-8 4v-6h-6v6l-6 4v26z"
+        fill="none" stroke="#0f766e" stroke-width="3"/>
+</svg>
+`.trim();
+
+const CASTLE_FILLED_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <path d="M8 56h48v-6H8v6zm4-8h40V22l-6-4v-6h-6v6l-8-4-8 4v-6h-6v6l-6 4v26z"
         fill="#0f766e" stroke="#ffffff" stroke-width="2"/>
 </svg>
 `.trim();
+
+// 未訪問
+map.addLayer({
+  id: "pin-castle-outline",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["==", ["get", "visibility"], "pilgrimage"],
+    ["!=", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "castle-outline",
+    "icon-size": 0.7,
+    "icon-anchor": "bottom",
+    "icon-allow-overlap": true,
+  },
+});
+
+// 訪問済
+map.addLayer({
+  id: "pin-castle-filled",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["==", ["get", "visibility"], "pilgrimage"],
+    ["==", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "castle-filled",
+    "icon-size": 0.7,
+    "icon-anchor": "bottom",
+    "icon-allow-overlap": true,
+  },
+});
+
 
 export default function MapView({
   places,
