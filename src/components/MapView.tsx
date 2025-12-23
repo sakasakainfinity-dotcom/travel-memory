@@ -194,7 +194,7 @@ map.addLayer({
   ],
   layout: {
     "icon-image": "castle-outline",
-    "icon-size": 0.7,
+    "icon-size": 0.3,
     "icon-anchor": "bottom",
     "icon-allow-overlap": true,
   },
@@ -212,7 +212,7 @@ map.addLayer({
   ],
   layout: {
     "icon-image": "castle-filled",
-    "icon-size": 0.7,
+    "icon-size": 0.3,
     "icon-anchor": "bottom",
     "icon-allow-overlap": true,
   },
