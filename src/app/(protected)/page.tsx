@@ -864,11 +864,14 @@ export default function Page() {
     // ===== 巡礼レイヤー（将来対応・汎用） =====
   const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
   const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+  const [layerErr, setLayerErr] = useState<string | null>(null);
 
   const [layerToggleVisible, setLayerToggleVisible] = useState(false);
   const [enabledLayerSlugs, setEnabledLayerSlugs] = useState<string[]>([]);
   const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
 
+  const loadedSlugsRef = useRef<Set<string>>(new Set());
+  
     // 巡礼レイヤー：初回に localStorage から復元
   useEffect(() => {
     try {
@@ -884,10 +887,24 @@ export default function Page() {
     }
   }, []);
 
-    // 巡礼レイヤー：enabledLayerSlugs が変わったら必要な分だけ読み込む
-  useEffect(() => {
-    (async () => {
-      // OFFになったレイヤーは消す
+useEffect(() => {
+  (async () => {
+    try {
+      setLayerErr(null);
+
+      // 何もONじゃなければ終わり（ついでにロード済みもリセット）
+      if (enabledLayerSlugs.length === 0) {
+        loadedSlugsRef.current = new Set();
+        setLayerPlacesBySlug({});
+        return;
+      }
+
+      const { data: ses, error: sesErr } = await supabase.auth.getSession();
+      if (sesErr) throw new Error(`session: ${sesErr.message}`);
+      const uid = ses.session?.user.id;
+      if (!uid) throw new Error("not logged in");
+
+      // OFFになったslugは掃除（表示もキャッシュも）
       setLayerPlacesBySlug((prev) => {
         const next: Record<string, MapPlace[]> = {};
         for (const slug of enabledLayerSlugs) {
@@ -895,37 +912,40 @@ export default function Page() {
         }
         return next;
       });
-
-      if (enabledLayerSlugs.length === 0) return;
-
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return;
+      loadedSlugsRef.current = new Set(
+        [...loadedSlugsRef.current].filter((s) => enabledLayerSlugs.includes(s))
+      );
 
       for (const slug of enabledLayerSlugs) {
-        // すでにロード済みならスキップ
-        if (layerPlacesBySlug[slug]) continue;
+        if (loadedSlugsRef.current.has(slug)) continue;
 
-        const { data: m } = await supabase
+        // mission
+        const { data: m, error: me } = await supabase
           .from("pilgrimage_missions")
           .select("id")
           .eq("slug", slug)
           .maybeSingle();
-        if (!m?.id) continue;
+        if (me) throw new Error(`missions: ${me.message}`);
+        if (!m?.id) throw new Error(`mission not found: ${slug}`);
 
-        const { data: spots } = await supabase
+        // spots
+        const { data: spots, error: se } = await supabase
           .from("pilgrimage_spots")
           .select("id,name,lat,lng")
           .eq("mission_id", m.id);
+        if (se) throw new Error(`spots: ${se.message}`);
+        if (!spots || spots.length === 0) throw new Error(`spots empty: ${slug}`);
 
-        const { data: prog } = await supabase
+        // progress
+        const { data: prog, error: pe } = await supabase
           .from("pilgrimage_progress")
           .select("spot_id")
           .eq("user_id", uid);
+        if (pe) throw new Error(`progress: ${pe.message}`);
 
         const achieved = new Set((prog ?? []).map((r: any) => r.spot_id));
 
-        const layerPlaces: MapPlace[] = (spots ?? []).map((s: any) => ({
+        const layerPlaces: MapPlace[] = spots.map((s: any) => ({
           id: `${slug}__${s.id}`,
           name: `🏯 ${s.name}`,
           memo: achieved.has(s.id) ? "visited" : undefined,
@@ -936,10 +956,15 @@ export default function Page() {
         }));
 
         setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
+        loadedSlugsRef.current.add(slug);
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledLayerSlugs]);
+    } catch (e: any) {
+      setLayerErr(e?.message ?? String(e));
+    }
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [enabledLayerSlugs]);
+
 
 
   // 初回起動イベント（Plausible）
@@ -1245,8 +1270,48 @@ const mergedPlaces = useMemo(() => {
         </div>
       )}
 
-      
-  
+
+      {layerErr && (
+  <div
+    style={{
+      position: "fixed",
+      left: 16,
+      top: 16,
+      zIndex: 99999,
+      maxWidth: 360,
+      background: "rgba(127,29,29,0.92)",
+      border: "1px solid rgba(248,113,113,0.5)",
+      color: "#fff",
+      padding: "10px 12px",
+      borderRadius: 12,
+      boxShadow: "0 12px 30px rgba(0,0,0,.35)",
+      fontSize: 12,
+      lineHeight: 1.4,
+    }}
+  >
+    <b>巡礼レイヤー読込エラー</b>
+    <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{layerErr}</div>
+    <button
+      onClick={() => setLayerErr(null)}
+      style={{
+        marginTop: 8,
+        width: "100%",
+        background: "rgba(255,255,255,0.15)",
+        border: "1px solid rgba(255,255,255,0.25)",
+        color: "#fff",
+        padding: "6px 10px",
+        borderRadius: 10,
+        cursor: "pointer",
+        fontWeight: 700,
+      }}
+    >
+      閉じる
+    </button>
+  </div>
+)}
+
+
+
 
       
       
