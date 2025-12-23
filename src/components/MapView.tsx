@@ -108,13 +108,15 @@ export default function MapView({
 
     if (mode === "private") {
       map.setPaintProperty("pins", "circle-color", [
-        "case",
-        ["==", ["get", "visibility"], "public"],
-        "#2563eb", // 公開=青
-        ["==", ["get", "visibility"], "pair"],
-        "#eab308", // ペア=黄
-        "#ef4444", // private=赤
-      ]);
+  "case",
+  ["==", ["get", "visibility"], "public"],
+  "#2563eb", // 公開=青
+  ["==", ["get", "visibility"], "pair"],
+  "#eab308", // ペア=黄
+  ["==", ["get", "visibility"], "pilgrimage"],
+  "#22c55e", // ★ 巡礼=緑
+  "#ef4444", // private=赤
+]);
       map.setPaintProperty("pins", "circle-opacity", 1);
 
       // public用の星/チェックは非表示に
