@@ -79,35 +79,33 @@ function PostModal({
   // ★ 二重実行ガード + ボタン無効化
   const creatingRef = useRef(false);
   const [saving, setSaving] = useState(false);
-
+  const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
 
  
   // 開くたび完全リセット + requestId も更新
   useEffect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    const d = new Date();
-    const z = (n: number) => String(n).padStart(2, "0");
+  // ここが肝：最初からタイトルを入れる
+  setTitle((presetTitle ?? "").trim());
 
-    setTitle("");
-    setMemo("");
-    setAddress("");
-    setVisitedAt(
-      `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`
-    );
+  // もし「毎回リセット」してるなら、そのまま
+  setMemo("");
+  setAddress("");
+  const d = new Date();
+  const z = (n: number) => String(n).padStart(2, "0");
+  setVisitedAt(`${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`);
 
-    setLat(place.lat);
-    setLng(place.lng);
-    setFiles([]);
-    setVisibility("private");
+  setLat(place.lat);
+  setLng(place.lng);
+  setFiles([]);
+  setVisibility("private");
 
-    // ★ここで投稿番号を作り直す（保存連打でも同じ番号のまま）
-    setClientRequestId(crypto.randomUUID());
+  setClientRequestId(crypto.randomUUID());
+  creatingRef.current = false;
+  setSaving(false);
+}, [open, place.lat, place.lng, presetTitle]);
 
-    // 念のためリセット
-    creatingRef.current = false;
-    setSaving(false);
-  }, [open, place.lat, place.lng]);
 
   const previews = useMemo(
     () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
@@ -1359,6 +1357,7 @@ const mergedPlaces = useMemo(() => {
         spotId: keys.spotId,
         presetTitle: cleanPilgrimageTitle(p.name),
       });
+      setSelectedId(null);
       return;
     }
   
@@ -1547,7 +1546,7 @@ const mergedPlaces = useMemo(() => {
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
-          presetTitle={newAt.presetTitle ?? ""}  
+          presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}   
           onClose={() => {
             setNewAt(null);
             const snap = initialView ?? getViewRef.current();
@@ -1556,15 +1555,32 @@ const mergedPlaces = useMemo(() => {
           onSubmit={async (d) => {
             try {
               const created = await insertPlace({
-                clientRequestId: d.clientRequestId,
-                lat: d.lat,
-                lng: d.lng,
-                title: d.title,
-                memo: d.memo,
-                visitedAt: d.visitedAt,
-                files: d.photos,
-                visibility: d.visibility,
-              });
+  clientRequestId: d.clientRequestId,
+  lat: d.lat,
+  lng: d.lng,
+
+  // タイトルが空なら preset を強制採用（これで絶対入る）
+  title: (d.title?.trim() || (newAt.presetTitle ?? "")).trim(),
+
+  memo: d.memo,
+  visitedAt: d.visitedAt,
+  files: d.photos,
+  visibility: d.visibility,
+
+  spotId: spotIdForSave, // ←ここが城を塗るスイッチ
+});
+
+              if (newAt.mode === "pilgrimage" && newAt.slug && newAt.spotId) {
+  const layerId = `layer:${newAt.slug}:${newAt.spotId}`;
+  setLayerPlacesBySlug((prev) => {
+    const arr = prev[newAt.slug!] ?? [];
+    const next = arr.map((x) =>
+      x.id === layerId ? { ...x, visitedByMe: true, name: `🏯 ${cleanPilgrimageTitle(x.name)}（済）`, memo: "visited" } : x
+    );
+    return { ...prev, [newAt.slug!]: next };
+  });
+}
+
 
               setPlaces((prev) => [
                 {
