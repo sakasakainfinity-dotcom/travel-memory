@@ -226,8 +226,7 @@ map.moveLayer("pin-castle-filled");
 map.on("click", "pin-castle-outline", (e) => {
   const f = e.features?.[0];
   if (!f) return;
-
-  const id = String((f.properties as any)?.id);
+  const id = String((f.properties as any)?.id ?? "");
   const p = placesRef.current.find((x) => x.id === id);
   if (p) onSelect?.(p);
 });
@@ -236,11 +235,11 @@ map.on("click", "pin-castle-outline", (e) => {
 map.on("click", "pin-castle-filled", (e) => {
   const f = e.features?.[0];
   if (!f) return;
-
-  const id = String((f.properties as any)?.id);
+  const id = String((f.properties as any)?.id ?? "");
   const p = placesRef.current.find((x) => x.id === id);
   if (p) onSelect?.(p);
 });
+
 
 
 // カーソル変更（両方）
