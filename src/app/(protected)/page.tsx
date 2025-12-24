@@ -31,11 +31,13 @@ type PhotoRow = {
 function PostModal({
   open,
   place,
+  presetTitle,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   place: { lat: number; lng: number };
+  presetTitle?: string; 
   onClose: () => void;
   onSubmit: (d: {
     clientRequestId: string;
@@ -1545,6 +1547,7 @@ const mergedPlaces = useMemo(() => {
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
+          presetTitle={newAt.presetTitle ?? ""}  
           onClose={() => {
             setNewAt(null);
             const snap = initialView ?? getViewRef.current();
