@@ -855,7 +855,6 @@ async function insertPlace({
 /* ================== ページ本体 ================== */
 export default function Page() {
   const [places, setPlaces] = useState<MapPlace[]>([]);
-  const [newAt, setNewAt] = useState<{ lat: number; lng: number } | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
@@ -871,6 +870,30 @@ export default function Page() {
   const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
 
   const loadedSlugsRef = useRef<Set<string>>(new Set());
+
+  const [newAt, setNewAt] = useState<{
+  lat: number;
+  lng: number;
+  // 巡礼用（城タップ時だけ入る）
+  mode?: "normal" | "pilgrimage";
+  slug?: string | null;
+  spotId?: string | null;
+  presetTitle?: string | null;
+} | null>(null);
+
+  function parsePilgrimageKeys(placeId: string) {
+  // 形式: layer:${slug}:${spotId}
+  if (!placeId?.startsWith("layer:")) return null;
+  const parts = placeId.split(":");
+  if (parts.length < 3) return null;
+  return { slug: parts[1], spotId: parts.slice(2).join(":") };
+}
+
+function cleanPilgrimageTitle(name?: string | null) {
+  const s = (name ?? "").replace(/^🏯\s*/, "");
+  return s.replace(/（済）\s*$/, "").trim();
+}
+
   
     // 巡礼レイヤー：初回に localStorage から復元
   useEffect(() => {
@@ -1321,19 +1344,44 @@ const mergedPlaces = useMemo(() => {
       
       {/* 🗺 マップ（1つだけ） */}
       <MapView
-        places={mergedPlaces}
-        onRequestNew={openModalAt}
-        onSelect={(p) => setSelectedId(p.id)}
-        selectedId={selectedId}
-        flyTo={flyTo}
-        bindGetView={(fn) => {
-          getViewRef.current = fn;
-        }}
-        bindSetView={(fn) => {
-          setViewRef.current = fn;
-        }}
-        initialView={initialView}
-      />
+  places={mergedPlaces}
+  onRequestNew={openModalAt}
+  onSelect={(p) => {
+    // 巡礼（城）
+    if (p.visibility === "pilgrimage" && p.id.startsWith("layer:")) {
+      const keys = parsePilgrimageKeys(p.id);
+      if (!keys) return;
+
+      const snap = getViewRef.current();
+      setInitialView(snap);
+
+      setNewAt({
+        lat: p.lat,
+        lng: p.lng,
+        mode: "pilgrimage",
+        slug: keys.slug,
+        spotId: keys.spotId,
+        presetTitle: cleanPilgrimageTitle(p.name),
+      });
+
+      setSelectedId(null);
+      setTimeout(() => setViewRef.current(snap), 0);
+      return;
+    }
+
+    // 通常（丸ピン）
+    setSelectedId(p.id);
+  }}
+  selectedId={selectedId}
+  flyTo={flyTo}
+  bindGetView={(fn) => {
+    getViewRef.current = fn;
+  }}
+  bindSetView={(fn) => {
+    setViewRef.current = fn;
+  }}
+  initialView={initialView}
+/>
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
       <div
