@@ -222,15 +222,14 @@ map.addLayer({
 map.moveLayer("pin-castle-outline");
 map.moveLayer("pin-castle-filled");
 
-      // 🏯 未訪問クリック
+// 🏯 未訪問クリック
 map.on("click", "pin-castle-outline", (e) => {
   const f = e.features?.[0];
   if (!f) return;
 
-  new maplibregl.Popup({ offset: 12 })
-    .setLngLat((f.geometry as any).coordinates)
-    .setText(f.properties?.title ?? "")
-    .addTo(map);
+  const id = String((f.properties as any)?.id);
+  const p = placesRef.current.find((x) => x.id === id);
+  if (p) onSelect?.(p);
 });
 
 // 🏯 訪問済クリック
@@ -238,11 +237,11 @@ map.on("click", "pin-castle-filled", (e) => {
   const f = e.features?.[0];
   if (!f) return;
 
-  new maplibregl.Popup({ offset: 12 })
-    .setLngLat((f.geometry as any).coordinates)
-    .setText(f.properties?.title ?? "")
-    .addTo(map);
+  const id = String((f.properties as any)?.id);
+  const p = placesRef.current.find((x) => x.id === id);
+  if (p) onSelect?.(p);
 });
+
 
 // カーソル変更（両方）
 map.on("mouseenter", "pin-castle-outline", () => {
