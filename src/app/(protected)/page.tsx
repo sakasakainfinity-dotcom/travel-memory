@@ -79,7 +79,6 @@ function PostModal({
   // ★ 二重実行ガード + ボタン無効化
   const creatingRef = useRef(false);
   const [saving, setSaving] = useState(false);
-  const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
 
  
   // 開くたび完全リセット + requestId も更新
