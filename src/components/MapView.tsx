@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import maplibregl, { Map, Marker } from "maplibre-gl";
+import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type Place = {
@@ -56,8 +56,6 @@ const CASTLE_FILLED_SVG = `
         fill="#0f766e" stroke="#ffffff" stroke-width="2"/>
 </svg>
 `.trim();
-
-
 
 export default function MapView({
   places,
@@ -124,10 +122,7 @@ export default function MapView({
       map.setPaintProperty("pins", "circle-color", "#2563eb");
       map.setPaintProperty("pins", "circle-opacity", [
         "case",
-        ["any",
-          ["==", ["get", "wantedByMe"], true],
-          ["==", ["get", "visitedByMe"], true]
-        ],
+        ["any", ["==", ["get", "wantedByMe"], true], ["==", ["get", "visitedByMe"], true]],
         0,
         1,
       ]);
@@ -163,7 +158,7 @@ export default function MapView({
     map.on("load", async () => {
       map.addSource("places", { type: "geojson", data: geojson });
 
-      // 通常ピン
+      // 通常ピン（巡礼は除外）
       map.addLayer({
         id: "pins",
         type: "circle",
@@ -177,88 +172,67 @@ export default function MapView({
         },
       });
 
-      // 🏯 巡礼ピン
-      // 🔽 先にSVGを登録（これ忘れると表示されん）
-await addSvgImage(map, "castle-outline", CASTLE_OUTLINE_SVG, 2);
-await addSvgImage(map, "castle-filled", CASTLE_FILLED_SVG, 2);
+      // 🏯 巡礼ピン（SVG登録）
+      await addSvgImage(map, "castle-outline", CASTLE_OUTLINE_SVG, 2);
+      await addSvgImage(map, "castle-filled", CASTLE_FILLED_SVG, 2);
 
-// 未訪問（線だけ）
-map.addLayer({
-  id: "pin-castle-outline",
-  type: "symbol",
-  source: "places",
-  filter: [
-    "all",
-    ["==", ["get", "visibility"], "pilgrimage"],
-    ["!=", ["get", "visitedByMe"], true],
-  ],
-  layout: {
-    "icon-image": "castle-outline",
-    "icon-size": 0.3,
-    "icon-anchor": "bottom",
-    "icon-allow-overlap": true,
-  },
-});
+      // 未訪問（線だけ）
+      map.addLayer({
+        id: "pin-castle-outline",
+        type: "symbol",
+        source: "places",
+        filter: ["all", ["==", ["get", "visibility"], "pilgrimage"], ["!=", ["get", "visitedByMe"], true]],
+        layout: {
+          "icon-image": "castle-outline",
+          "icon-size": 0.3,
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+        },
+      });
 
-// 訪問済（塗り）
-map.addLayer({
-  id: "pin-castle-filled",
-  type: "symbol",
-  source: "places",
-  filter: [
-    "all",
-    ["==", ["get", "visibility"], "pilgrimage"],
-    ["==", ["get", "visitedByMe"], true],
-  ],
-  layout: {
-    "icon-image": "castle-filled",
-    "icon-size": 0.3,
-    "icon-anchor": "bottom",
-    "icon-allow-overlap": true,
-  },
-});
+      // 訪問済（塗り）
+      map.addLayer({
+        id: "pin-castle-filled",
+        type: "symbol",
+        source: "places",
+        filter: ["all", ["==", ["get", "visibility"], "pilgrimage"], ["==", ["get", "visitedByMe"], true]],
+        layout: {
+          "icon-image": "castle-filled",
+          "icon-size": 0.3,
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+        },
+      });
 
-// 重なり順を上に
-map.moveLayer("pin-castle-outline");
-map.moveLayer("pin-castle-filled");
+      // 重なり順（いちばん上）
+      map.moveLayer("pin-castle-outline");
+      map.moveLayer("pin-castle-filled");
 
-// 🏯 未訪問クリック
-map.on("click", "pin-castle-outline", (e) => {
-  const f = e.features?.[0];
-  if (!f) return;
-  const id = String((f.properties as any)?.id ?? "");
-  const p = placesRef.current.find((x) => x.id === id);
-  if (p) onSelect?.(p);
-});
+      // ✅ 城クリックは popup禁止、onSelectへ
+      const pickPlaceFromFeature = (f: any) => {
+        const id = String(f?.properties?.id ?? "");
+        return placesRef.current.find((x) => x.id === id) ?? null;
+      };
 
-// 🏯 訪問済クリック
-map.on("click", "pin-castle-filled", (e) => {
-  const f = e.features?.[0];
-  if (!f) return;
-  const id = String((f.properties as any)?.id ?? "");
-  const p = placesRef.current.find((x) => x.id === id);
-  if (p) onSelect?.(p);
-});
+      map.on("click", "pin-castle-outline", (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = pickPlaceFromFeature(f);
+        if (p) onSelect?.(p);
+      });
 
+      map.on("click", "pin-castle-filled", (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = pickPlaceFromFeature(f);
+        if (p) onSelect?.(p);
+      });
 
-
-// カーソル変更（両方）
-map.on("mouseenter", "pin-castle-outline", () => {
-  map.getCanvas().style.cursor = "pointer";
-});
-map.on("mouseleave", "pin-castle-outline", () => {
-  map.getCanvas().style.cursor = "";
-});
-
-map.on("mouseenter", "pin-castle-filled", () => {
-  map.getCanvas().style.cursor = "pointer";
-});
-map.on("mouseleave", "pin-castle-filled", () => {
-  map.getCanvas().style.cursor = "";
-});
-
-    
-
+      // カーソル
+      map.on("mouseenter", "pin-castle-outline", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", "pin-castle-outline", () => (map.getCanvas().style.cursor = ""));
+      map.on("mouseenter", "pin-castle-filled", () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", "pin-castle-filled", () => (map.getCanvas().style.cursor = ""));
 
       // 通常ピン選択
       map.on("click", "pins", (e) => {
@@ -266,8 +240,6 @@ map.on("mouseleave", "pin-castle-filled", () => {
         const p = placesRef.current.find((x) => x.id === id);
         if (p) onSelect?.(p);
       });
-
-    
 
       bindGetView?.(() => {
         const c = map.getCenter();
@@ -285,6 +257,7 @@ map.on("mouseleave", "pin-castle-filled", () => {
       map.remove();
       mapRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
