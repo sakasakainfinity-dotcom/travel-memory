@@ -1552,6 +1552,9 @@ const mergedPlaces = useMemo(() => {
             setTimeout(() => setViewRef.current(snap), 0);
           }}
           onSubmit={async (d) => {
+
+            const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
+
             try {
               const created = await insertPlace({
   clientRequestId: d.clientRequestId,
