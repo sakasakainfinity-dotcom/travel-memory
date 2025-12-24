@@ -881,18 +881,15 @@ export default function Page() {
   presetTitle?: string | null;
 } | null>(null);
 
-  function parsePilgrimageKeys(placeId: string) {
-  // 形式: layer:${slug}:${spotId}
+  const parsePilgrimageKeys = (placeId: string) => {
   if (!placeId?.startsWith("layer:")) return null;
   const parts = placeId.split(":");
   if (parts.length < 3) return null;
   return { slug: parts[1], spotId: parts.slice(2).join(":") };
-}
+};
 
-function cleanPilgrimageTitle(name?: string | null) {
-  const s = (name ?? "").replace(/^🏯\s*/, "");
-  return s.replace(/（済）\s*$/, "").trim();
-}
+const cleanPilgrimageTitle = (name?: string | null) =>
+  (name ?? "").replace(/^🏯\s*/, "").replace(/（済）\s*$/, "").trim();
 
   
     // 巡礼レイヤー：初回に localStorage から復元
@@ -978,6 +975,7 @@ useEffect(() => {
     lng: s.lng,
     photos: [{ url: "", storage_path: "" } as any], // ←重要：MapViewのフィルタ突破
     visibility: "pilgrimage",
+    visitedByMe: done,
   };
 });
         setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
@@ -1347,13 +1345,9 @@ const mergedPlaces = useMemo(() => {
   places={mergedPlaces}
   onRequestNew={openModalAt}
   onSelect={(p) => {
-    // 巡礼（城）
     if (p.visibility === "pilgrimage" && p.id.startsWith("layer:")) {
       const keys = parsePilgrimageKeys(p.id);
       if (!keys) return;
-
-      const snap = getViewRef.current();
-      setInitialView(snap);
 
       setNewAt({
         lat: p.lat,
@@ -1363,11 +1357,9 @@ const mergedPlaces = useMemo(() => {
         spotId: keys.spotId,
         presetTitle: cleanPilgrimageTitle(p.name),
       });
-
-      setSelectedId(null);
-      setTimeout(() => setViewRef.current(snap), 0);
       return;
     }
+  
 
     // 通常（丸ピン）
     setSelectedId(p.id);
