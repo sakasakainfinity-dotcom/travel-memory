@@ -225,7 +225,7 @@ map.addLayer({
   ],
   layout: {
     "icon-image": "pin-check",
-    "icon-size": 0.45,
+    "icon-size": 0.35,
     "icon-allow-overlap": true,
     "icon-anchor": "center",
   },
@@ -243,7 +243,7 @@ map.addLayer({
   ],
   layout: {
     "icon-image": "pin-star",
-    "icon-size": 0.5,          // ⭐は少し大きめ
+    "icon-size": 0.36,          // ⭐は少し大きめ
     "icon-allow-overlap": true,
     "icon-anchor": "center",
   },
