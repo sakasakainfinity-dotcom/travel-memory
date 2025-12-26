@@ -126,28 +126,45 @@ export default function MapView({
   }, [places]);
 
   function applyMode(map: Map, mode: "private" | "public") {
-    if (!map.getLayer("pins")) return;
+  if (!map.getLayer("pins")) return;
 
-    if (mode === "private") {
-      map.setPaintProperty("pins", "circle-color", [
-        "case",
-        ["==", ["get", "visibility"], "public"],
-        "#2563eb",
-        ["==", ["get", "visibility"], "pair"],
-        "#eab308",
-        "#ef4444",
-      ]);
-      map.setPaintProperty("pins", "circle-opacity", 1);
-    } else {
-      map.setPaintProperty("pins", "circle-color", "#2563eb");
-      map.setPaintProperty("pins", "circle-opacity", [
-        "case",
-        ["any", ["==", ["get", "wantedByMe"], true], ["==", ["get", "visitedByMe"], true]],
-        0,
-        1,
-      ]);
-    }
+  // ✅ 追加：symbolレイヤー（星/チェック）を表示/非表示切替
+  const setSymbolVisible = (id: string, visible: boolean) => {
+    if (!map.getLayer(id)) return; // レイヤー無ければ何もしない
+    map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+  };
+
+  if (mode === "private") {
+    // privateでは星/チェックは出さない
+    setSymbolVisible("pin-wanted", false);
+    setSymbolVisible("pin-visited", false);
+
+    map.setPaintProperty("pins", "circle-color", [
+      "case",
+      ["==", ["get", "visibility"], "public"],
+      "#2563eb",
+      ["==", ["get", "visibility"], "pair"],
+      "#eab308",
+      "#ef4444",
+    ]);
+    map.setPaintProperty("pins", "circle-opacity", 1);
+  } else {
+    // publicでは星/チェックを出す
+    setSymbolVisible("pin-wanted", true);
+    setSymbolVisible("pin-visited", true);
+
+    map.setPaintProperty("pins", "circle-color", "#2563eb");
+
+    // wanted/visited のピンは丸を消して、星/チェックに置き換える
+    map.setPaintProperty("pins", "circle-opacity", [
+      "case",
+      ["any", ["==", ["get", "wantedByMe"], true], ["==", ["get", "visitedByMe"], true]],
+      0,
+      1,
+    ]);
   }
+}
+
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
