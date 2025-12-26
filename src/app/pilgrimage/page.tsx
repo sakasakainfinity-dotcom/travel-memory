@@ -205,24 +205,7 @@ useEffect(() => {
           <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -0.3, marginBottom: 8 }}>
             巡礼マップ
           </h1>
-          <p style={{ color: "rgba(203,213,225,0.75)", fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
-            地図にレイヤーを重ねて、ピンを塗る。
-          </p>
-
-          {/* ✅ 達成率 */}
-<div style={{ marginTop: 14 }}>
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.7)" }}>達成率</div>
-    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.7)" }}>
-      {overallRate === null ? "—" : `${overallRate}%`}
-    </div>
-  </div>
-
-  {rateErr && (
-    <div style={{ marginTop: 8, fontSize: 12, color: "rgba(248,113,113,0.9)" }}>
-      達成率の取得で失敗：{rateErr}
-    </div>
-  )}
+          
 
   {/* レイヤー別 */}
   {Object.keys(rateBySlug).length > 0 && (
@@ -254,6 +237,38 @@ useEffect(() => {
   )}
 </div>
 
+        {/* ✅ 達成率（カード内） */}
+{!disabled && stats && (
+  <div style={{ marginTop: 10 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)", fontWeight: 800 }}>
+        達成率
+      </div>
+      <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)" }}>
+        {stats.done}/{stats.total}（{stats.rate}%）
+      </div>
+    </div>
+
+    <div
+      style={{
+        marginTop: 8,
+        height: 8,
+        borderRadius: 999,
+        background: "rgba(148,163,184,0.18)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${stats.rate}%`,
+          height: "100%",
+          background: "rgba(34,197,94,0.85)",
+        }}
+      />
+    </div>
+  </div>
+)}
+
 
           {/* chips */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -264,13 +279,14 @@ useEffect(() => {
         </div>
 
         {/* Live layers */}
-        <SectionTitle title="LAYER" />
+        <SectionTitle title="巡礼マップ一覧" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
           {liveLayers.map((l) => (
             <LayerCard
               key={l.slug}
               layer={l}
               enabled={enabled.includes(l.slug)}
+              stats={rateBySlug[l.slug]} 
               onAdd={() => addLayer(l.slug)}
               onDetail={() => router.push(`/pilgrimage/${l.slug}`)}
             />
@@ -366,12 +382,14 @@ function LayerCard({
   disabled,
   onAdd,
   onDetail,
+  stats,
 }: {
   layer: LayerDef;
   enabled: boolean;
   disabled?: boolean;
   onAdd: () => void;
   onDetail: () => void;
+  stats?: { done: number; total: number; rate: number };
 }) {
   return (
     <div
