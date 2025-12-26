@@ -231,7 +231,7 @@ map.addLayer({
   },
 });
 
-// ⭐ 行きたい（visitedじゃない時だけ）
+// ⭐ 行きたい（visitedでも表示する）
 map.addLayer({
   id: "pin-wanted",
   type: "symbol",
@@ -240,11 +240,10 @@ map.addLayer({
     "all",
     ["!=", ["get", "visibility"], "pilgrimage"],
     ["==", ["get", "wantedByMe"], true],
-    ["!=", ["get", "visitedByMe"], true],
   ],
   layout: {
     "icon-image": "pin-star",
-    "icon-size": 0.45,
+    "icon-size": 0.5,          // ⭐は少し大きめ
     "icon-allow-overlap": true,
     "icon-anchor": "center",
   },
