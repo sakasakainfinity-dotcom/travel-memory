@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type LayerDef = {
   slug: string;
@@ -35,6 +36,112 @@ export default function PilgrimagePage() {
   const router = useRouter();
   const [enabled, setEnabled] = useState<string[]>([]);
   const [justAdded, setJustAdded] = useState<string | null>(null);
+
+  const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+
+const [overallRate, setOverallRate] = useState<number | null>(null);
+const [rateBySlug, setRateBySlug] = useState<Record<string, { done: number; total: number; rate: number }>>({});
+const [rateErr, setRateErr] = useState<string | null>(null);
+
+useEffect(() => {
+  (async () => {
+    try {
+      setRateErr(null);
+
+      // 1) enabled slugs（地図でONにしたレイヤー）
+      let enabled: string[] = [];
+      try {
+        const raw = localStorage.getItem(LS_ENABLED_LAYER_SLUGS);
+        const arr = raw ? JSON.parse(raw) : [];
+        enabled = Array.isArray(arr) ? arr : [];
+      } catch {
+        enabled = [];
+      }
+
+      if (enabled.length === 0) {
+        setOverallRate(0);
+        setRateBySlug({});
+        return;
+      }
+
+      // 2) login
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+      if (!uid) {
+        setOverallRate(null);
+        setRateBySlug({});
+        return;
+      }
+
+      // 3) mission id をslugで取る
+      const { data: missions, error: me } = await supabase
+        .from("pilgrimage_missions")
+        .select("id, slug")
+        .in("slug", enabled);
+
+      if (me) throw new Error(me.message);
+      const missionIdBySlug: Record<string, string> = {};
+      for (const m of missions ?? []) missionIdBySlug[m.slug] = m.id;
+
+      // 4) spots（総数）
+      const { data: spots, error: se } = await supabase
+        .from("pilgrimage_spots")
+        .select("id, mission_id")
+        .in("mission_id", Object.values(missionIdBySlug));
+
+      if (se) throw new Error(se.message);
+
+      const totalBySlug: Record<string, number> = {};
+      const spotIdsBySlug: Record<string, Set<string>> = {};
+      for (const slug of enabled) {
+        totalBySlug[slug] = 0;
+        spotIdsBySlug[slug] = new Set();
+      }
+
+      for (const s of spots ?? []) {
+        const slug = Object.keys(missionIdBySlug).find((k) => missionIdBySlug[k] === s.mission_id);
+        if (!slug) continue;
+        totalBySlug[slug] += 1;
+        spotIdsBySlug[slug].add(s.id);
+      }
+
+      // 5) progress（達成） ※spot_idだけ取って数える
+      const { data: prog, error: pe } = await supabase
+        .from("pilgrimage_progress")
+        .select("spot_id")
+        .eq("user_id", uid);
+
+      if (pe) throw new Error(pe.message);
+
+      const doneSpotIds = new Set((prog ?? []).map((r: any) => r.spot_id));
+
+      // 6) slugごと集計
+      const nextBySlug: Record<string, { done: number; total: number; rate: number }> = {};
+      let doneAll = 0;
+      let totalAll = 0;
+
+      for (const slug of enabled) {
+        const total = totalBySlug[slug] ?? 0;
+        let done = 0;
+        for (const id of spotIdsBySlug[slug] ?? new Set()) {
+          if (doneSpotIds.has(id)) done += 1;
+        }
+        const rate = total === 0 ? 0 : Math.round((done / total) * 100);
+        nextBySlug[slug] = { done, total, rate };
+        doneAll += done;
+        totalAll += total;
+      }
+
+      setRateBySlug(nextBySlug);
+      setOverallRate(totalAll === 0 ? 0 : Math.round((doneAll / totalAll) * 100));
+    } catch (e: any) {
+      setRateErr(e?.message ?? String(e));
+      setOverallRate(null);
+      setRateBySlug({});
+    }
+  })();
+}, []);
+
 
   useEffect(() => {
     try {
@@ -101,6 +208,52 @@ export default function PilgrimagePage() {
           <p style={{ color: "rgba(203,213,225,0.75)", fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
             地図にレイヤーを重ねて、ピンを塗る。
           </p>
+
+          {/* ✅ 達成率 */}
+<div style={{ marginTop: 14 }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.7)" }}>達成率</div>
+    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.7)" }}>
+      {overallRate === null ? "—" : `${overallRate}%`}
+    </div>
+  </div>
+
+  {rateErr && (
+    <div style={{ marginTop: 8, fontSize: 12, color: "rgba(248,113,113,0.9)" }}>
+      達成率の取得で失敗：{rateErr}
+    </div>
+  )}
+
+  {/* レイヤー別 */}
+  {Object.keys(rateBySlug).length > 0 && (
+    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+      {Object.entries(rateBySlug).map(([slug, v]) => (
+        <div
+          key={slug}
+          style={{
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(2,6,23,0.45)",
+            borderRadius: 12,
+            padding: "10px 12px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.85)", fontWeight: 800 }}>
+              {slug}
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)" }}>
+              {v.done}/{v.total}（{v.rate}%）
+            </div>
+          </div>
+          <div style={{ marginTop: 8, height: 8, borderRadius: 999, background: "rgba(148,163,184,0.18)", overflow: "hidden" }}>
+            <div style={{ width: `${v.rate}%`, height: "100%", background: "rgba(34,197,94,0.85)" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
           {/* chips */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
