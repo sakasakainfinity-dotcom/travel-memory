@@ -66,6 +66,7 @@ export default function MapView({
   bindGetView,
   bindSetView,
   initialView,
+  mode,
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
@@ -75,6 +76,7 @@ export default function MapView({
   bindGetView?: (fn: () => View) => void;
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
+  mode?: "private" | "public";
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
@@ -86,7 +88,7 @@ export default function MapView({
 
   const autoMode = useMemo<"private" | "public">(() => {
     return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
-  }, [places]);
+  }, [mode, places]);
 
   const geojson = useMemo(() => {
     return {
