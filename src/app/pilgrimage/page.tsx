@@ -43,6 +43,16 @@ export default function PilgrimagePage() {
   >({});
   const [rateErr, setRateErr] = useState<string | null>(null);
 
+  // ✅ My巡礼（public地図の ☆ / ☑ から自動で出す）
+type MyFlag = {
+  place_key: string;
+  kind: "want" | "visited";
+  created_at: string;
+};
+const [myTodo, setMyTodo] = useState<MyFlag[]>([]);
+const [myDone, setMyDone] = useState<MyFlag[]>([]);
+const [myErr, setMyErr] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -168,6 +178,41 @@ export default function PilgrimagePage() {
     []
   );
 
+  useEffect(() => {
+  (async () => {
+    try {
+      setMyErr(null);
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+      if (!uid) {
+        setMyTodo([]);
+        setMyDone([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("place_flags")
+        .select("place_key, kind, created_at")
+        .eq("user_id", uid)
+        .in("kind", ["want", "visited"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const todo = (data ?? []).filter((r: any) => r.kind === "want");
+      const done = (data ?? []).filter((r: any) => r.kind === "visited");
+
+      setMyTodo(todo);
+      setMyDone(done);
+    } catch (e: any) {
+      setMyErr(e?.message ?? String(e));
+      setMyTodo([]);
+      setMyDone([]);
+    }
+  })();
+}, []);
+
+
   return (
     <div
       style={{
@@ -221,6 +266,73 @@ export default function PilgrimagePage() {
             巡礼マップ
           </h1>
         </div>
+
+        {/* ✅ My巡礼（public地図の☆/☑の自動一覧） */}
+<SectionTitle title="My巡礼（行きたい・行った）" />
+
+<div
+  style={{
+    borderRadius: 16,
+    border: "1px solid rgba(148,163,184,0.20)",
+    background: "rgba(255,255,255,0.03)",
+    padding: 14,
+    boxShadow: "0 30px 80px -45px rgba(0,0,0,0.85)",
+  }}
+>
+  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+    <div style={{ fontSize: 13, fontWeight: 900 }}>達成状況</div>
+    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)" }}>
+      {myDone.length}/{myTodo.length + myDone.length} 件
+    </div>
+  </div>
+
+  {myErr && (
+    <div style={{ marginTop: 10, fontSize: 12, color: "rgba(248,113,113,0.9)" }}>
+      読み込みエラー：{myErr}
+    </div>
+  )}
+
+  {myTodo.length >= 20 && (
+    <div style={{ marginTop: 10, fontSize: 12, color: "rgba(251,191,36,0.9)" }}>
+      ※ 行きたい場所は現在20件まで（将来有料予定）
+    </div>
+  )}
+
+  <div style={{ marginTop: 12 }}>
+    <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 6 }}>
+      行きたい（未達）
+    </div>
+    <ul style={{ paddingLeft: 18, margin: 0 }}>
+      {myTodo.length === 0 ? (
+        <li style={{ opacity: 0.7, fontSize: 13 }}>まだないよ。地図で☆押してみ。</li>
+      ) : (
+        myTodo.map((t) => (
+          <li key={`want:${t.place_key}`} style={{ fontSize: 13, marginBottom: 4 }}>
+            {(t.place_key.split("|")[0] ?? t.place_key)}
+          </li>
+        ))
+      )}
+    </ul>
+  </div>
+
+  <div style={{ marginTop: 12 }}>
+    <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 6 }}>
+      行った（達成）
+    </div>
+    <ul style={{ paddingLeft: 18, margin: 0, opacity: 0.85 }}>
+      {myDone.length === 0 ? (
+        <li style={{ opacity: 0.7, fontSize: 13 }}>まだ達成なし。☑つけたら増えるで。</li>
+      ) : (
+        myDone.map((d) => (
+          <li key={`visited:${d.place_key}`} style={{ fontSize: 13, marginBottom: 4 }}>
+            {(d.place_key.split("|")[0] ?? d.place_key)}
+          </li>
+        ))
+      )}
+    </ul>
+  </div>
+</div>
+
 
         {/* 一覧 */}
         <SectionTitle title="巡礼マップ一覧" />
