@@ -86,9 +86,13 @@ export default function MapView({
     placesRef.current = places;
   }, [places]);
 
-  const autoMode = useMemo<"private" | "public">(() => {
-    return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
-  }, [mode, places]);
+ const autoMode = useMemo<"private" | "public">(() => {
+  // ✅ 明示指定があれば最優先（publicページだけ星/チェック出したいならこれが必須）
+  if (mode) return mode;
+
+  // ✅ 指定が無い場合だけ自動判定
+  return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
+}, [mode, places]);
 
   const geojson = useMemo(() => {
     return {
