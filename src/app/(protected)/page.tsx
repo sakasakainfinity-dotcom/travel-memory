@@ -1332,11 +1332,6 @@ const mergedPlaces = useMemo(() => {
   </div>
 )}
 
-      <div style={{ position: "fixed", bottom: 8, left: 8, zIndex: 99999, background: "red", color: "white", padding: 6 }}>
-  mergedPlaces: {mergedPlaces.length}
-</div>
-
-
       
       
       {/* 🗺 マップ（1つだけ） */}
