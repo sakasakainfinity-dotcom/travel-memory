@@ -42,6 +42,20 @@ async function addSvgImage(map: Map, name: string, svg: string, pixelRatio = 2) 
   });
 }
 
+const STAR_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M32 6l8.2 16.6 18.3 2.7-13.2 12.9 3.1 18.2L32 48.8 15.6 56.4l3.1-18.2L5.5 25.3l18.3-2.7L32 6z"
+    fill="#f59e0b" stroke="#ffffff" stroke-width="2" />
+</svg>
+`.trim();
+
+const CHECK_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M24.5 45.5L12 33l5-5 7.5 7.5L47 13l5 5-27.5 27.5z"
+    fill="#10b981" stroke="#ffffff" stroke-width="2" />
+</svg>
+`.trim();
+
 // 🏯 城アイコン
 const CASTLE_OUTLINE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -176,7 +190,53 @@ export default function MapView({
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
         },
-      });
+      }):
+
+      // ⭐/✓（public専用）アイコン登録
+await addSvgImage(map, "pin-star", STAR_SVG, 2);
+await addSvgImage(map, "pin-check", CHECK_SVG, 2);
+
+// ✓ 行った（visitedが優先）
+map.addLayer({
+  id: "pin-visited",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["!=", ["get", "visibility"], "pilgrimage"],
+    ["==", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "pin-check",
+    "icon-size": 0.45,
+    "icon-allow-overlap": true,
+    "icon-anchor": "center",
+  },
+});
+
+// ⭐ 行きたい（visitedじゃない時だけ）
+map.addLayer({
+  id: "pin-wanted",
+  type: "symbol",
+  source: "places",
+  filter: [
+    "all",
+    ["!=", ["get", "visibility"], "pilgrimage"],
+    ["==", ["get", "wantedByMe"], true],
+    ["!=", ["get", "visitedByMe"], true],
+  ],
+  layout: {
+    "icon-image": "pin-star",
+    "icon-size": 0.45,
+    "icon-allow-overlap": true,
+    "icon-anchor": "center",
+  },
+});
+
+// 上に持ってくる
+map.moveLayer("pin-wanted");
+map.moveLayer("pin-visited");
+
 
       // 🏯 巡礼ピン（SVG登録）
       await addSvgImage(map, "castle-outline", CASTLE_OUTLINE_SVG, 2);
