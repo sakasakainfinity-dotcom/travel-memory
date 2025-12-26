@@ -1338,6 +1338,7 @@ const mergedPlaces = useMemo(() => {
       <MapView
   places={mergedPlaces}
   onRequestNew={openModalAt}
+        mode="private"
   onSelect={(p) => {
     if (p.visibility === "pilgrimage" && p.id.startsWith("layer:")) {
       const keys = parsePilgrimageKeys(p.id);
