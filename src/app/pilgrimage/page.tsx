@@ -184,14 +184,15 @@ const [myErr, setMyErr] = useState<string | null>(null);
   (async () => {
     try {
       setMyErr(null);
+
       const { data: ses } = await supabase.auth.getSession();
       const uid = ses.session?.user.id;
       if (!uid) {
-        setMyTodo([]);
-        setMyDone([]);
+        setMyPlaces([]);
         return;
       }
 
+      // ✅ ここ「1回だけ」
       const { data, error } = await supabase
         .from("place_flags")
         .select("place_key, kind, created_at")
@@ -201,45 +202,32 @@ const [myErr, setMyErr] = useState<string | null>(null);
 
       if (error) throw error;
 
-      const { data, error } = await supabase
-  .from("place_flags")
-  .select("place_key, kind, created_at")
-  .eq("user_id", uid)
-  .in("kind", ["want", "visited"])
-  .order("created_at", { ascending: false });
+      // ↓ ここからは data を使うだけ（再fetchしない）
+      const byKey: Record<string, MyPlace> = {};
 
-if (error) throw error;
+      for (const r of data ?? []) {
+        const key = r.place_key;
+        if (!byKey[key]) {
+          byKey[key] = {
+            place_key: key,
+            title: key.split("|")[0] ?? key,
+            wanted: false,
+            visited: false,
+            last_at: r.created_at,
+          };
+        }
+        if (r.kind === "want") byKey[key].wanted = true;
+        if (r.kind === "visited") byKey[key].visited = true;
+      }
 
-// ✅ place_keyごとに統合（visited優先）
-const byKey: Record<string, MyPlace> = {};
-for (const r of data ?? []) {
-  const key = r.place_key as string;
-  if (!byKey[key]) {
-    const title = (key.split("|")[0] ?? key);
-    byKey[key] = {
-      place_key: key,
-      title,
-      wanted: false,
-      visited: false,
-      last_at: r.created_at,
-    };
-  }
-  if (r.kind === "want") byKey[key].wanted = true;
-  if (r.kind === "visited") byKey[key].visited = true;
-
-  // 新しい日付を採用（descで取ってるから最初のままでもOK）
-  if (r.created_at > byKey[key].last_at) byKey[key].last_at = r.created_at;
-}
-
-const merged = Object.values(byKey).sort((a, b) => (a.last_at < b.last_at ? 1 : -1));
-setMyPlaces(merged);
+      setMyPlaces(Object.values(byKey));
     } catch (e: any) {
       setMyErr(e?.message ?? String(e));
-      setMyTodo([]);
-      setMyDone([]);
+      setMyPlaces([]);
     }
   })();
 }, []);
+
 
 
   return (
