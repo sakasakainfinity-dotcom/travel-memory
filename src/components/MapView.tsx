@@ -207,7 +207,7 @@ export default function MapView({
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
         },
-      }):
+      });
 
       // ⭐/✓（public専用）アイコン登録
 await addSvgImage(map, "pin-star", STAR_SVG, 2);
