@@ -44,13 +44,15 @@ export default function PilgrimagePage() {
   const [rateErr, setRateErr] = useState<string | null>(null);
 
   // ✅ My巡礼（public地図の ☆ / ☑ から自動で出す）
-type MyFlag = {
+type MyPlace = {
   place_key: string;
-  kind: "want" | "visited";
-  created_at: string;
+  title: string;
+  wanted: boolean;
+  visited: boolean;
+  last_at: string; // 並び替え用
 };
-const [myTodo, setMyTodo] = useState<MyFlag[]>([]);
-const [myDone, setMyDone] = useState<MyFlag[]>([]);
+
+const [myPlaces, setMyPlaces] = useState<MyPlace[]>([]);
 const [myErr, setMyErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -199,11 +201,38 @@ const [myErr, setMyErr] = useState<string | null>(null);
 
       if (error) throw error;
 
-      const todo = (data ?? []).filter((r: any) => r.kind === "want");
-      const done = (data ?? []).filter((r: any) => r.kind === "visited");
+      const { data, error } = await supabase
+  .from("place_flags")
+  .select("place_key, kind, created_at")
+  .eq("user_id", uid)
+  .in("kind", ["want", "visited"])
+  .order("created_at", { ascending: false });
 
-      setMyTodo(todo);
-      setMyDone(done);
+if (error) throw error;
+
+// ✅ place_keyごとに統合（visited優先）
+const byKey: Record<string, MyPlace> = {};
+for (const r of data ?? []) {
+  const key = r.place_key as string;
+  if (!byKey[key]) {
+    const title = (key.split("|")[0] ?? key);
+    byKey[key] = {
+      place_key: key,
+      title,
+      wanted: false,
+      visited: false,
+      last_at: r.created_at,
+    };
+  }
+  if (r.kind === "want") byKey[key].wanted = true;
+  if (r.kind === "visited") byKey[key].visited = true;
+
+  // 新しい日付を採用（descで取ってるから最初のままでもOK）
+  if (r.created_at > byKey[key].last_at) byKey[key].last_at = r.created_at;
+}
+
+const merged = Object.values(byKey).sort((a, b) => (a.last_at < b.last_at ? 1 : -1));
+setMyPlaces(merged);
     } catch (e: any) {
       setMyErr(e?.message ?? String(e));
       setMyTodo([]);
@@ -267,8 +296,8 @@ const [myErr, setMyErr] = useState<string | null>(null);
           </h1>
         </div>
 
-        {/* ✅ My巡礼（public地図の☆/☑の自動一覧） */}
-<SectionTitle title="My巡礼（行きたい・行った）" />
+        {/* ✅ My巡礼（public地図の☆/☑から自動反映） */}
+<SectionTitle title="行きたい場所リスト" />
 
 <div
   style={{
@@ -279,59 +308,94 @@ const [myErr, setMyErr] = useState<string | null>(null);
     boxShadow: "0 30px 80px -45px rgba(0,0,0,0.85)",
   }}
 >
-  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-    <div style={{ fontSize: 13, fontWeight: 900 }}>達成状況</div>
-    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)" }}>
-      {myDone.length}/{myTodo.length + myDone.length} 件
-    </div>
-  </div>
-
   {myErr && (
-    <div style={{ marginTop: 10, fontSize: 12, color: "rgba(248,113,113,0.9)" }}>
+    <div style={{ fontSize: 12, color: "rgba(248,113,113,0.9)" }}>
       読み込みエラー：{myErr}
     </div>
   )}
 
-  {myTodo.length >= 20 && (
-    <div style={{ marginTop: 10, fontSize: 12, color: "rgba(251,191,36,0.9)" }}>
+  {/* ✅ 達成率 */}
+  {(() => {
+    const total = myPlaces.filter(p => p.wanted || p.visited).length;
+    const done = myPlaces.filter(p => p.visited).length;
+    const rate = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "rgba(226,232,240,0.85)" }}>
+            達成率
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.75)" }}>
+            {rate}%（{done}/{total}）
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 8,
+            height: 8,
+            borderRadius: 999,
+            background: "rgba(148,163,184,0.18)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${rate}%`,
+              height: "100%",
+              background: "rgba(34,197,94,0.85)",
+            }}
+          />
+        </div>
+      </div>
+    );
+  })()}
+
+  {/* ✅ 20件制限（今は警告だけ） */}
+  {myPlaces.filter(p => p.wanted && !p.visited).length >= 20 && (
+    <div style={{ marginBottom: 10, fontSize: 12, color: "rgba(251,191,36,0.9)" }}>
       ※ 行きたい場所は現在20件まで（将来有料予定）
     </div>
   )}
 
-  <div style={{ marginTop: 12 }}>
-    <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 6 }}>
-      行きたい（未達）
-    </div>
-    <ul style={{ paddingLeft: 18, margin: 0 }}>
-      {myTodo.length === 0 ? (
-        <li style={{ opacity: 0.7, fontSize: 13 }}>まだないよ。地図で☆押してみ。</li>
-      ) : (
-        myTodo.map((t) => (
-          <li key={`want:${t.place_key}`} style={{ fontSize: 13, marginBottom: 4 }}>
-            {(t.place_key.split("|")[0] ?? t.place_key)}
-          </li>
-        ))
-      )}
-    </ul>
-  </div>
+  {/* ✅ リストどーーん */}
+  <ul style={{ paddingLeft: 18, margin: 0 }}>
+    {myPlaces.filter(p => p.wanted || p.visited).length === 0 ? (
+      <li style={{ opacity: 0.7, fontSize: 13 }}>まだないよ。public地図で☆/☑押してみ。</li>
+    ) : (
+      myPlaces
+        .filter(p => p.wanted || p.visited)
+        .map((p) => (
+          <li
+            key={p.place_key}
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 10,
+              fontSize: 14,
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontWeight: 800 }}>
+              {p.title}
+            </span>
 
-  <div style={{ marginTop: 12 }}>
-    <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 6 }}>
-      行った（達成）
-    </div>
-    <ul style={{ paddingLeft: 18, margin: 0, opacity: 0.85 }}>
-      {myDone.length === 0 ? (
-        <li style={{ opacity: 0.7, fontSize: 13 }}>まだ達成なし。☑つけたら増えるで。</li>
-      ) : (
-        myDone.map((d) => (
-          <li key={`visited:${d.place_key}`} style={{ fontSize: 13, marginBottom: 4 }}>
-            {(d.place_key.split("|")[0] ?? d.place_key)}
+            {/* 右側の印：visited優先 */}
+            {p.visited ? (
+              <span style={{ color: "rgba(248,113,113,0.95)", fontWeight: 900 }}>
+                達成！
+              </span>
+            ) : p.wanted ? (
+              <span style={{ fontSize: 16 }}>⭐</span>
+            ) : null}
           </li>
         ))
-      )}
-    </ul>
-  </div>
+    )}
+  </ul>
 </div>
+
 
 
         {/* 一覧 */}
