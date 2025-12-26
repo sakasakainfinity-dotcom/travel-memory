@@ -436,6 +436,7 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
           setViewRef.current = fn;
         }}
         initialView={initialView}
+        mode="public"
       />
 
       {/* 下パネル：同じ場所の投稿を全部（スクロール） */}
