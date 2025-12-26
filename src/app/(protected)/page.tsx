@@ -1572,6 +1572,27 @@ const mergedPlaces = useMemo(() => {
   spotId: spotIdForSave, // ←ここが城を塗るスイッチ
 });
 
+              // ✅ 投稿をローカルstateに追加（これが無いと “見えない” になる）
+setPlaces((prev) => [
+  {
+    id: created.id,
+    name: created.title ?? "無題",
+    memo: created.memo ?? "",
+    lat: created.lat,
+    lng: created.lng,
+    photos: created.photos ?? [],
+    visibility: created.visibility ?? "private",
+  },
+  ...prev,
+]);
+
+// ✅ いま作った投稿をそのまま開く（= 自分で見える）
+setSelectedId(created.id);
+setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
+
+
+              
+
               if (newAt.mode === "pilgrimage" && newAt.slug && newAt.spotId) {
   const layerId = `layer:${newAt.slug}:${newAt.spotId}`;
   setLayerPlacesBySlug((prev) => {
