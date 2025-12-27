@@ -78,6 +78,48 @@ export default function AboutPage() {
         </p>
       </section>
 
+       {/* TripMemory 使い方案内 */}
+<section
+  style={{
+    background: "rgba(15,23,42,0.9)",
+    borderRadius: 16,
+    padding: 18,
+    border: "1px solid rgba(148,163,184,0.4)",
+    marginBottom: 20,
+  }}
+>
+  <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>
+    TripMemory の使い方
+  </h2>
+
+  <p style={{ fontSize: 14, color: "#e2e8f0", marginBottom: 12 }}>
+    旅の写真を地図に残して、  
+    行きたい場所・行った場所をまとめて管理できるアプリです。
+  </p>
+
+  <a
+    href="https://daigo-machiyado.jp/feature/triomemory/"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      display: "block",
+      width: "100%",
+      textAlign: "center",
+      padding: "12px 0",
+      background: "#3b82f6",
+      color: "#fff",
+      borderRadius: 12,
+      fontWeight: 800,
+      fontSize: 14,
+      textDecoration: "none",
+      boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+    }}
+  >
+    ▶ TripMemory の使い方はこちら
+  </a>
+</section>
+
+
       {/* まちやど Motomachi */}
       <section
         style={{
