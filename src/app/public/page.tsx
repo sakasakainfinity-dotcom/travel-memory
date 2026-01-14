@@ -180,30 +180,75 @@ if (placeKeys.length > 0) {
 }
 
 
-      // 7) MapView用の「1場所=1マーカー」生成（代表投稿 + place flags）
-      const markerPlaces: PublicMarkerPlace[] = Object.entries(grouped).map(([key, posts]) => {
-        const sorted = [...posts].sort((a, b) => {
-          const ad = a.createdAt?.getTime() ?? 0;
-          const bd = b.createdAt?.getTime() ?? 0;
-          return bd - ad;
-        });
-        const repr = sorted[0];
-        const f = flagByKey[key] ?? { wantCount: 0, visitedCount: 0, wantedByMe: false, visitedByMe: false };
+      // 7) MapView用の「1場所=1マーカー」生成（代表投稿だけ。flagsは後で）
+const markerPlaces: PublicMarkerPlace[] = Object.entries(grouped).map(([key, posts]) => {
+  const sorted = [...posts].sort((a, b) => {
+    const ad = a.createdAt?.getTime() ?? 0;
+    const bd = b.createdAt?.getTime() ?? 0;
+    return bd - ad;
+  });
+  const repr = sorted[0];
 
-        return {
-          ...repr,
-          id: key, // MapViewのIDは placeKey（今の方針を踏襲）:contentReference[oaicite:6]{index=6}
-          postCount: posts.length,
-          wantCount: f.wantCount,
-          visitedCount: f.visitedCount,
-          wantedByMe: f.wantedByMe,
-          visitedByMe: f.visitedByMe,
-        } as PublicMarkerPlace;
-      });
+  return {
+    ...repr,
+    id: key,
+    postCount: posts.length,
 
-      // 8) state反映
-      setPostsByPlaceKey(grouped);
-      setPlaces(markerPlaces);
+    // ★最初は空っぽでOK（後から埋める）
+    wantCount: 0,
+    visitedCount: 0,
+    wantedByMe: false,
+    visitedByMe: false,
+  } as PublicMarkerPlace;
+});
+
+// 8) state反映（ここで地図に青●が出る）
+setPostsByPlaceKey(grouped);
+setPlaces(markerPlaces);
+
+      // ★9) 自分のflagsだけ後から取得して、地図の⭐/✓を後付け
+queueMicrotask(async () => {
+  try {
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (!uid) return;
+
+    const keys = Object.keys(grouped);
+    if (keys.length === 0) return;
+
+    const mine: Record<string, { wantedByMe: boolean; visitedByMe: boolean }> = {};
+
+    for (const ks of chunk(keys, 200)) {
+      const { data, error } = await supabase
+        .from("place_flags")
+        .select("place_key, kind")
+        .eq("user_id", uid)
+        .in("place_key", ks);
+      if (error) throw error;
+
+      for (const r of data ?? []) {
+        const k = (r as any).place_key as string;
+        const kind = (r as any).kind as "want" | "visited";
+        mine[k] ||= { wantedByMe: false, visitedByMe: false };
+        if (kind === "want") mine[k].wantedByMe = true;
+        if (kind === "visited") mine[k].visitedByMe = true;
+      }
+    }
+
+    setPlaces((prev) =>
+      prev.map((p) => ({
+        ...p,
+        wantedByMe: mine[p.id]?.wantedByMe ?? p.wantedByMe,
+        visitedByMe: mine[p.id]?.visitedByMe ?? p.visitedByMe,
+      }))
+    );
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+
+    
 
       // postId -> placeKey の辞書
       const idMap: Record<string, string> = {};
@@ -229,6 +274,81 @@ if (placeKeys.length > 0) {
     const marker = places.find((x) => x.id === selectedId);
     return marker?.name ?? "";
   }, [places, selectedId]);
+
+  useEffect(() => {
+  if (!selectedId) return;
+
+  (async () => {
+    try {
+      const basePosts = postsByPlaceKey[selectedId] ?? [];
+      const postIds = basePosts.map((p) => p.id);
+      if (postIds.length === 0) return;
+
+      // セッション
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+
+      // 1) memo（必要なら）
+      const { data: postRows, error: eP } = await supabase
+        .from("public_posts")
+        .select("id, memo")
+        .in("id", postIds);
+      if (eP) throw eP;
+
+      const memoById: Record<string, string | null> = {};
+      for (const r of postRows ?? []) memoById[(r as any).id] = (r as any).memo ?? null;
+
+      // 2) photos（その場所の投稿分だけ）
+      const photosBy: Record<string, string[]> = {};
+      for (const ids of chunk(postIds, 200)) {
+        const { data: phs, error: ePh } = await supabase
+          .from("photos")
+          .select("place_id, file_url")
+          .in("place_id", ids);
+        if (ePh) throw ePh;
+
+        for (const ph of phs ?? []) {
+          const pid = (ph as any).place_id as string;
+          const url = (ph as any).file_url as string;
+          (photosBy[pid] ||= []).push(url);
+        }
+      }
+
+      // 3) likes（その場所の投稿分だけ）
+      const likeByPost: Record<string, { likeCount: number; likedByMe: boolean }> = {};
+      for (const ids of chunk(postIds, 200)) {
+        const { data: ls, error: eL } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", ids);
+        if (eL) throw eL;
+
+        for (const r of ls ?? []) {
+          const pid = (r as any).post_id as string;
+          const u = (r as any).user_id as string;
+          likeByPost[pid] ||= { likeCount: 0, likedByMe: false };
+          likeByPost[pid].likeCount++;
+          if (uid && u === uid) likeByPost[pid].likedByMe = true;
+        }
+      }
+
+      // 4) postsByPlaceKey に詳細をマージ
+      setPostsByPlaceKey((prev) => ({
+        ...prev,
+        [selectedId]: (prev[selectedId] ?? []).map((p) => ({
+          ...p,
+          memo: memoById[p.id] ?? p.memo ?? null,
+          photos: photosBy[p.id] ?? p.photos ?? [],
+          likeCount: likeByPost[p.id]?.likeCount ?? p.likeCount ?? 0,
+          likedByMe: likeByPost[p.id]?.likedByMe ?? p.likedByMe ?? false,
+        })),
+      }));
+    } catch (e) {
+      console.error(e);
+    }
+  })();
+}, [selectedId, postsByPlaceKey]);
+
 
  async function togglePostLike(postId: string) {
   const busyKey = `${postId}:like`;
