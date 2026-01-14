@@ -481,7 +481,7 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
           }}
         >
           {/* タイトル（場所） + Placeボタン */}
-<div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
   <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
     <div
       style={{
@@ -502,7 +502,7 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
   </div>
 
   {/* 右側：Placeのボタン */}
-  <div style={{ display: "flex", gap: 8, flexWrap: "nowrap" }}>
+  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
     {(() => {
       const m = places.find((x) => x.id === selectedId);
       const wanted = !!m?.wantedByMe;
