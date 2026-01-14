@@ -337,7 +337,7 @@ queueMicrotask(async () => {
         ...prev,
         [selectedId]: (prev[selectedId] ?? []).map((p) => ({
           ...p,
-          memo: memoById[p.id] ?? p.memo ?? null,
+          memo: (memoById[p.id] ?? p.memo) ?? undefined,
           photos: photosBy[p.id] ?? p.photos ?? [],
           likeCount: likeByPost[p.id]?.likeCount ?? p.likeCount ?? 0,
           likedByMe: likeByPost[p.id]?.likedByMe ?? p.likedByMe ?? false,
