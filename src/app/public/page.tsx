@@ -38,6 +38,14 @@ function makePlaceKey(title: string | null | undefined, lat: number, lng: number
   return `${normTitle}|${r(lat)}|${r(lng)}`;
 }
 
+// ★配列を200個ずつに分ける道具
+function chunk<T>(arr: T[], size: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+
 
 export default function PublicPage() {
   const router = useRouter();
@@ -74,37 +82,45 @@ const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
 
       // 2) 写真（photos）取得
       let photosBy: Record<string, string[]> = {};
-      if (postIds.length > 0) {
-        const { data: phs, error: ePh } = await supabase
-          .from("photos")
-          .select("place_id, file_url")
-          .in("place_id", postIds);
-        if (ePh) throw ePh;
 
-        for (const ph of phs ?? []) {
-          const pid = (ph as any).place_id as string;
-          const url = (ph as any).file_url as string;
-          (photosBy[pid] ||= []).push(url);
-        }
-      }
+if (postIds.length > 0) {
+  for (const ids of chunk(postIds, 200)) {
+    const { data: phs, error: ePh } = await supabase
+      .from("photos")
+      .select("place_id, file_url")
+      .in("place_id", ids);
+    if (ePh) throw ePh;
+
+    for (const ph of phs ?? []) {
+      const pid = (ph as any).place_id as string;
+      const url = (ph as any).file_url as string;
+      (photosBy[pid] ||= []).push(url);
+    }
+  }
+}
+
 
       // 3) 投稿いいね集計（post_likes）
-      type LikeRow = { post_id: string; user_id: string };
-      const likeByPost: Record<string, { likeCount: number; likedByMe: boolean }> = {};
-      if (postIds.length > 0) {
-        const { data: ls, error: eL } = await supabase
-          .from("post_likes")
-          .select("post_id, user_id")
-          .in("post_id", postIds);
-        if (eL) throw eL;
+     type LikeRow = { post_id: string; user_id: string };
+const likeByPost: Record<string, { likeCount: number; likedByMe: boolean }> = {};
 
-        for (const r of (ls ?? []) as LikeRow[]) {
-          const pid = r.post_id;
-          if (!likeByPost[pid]) likeByPost[pid] = { likeCount: 0, likedByMe: false };
-          likeByPost[pid].likeCount++;
-          if (uid && r.user_id === uid) likeByPost[pid].likedByMe = true;
-        }
-      }
+if (postIds.length > 0) {
+  for (const ids of chunk(postIds, 200)) {
+    const { data: ls, error: eL } = await supabase
+      .from("post_likes")
+      .select("post_id, user_id")
+      .in("post_id", ids);
+    if (eL) throw eL;
+
+    for (const r of (ls ?? []) as LikeRow[]) {
+      const pid = r.post_id;
+      if (!likeByPost[pid]) likeByPost[pid] = { likeCount: 0, likedByMe: false };
+      likeByPost[pid].likeCount++;
+      if (uid && r.user_id === uid) likeByPost[pid].likedByMe = true;
+    }
+  }
+}
+
 
       // 4) 投稿（PublicPost）生成
       const postPlaces: PublicPost[] = rows.map((p: any) => {
@@ -134,32 +150,35 @@ const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
       const placeKeys = Object.keys(grouped);
 
       type FlagRow = { place_key: string; user_id: string; kind: "want" | "visited" };
-      const flagByKey: Record<
-        string,
-        { wantCount: number; visitedCount: number; wantedByMe: boolean; visitedByMe: boolean }
-      > = {};
+const flagByKey: Record<
+  string,
+  { wantCount: number; visitedCount: number; wantedByMe: boolean; visitedByMe: boolean }
+> = {};
 
-      if (placeKeys.length > 0) {
-        const { data: fs, error: eF } = await supabase
-          .from("place_flags")
-          .select("place_key, user_id, kind")
-          .in("place_key", placeKeys);
-        if (eF) throw eF;
+if (placeKeys.length > 0) {
+  for (const keys of chunk(placeKeys, 200)) {
+    const { data: fs, error: eF } = await supabase
+      .from("place_flags")
+      .select("place_key, user_id, kind")
+      .in("place_key", keys);
+    if (eF) throw eF;
 
-        for (const r of (fs ?? []) as FlagRow[]) {
-          const k = r.place_key;
-          if (!flagByKey[k]) {
-            flagByKey[k] = { wantCount: 0, visitedCount: 0, wantedByMe: false, visitedByMe: false };
-          }
-          if (r.kind === "want") {
-            flagByKey[k].wantCount++;
-            if (uid && r.user_id === uid) flagByKey[k].wantedByMe = true;
-          } else {
-            flagByKey[k].visitedCount++;
-            if (uid && r.user_id === uid) flagByKey[k].visitedByMe = true;
-          }
-        }
+    for (const r of (fs ?? []) as FlagRow[]) {
+      const k = r.place_key;
+      if (!flagByKey[k]) {
+        flagByKey[k] = { wantCount: 0, visitedCount: 0, wantedByMe: false, visitedByMe: false };
       }
+      if (r.kind === "want") {
+        flagByKey[k].wantCount++;
+        if (uid && r.user_id === uid) flagByKey[k].wantedByMe = true;
+      } else {
+        flagByKey[k].visitedCount++;
+        if (uid && r.user_id === uid) flagByKey[k].visitedByMe = true;
+      }
+    }
+  }
+}
+
 
       // 7) MapView用の「1場所=1マーカー」生成（代表投稿 + place flags）
       const markerPlaces: PublicMarkerPlace[] = Object.entries(grouped).map(([key, posts]) => {
