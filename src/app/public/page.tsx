@@ -129,8 +129,8 @@ if (postIds.length > 0) {
           id: p.id,
           name: p.title,
           memo: p.memo ?? undefined,
-          lat: p.lat,
-          lng: p.lng,
+          lat: Number(p.lat),
+          lng: Number(p.lng),
           photos: photosBy[p.id] ?? [],
           createdByName: p.created_by_name ?? "名無しの旅人",
           createdAt: p.created_at ? new Date(p.created_at) : null,
@@ -138,6 +138,11 @@ if (postIds.length > 0) {
           likedByMe: like.likedByMe,
         } as PublicPost;
       });
+
+      const safePostPlaces = postPlaces.filter((p) =>
+  Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180
+);
+
 
       // 5) placeKey で束ねる（投稿→場所）
       const grouped: Record<string, PublicPost[]> = {};
