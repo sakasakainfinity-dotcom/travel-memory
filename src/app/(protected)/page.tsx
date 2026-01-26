@@ -15,6 +15,8 @@ import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
+const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -849,10 +851,134 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [newAt, setNewAt] = useState<{ lat: number; lng: number } | null>(null);
 
-    
+    // ===== 巡礼レイヤー（将来対応・汎用） =====
+  const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
+  const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+  const [layerErr, setLayerErr] = useState<string | null>(null);
 
+  const [layerToggleVisible, setLayerToggleVisible] = useState(false);
+  const [enabledLayerSlugs, setEnabledLayerSlugs] = useState<string[]>([]);
+  const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
+
+  const loadedSlugsRef = useRef<Set<string>>(new Set());
+
+  const [newAt, setNewAt] = useState<{
+  lat: number;
+  lng: number;
+  // 巡礼用（城タップ時だけ入る）
+  mode?: "normal" | "pilgrimage";
+  slug?: string | null;
+  spotId?: string | null;
+  presetTitle?: string | null;
+} | null>(null);
+
+  const parsePilgrimageKeys = (placeId: string) => {
+  if (!placeId?.startsWith("layer:")) return null;
+  const parts = placeId.split(":");
+  if (parts.length < 3) return null;
+  return { slug: parts[1], spotId: parts.slice(2).join(":") };
+};
+
+const cleanPilgrimageTitle = (name?: string | null) =>
+  (name ?? "").replace(/^🏯\s*/, "").replace(/（済）\s*$/, "").trim();
+
+  
+    // 巡礼レイヤー：初回に localStorage から復元
+  useEffect(() => {
+    try {
+      const vis = localStorage.getItem(LS_LAYER_TOGGLE_VISIBLE) === "1";
+      setLayerToggleVisible(vis);
+
+      const raw = localStorage.getItem(LS_ENABLED_LAYER_SLUGS);
+      const arr = raw ? JSON.parse(raw) : [];
+      setEnabledLayerSlugs(Array.isArray(arr) ? arr : []);
+    } catch {
+      setLayerToggleVisible(false);
+      setEnabledLayerSlugs([]);
+    }
+  }, []);
+
+useEffect(() => {
+  (async () => {
+    try {
+      setLayerErr(null);
+
+      // 何もONじゃなければ終わり（ついでにロード済みもリセット）
+      if (enabledLayerSlugs.length === 0) {
+        loadedSlugsRef.current = new Set();
+        setLayerPlacesBySlug({});
+        return;
+      }
+
+      const { data: ses, error: sesErr } = await supabase.auth.getSession();
+      if (sesErr) throw new Error(`session: ${sesErr.message}`);
+      const uid = ses.session?.user.id;
+      if (!uid) throw new Error("not logged in");
+
+      // OFFになったslugは掃除（表示もキャッシュも）
+      setLayerPlacesBySlug((prev) => {
+        const next: Record<string, MapPlace[]> = {};
+        for (const slug of enabledLayerSlugs) {
+          if (prev[slug]) next[slug] = prev[slug];
+        }
+        return next;
+      });
+      loadedSlugsRef.current = new Set(
+        [...loadedSlugsRef.current].filter((s) => enabledLayerSlugs.includes(s))
+      );
+
+      for (const slug of enabledLayerSlugs) {
+        if (loadedSlugsRef.current.has(slug)) continue;
+
+        // mission
+        const { data: m, error: me } = await supabase
+          .from("pilgrimage_missions")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (me) throw new Error(`missions: ${me.message}`);
+        if (!m?.id) throw new Error(`mission not found: ${slug}`);
+
+        // spots
+        const { data: spots, error: se } = await supabase
+          .from("pilgrimage_spots")
+          .select("id,name,lat,lng")
+          .eq("mission_id", m.id);
+        if (se) throw new Error(`spots: ${se.message}`);
+        if (!spots || spots.length === 0) throw new Error(`spots empty: ${slug}`);
+
+        // progress
+        const { data: prog, error: pe } = await supabase
+          .from("pilgrimage_progress")
+          .select("spot_id")
+          .eq("user_id", uid);
+        if (pe) throw new Error(`progress: ${pe.message}`);
+
+        const achieved = new Set((prog ?? []).map((r: any) => r.spot_id));
+
+        const layerPlaces: MapPlace[] = spots.map((s: any) => {
+  const done = achieved.has(s.id);
+  return {
+    id: `layer:${slug}:${s.id}`,
+    name: done ? `🏯 ${s.name}（済）` : `🏯 ${s.name}`,
+    memo: done ? "visited" : undefined,
+    lat: s.lat,
+    lng: s.lng,
+    photos: [{ url: "", storage_path: "" } as any], // ←重要：MapViewのフィルタ突破
+    visibility: "public",
+    visitedByMe: done,
+  };
+});
+        setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
+        loadedSlugsRef.current.add(slug);
+      }
+    } catch (e: any) {
+      setLayerErr(e?.message ?? String(e));
+    }
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [enabledLayerSlugs]);
 
 
 
@@ -883,6 +1009,13 @@ export default function Page() {
   const qLng = sp.get("lng");
   const didApplyRef = useRef(false);
 
+  // ▼▼ ④ 地図に渡すplacesを合体（ここに追加） ▼▼
+const mergedPlaces = useMemo(() => {
+  const layerPlaces = Object.values(layerPlacesBySlug).flat();
+  return enabledLayerSlugs.length > 0
+    ? [...places, ...layerPlaces]
+    : places;
+}, [places, layerPlacesBySlug, enabledLayerSlugs.length]);
   
 
   // 1) 座標が来てたら先にジャンプ
@@ -907,14 +1040,11 @@ export default function Page() {
   }, [focusId, wantOpen, places, router]);
 
   // 起動時ロード：places & photos
-   useEffect(() => {
-    let cancelled = false;
-
+  useEffect(() => {
     (async () => {
       try {
         const { data: ses } = await supabase.auth.getSession();
         if (!ses.session) return;
-
         const mySpace = await ensureMySpace();
         if (!mySpace?.id) return;
 
@@ -925,22 +1055,18 @@ export default function Page() {
           .order("created_at", { ascending: false });
 
         const ids = (ps ?? []).map((p) => p.id);
-
-        const photosBy: Record<string, string[]> = {};
+        let photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
           const { data: phs } = await supabase
             .from("photos")
             .select("place_id, file_url")
             .in("place_id", ids);
-
           for (const ph of phs ?? []) {
             const k = (ph as any).place_id as string;
             const u = (ph as any).file_url as string;
             (photosBy[k] ||= []).push(u);
           }
         }
-
-        if (cancelled) return;
 
         setPlaces(
           (ps ?? []).map((p) => ({
@@ -957,13 +1083,9 @@ export default function Page() {
         console.error(e);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-// モーダルを開く前にビューを保持
+  // モーダルを開く前にビューを保持
   const openModalAt = (p: { lat: number; lng: number }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
@@ -972,11 +1094,12 @@ export default function Page() {
     setTimeout(() => setViewRef.current(snap), 0);
   };
 
-  const selected = useMemo(() => {
-    return places.find((x) => x.id === selectedId) || null;
-  }, [places, selectedId]);
+  const selected = useMemo(
+    () => places.find((x) => x.id === selectedId) || null,
+    [places, selectedId]
+  );
 
-  return (
+   return (
     <>
       {/* 右上トグル（private 側） */}
       <div
@@ -1024,7 +1147,6 @@ export default function Page() {
             />
             Private
           </button>
-
 
           {/* Public 側（ここではOFF） */}
           <button
@@ -1163,12 +1285,9 @@ export default function Page() {
       )}
 
 
-    
-      
       {/* 🗺 マップ（1つだけ） */}
-  <MapView
-  places={places}
-
+      <MapView
+  places={mergedPlaces}
   onRequestNew={openModalAt}
         mode="private"
   onSelect={(p) => {
@@ -1187,58 +1306,6 @@ export default function Page() {
   }}
   initialView={initialView}
 />
-
-    {newAt && (
-  <PostModal
-    open={true}
-    place={{ lat: newAt.lat, lng: newAt.lng }}
-    presetTitle=""
-    onClose={() => {
-      setNewAt(null);
-      const snap = initialView ?? getViewRef.current();
-      setTimeout(() => setViewRef.current(snap), 0);
-    }}
-    onSubmit={async (d) => {
-      try {
-        const created = await insertPlace({
-          clientRequestId: d.clientRequestId,
-          lat: d.lat,
-          lng: d.lng,
-          title: d.title?.trim() || undefined,
-          memo: d.memo,
-          visitedAt: d.visitedAt,
-          files: d.photos,
-          visibility: d.visibility,
-        });
-
-        setPlaces((prev) => [
-          {
-            id: created.id,
-            name: created.title ?? "無題",
-            memo: created.memo ?? "",
-            lat: created.lat,
-            lng: created.lng,
-            photos: created.photos ?? [],
-            visibility: created.visibility ?? "private",
-          },
-          ...prev,
-        ]);
-
-        setSelectedId(created.id);
-        setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
-
-        setNewAt(null);
-        const snap = initialView ?? getViewRef.current();
-        setTimeout(() => setViewRef.current(snap), 0);
-      } catch (e: any) {
-        alert(`保存に失敗しました: ${e?.message ?? e}`);
-        console.error(e);
-      }
-    }}
-  />
-)}
-
-
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
       <div
@@ -1405,7 +1472,70 @@ export default function Page() {
         </div>
       )}
 
-   
+      {/* 📝 投稿モーダル：newAt がある時だけ表示 */}
+      {newAt && (
+        <PostModal
+          open={true}
+          place={{ lat: newAt.lat, lng: newAt.lng }}
+          presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}   
+          onClose={() => {
+            setNewAt(null);
+            const snap = initialView ?? getViewRef.current();
+            setTimeout(() => setViewRef.current(snap), 0);
+          }}
+          onSubmit={async (d) => {
+
+            const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
+
+            try {
+              const created = await insertPlace({
+  clientRequestId: d.clientRequestId,
+  lat: d.lat,
+  lng: d.lng,
+
+  // タイトルが空なら preset を強制採用（これで絶対入る）
+  title: (d.title?.trim() || (newAt.presetTitle ?? "")).trim(),
+
+  memo: d.memo,
+  visitedAt: d.visitedAt,
+  files: d.photos,
+  visibility: d.visibility,
+
+  spotId: spotIdForSave, // ←ここが城を塗るスイッチ
+});
+
+              // ✅ 投稿をローカルstateに追加（これが無いと “見えない” になる）
+setPlaces((prev) => [
+  {
+    id: created.id,
+    name: created.title ?? "無題",
+    memo: created.memo ?? "",
+    lat: created.lat,
+    lng: created.lng,
+    photos: created.photos ?? [],
+    visibility: created.visibility ?? "private",
+  },
+  ...prev,
+]);
+
+// ✅ いま作った投稿をそのまま開く（= 自分で見える）
+setSelectedId(created.id);
+setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
+
+
+              
+
+              if (newAt.mode === "pilgrimage" && newAt.slug && newAt.spotId) {
+  const layerId = `layer:${newAt.slug}:${newAt.spotId}`;
+  setLayerPlacesBySlug((prev) => {
+    const arr = prev[newAt.slug!] ?? [];
+    const next = arr.map((x) =>
+      x.id === layerId ? { ...x, visitedByMe: true, name: `🏯 ${cleanPilgrimageTitle(x.name)}（済）`, memo: "visited" } : x
+    );
+    return { ...prev, [newAt.slug!]: next };
+  });
+}
+
 
               setPlaces((prev) => [
                 {
@@ -1481,4 +1611,3 @@ function MenuButton({ label, onClick }: { label: string; onClick: () => void }) 
     </button>
   );
 }
-
