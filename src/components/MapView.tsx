@@ -42,58 +42,67 @@ function loadSvgAsImage(map: any, name: string, svg: string) {
 /* ===== アイコンSVG ===== */
 const CAMERA_PUBLIC_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="22" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
-  <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
-  <circle cx="32" cy="36" r="5" fill="#2563eb"/>
+  <path d="M18 24h8l4-6h12l4 6h8c3 0 6 3 6 6v18c0 3-3 6-6 6H18c-3 0-6-3-6-6V30c0-3 3-6 6-6z"
+        fill="#2563eb" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="32" cy="39" r="8" fill="#ffffff"/>
+  <circle cx="32" cy="39" r="4.5" fill="#2563eb"/>
 </svg>
 `;
+
 
 const CAMERA_PRIVATE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="22" fill="#6b7280" stroke="#ffffff" stroke-width="4"/>
-  <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
-  <circle cx="32" cy="36" r="5" fill="#6b7280"/>
+  <path d="M18 24h8l4-6h12l4 6h8c3 0 6 3 6 6v18c0 3-3 6-6 6H18c-3 0-6-3-6-6V30c0-3 3-6 6-6z"
+        fill="#6b7280" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="32" cy="39" r="8" fill="#ffffff"/>
+  <circle cx="32" cy="39" r="4.5" fill="#6b7280"/>
 </svg>
 `;
 
+
 const LOCK_BADGE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="22" fill="#f59e0b" stroke="#ffffff" stroke-width="4"/>
-  <path d="M24 30v-4c0-5.5 4.5-10 10-10s10 4.5 10 10v4"
-        fill="none" stroke="#fff7ed" stroke-width="6" stroke-linecap="round"/>
-  <path d="M24 30v-4c0-5.5 4.5-10 10-10s10 4.5 10 10v4"
-        fill="none" stroke="#92400e" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
-  <rect x="20" y="28" width="28" height="22" rx="6"
-        fill="#fcd34d" stroke="#92400e" stroke-width="4"/>
-  <circle cx="34" cy="39" r="3" fill="#92400e"/>
-  <rect x="33" y="42" width="2" height="6" rx="1" fill="#92400e"/>
-  <path d="M26 34c0-4 2.5-6.5 6.5-6.5" fill="none" stroke="#fff7ed" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <!-- shackle -->
+  <path d="M22 30v-6c0-8 6-14 14-14s14 6 14 14v6"
+        fill="none" stroke="#fde68a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M22 30v-6c0-8 6-14 14-14s14 6 14 14v6"
+        fill="none" stroke="#92400e" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+  <!-- body -->
+  <rect x="16" y="28" width="40" height="30" rx="8"
+        fill="#f59e0b" stroke="#92400e" stroke-width="5"/>
+  <rect x="20" y="32" width="32" height="22" rx="6"
+        fill="#fcd34d" opacity="0.9"/>
+  <!-- keyhole -->
+  <circle cx="36" cy="43" r="4" fill="#92400e"/>
+  <rect x="34.5" y="46" width="3" height="7" rx="1.5" fill="#92400e"/>
+  <!-- highlight -->
+  <path d="M24 36c0-5 3-8 8-8" fill="none" stroke="#fff7ed" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
 </svg>
 `;
+
 
 
 
 // ☆ 行きたい（枠なし）
-const STAR_SVG = `
+const STAR_FILLED_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <path d="M32 10l7.2 14.6 16.1 2.3-11.7 11.4 2.8 16-14.4-7.6-14.4 7.6 2.8-16-11.7-11.4 16.1-2.3z"
-        fill="none" stroke="#facc15" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M32 8l7.8 15.8 17.4 2.6-12.6 12.2 3 17.3-15.6-8.2-15.6 8.2 3-17.3L6.8 26.4l17.4-2.6z"
+        fill="#facc15" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
 </svg>
 `;
 
-// ☆の上に✓ 行った（枠なし）
-const VISITED_STAR_CHECK_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- star outline -->
-  <path d="M32 10l7.2 14.6 16.1 2.3-11.7 11.4 2.8 16-14.4-7.6-14.4 7.6 2.8-16-11.7-11.4 16.1-2.3z"
-        fill="none" stroke="#facc15" stroke-width="5" stroke-linejoin="round"/>
 
-  <!-- check -->
-  <path d="M24 34l6 6 14-18"
-        fill="none" stroke="#22c55e" stroke-width="7"
+// ☆の上に✓ 行った（枠なし）
+const VISITED_STAR_CHECK_FILLED_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <path d="M32 8l7.8 15.8 17.4 2.6-12.6 12.2 3 17.3-15.6-8.2-15.6 8.2 3-17.3L6.8 26.4l17.4-2.6z"
+        fill="#facc15" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M22 35l7 7 16-20"
+        fill="none" stroke="#22c55e" stroke-width="8"
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 `;
+
 
 
 /* ===== MapView ===== */
@@ -205,10 +214,11 @@ export default function MapView({
 
       // 2) 画像登録
      await loadSvgAsImage(map, "pin-camera-public", CAMERA_PUBLIC_SVG);
-      await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
-      await loadSvgAsImage(map, "pin-lock-badge", LOCK_BADGE_SVG);
-      await loadSvgAsImage(map, "pin-star", STAR_SVG);
-      await loadSvgAsImage(map, "pin-star-check", VISITED_STAR_CHECK_SVG);
+await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
+await loadSvgAsImage(map, "pin-lock", LOCK_BADGE_SVG);
+
+await loadSvgAsImage(map, "pin-star-fill", STAR_FILLED_SVG);
+await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
 
       // 3) レイヤー（public📷）
       if (!map.getLayer("pin-camera-public")) {
@@ -216,19 +226,8 @@ export default function MapView({
           id: "pin-camera-public",
           type: "symbol",
           source: "places",
-          filter: [
-            "all",
-            ["==", ["get", "visibility"], "public"],
-            // publicモードで wanted/visited があるときは⭐/✓に置き換えるので📷は隠す
-            [
-              "!",
-              [
-                "any",
-                ["==", ["get", "wantedByMe"], true],
-                ["==", ["get", "visitedByMe"], true],
-              ],
-            ],
-          ],
+          filter: ["all", ["==", ["get", "visibility"], "public"]],
+
           layout: {
             "icon-image": "pin-camera-public",
             "icon-size": 1.1,
@@ -262,16 +261,17 @@ if (!map.getLayer("pin-lock-badge")) {
     source: "places",
     filter: ["all", ["==", ["get", "visibility"], "private"]],
     layout: {
-      "icon-image": "pin-lock-badge",
-      "icon-size": 1.0,              // ← ここだけ大きくする（後で調整）
+      "icon-image": "pin-lock",
+      "icon-size": 1.05,          // ← 鍵だけサイズ調整はここ
       "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
       "icon-anchor": "center",
-      "icon-offset": [1.0, -1.0],    // 右上へズラす（値は微調整OK）
+      "icon-offset": [0.65, -0.65], // ← 右上にちょい（微調整OK）
     },
   });
 }
 
-     // 5) publicモード専用（☆の上に✓）
+// 行った（⭐✓）…最前面
 if (!map.getLayer("pin-visited")) {
   map.addLayer({
     id: "pin-visited",
@@ -279,43 +279,43 @@ if (!map.getLayer("pin-visited")) {
     source: "places",
     filter: ["all", ["==", ["get", "visitedByMe"], true]],
     layout: {
-      "icon-image": "pin-star-check",
-      "icon-size": 1.4,              // ← 少し大きめ推奨
+      "icon-image": "pin-star-check-fill",
+      "icon-size": 1.45,
       "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
       "icon-anchor": "center",
     },
   });
 }
 
-
-   // 6) ☆ 行きたい（visitedの時は出さない）
+// 行きたい（⭐）…visitedのときは出さない
 if (!map.getLayer("pin-wanted")) {
   map.addLayer({
     id: "pin-wanted",
     type: "symbol",
     source: "places",
-    filter: [
-      "all",
+    filter: ["all",
       ["==", ["get", "wantedByMe"], true],
-      ["!=", ["get", "visitedByMe"], true], // ←これ必須
+      ["!=", ["get", "visitedByMe"], true],
     ],
     layout: {
-      "icon-image": "pin-star",
-      "icon-size": 1.4,
+      "icon-image": "pin-star-fill",
+      "icon-size": 1.45,
       "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
       "icon-anchor": "center",
     },
   });
 }
 
 
-      // ⭐より✓を必ず上にする（超重要）
-if (map.getLayer("pin-wanted")) {
-  map.moveLayer("pin-wanted");
-}
-if (map.getLayer("pin-visited")) {
-  map.moveLayer("pin-visited");
-}
+// 下：カメラ → 上：鍵 → 上：星 → 最上：行った
+if (map.getLayer("pin-camera-public")) map.moveLayer("pin-camera-public");
+if (map.getLayer("pin-camera-private")) map.moveLayer("pin-camera-private");
+if (map.getLayer("pin-lock-badge")) map.moveLayer("pin-lock-badge");
+if (map.getLayer("pin-wanted")) map.moveLayer("pin-wanted");
+if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
+
 
 
       // 7) クリック（📷/📷🔒/⭐/✓ 全部同じ挙動にしとく）
