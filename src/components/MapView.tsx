@@ -50,24 +50,29 @@ const CAMERA_PUBLIC_SVG = `
 
 const CAMERA_PRIVATE_LOCK_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- camera base -->
   <circle cx="32" cy="32" r="22" fill="#6b7280" stroke="#ffffff" stroke-width="4"/>
   <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
   <circle cx="32" cy="36" r="5" fill="#6b7280"/>
-  <circle cx="44" cy="22" r="9" fill="#111827" stroke="#ffffff" stroke-width="3"/>
-  <path d="M41 22v-2.2c0-1.7 1.3-3 3-3s3 1.3 3 3V22" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
-  <rect x="40" y="22" width="8" height="7" rx="1.5" fill="#ffffff"/>
-  <circle cx="44" cy="25.5" r="1" fill="#111827"/>
+
+  <!-- lock badge -->
+  <circle cx="47" cy="19" r="10" fill="#111827" stroke="#ffffff" stroke-width="3"/>
+  <rect x="42" y="20" width="10" height="9" rx="2" fill="#ffffff"/>
+  <path d="M44 20v-2.5c0-2 1.5-3.5 3.5-3.5S51 15.5 51 17.5V20"
+        fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
 </svg>
 `;
+
 
 // publicモード用（行きたい/行った）
 const STAR_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="22" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="32" cy="32" r="22" fill="#facc15" stroke="#ffffff" stroke-width="4"/>
   <path d="M32 18l4.2 8.6 9.5 1.4-6.9 6.7 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.9-6.7 9.5-1.4z"
         fill="#ffffff"/>
 </svg>
 `;
+
 
 const CHECK_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
@@ -249,21 +254,34 @@ export default function MapView({
         });
       }
 
-      // 6) ⭐ 行きたい
-      if (!map.getLayer("pin-wanted")) {
-        map.addLayer({
-          id: "pin-wanted",
-          type: "symbol",
-          source: "places",
-          filter: ["all", ["==", ["get", "wantedByMe"], true]],
-          layout: {
-            "icon-image": "pin-star",
-            "icon-size": 0.8,
-            "icon-allow-overlap": true,
-            "icon-anchor": "center",
-          },
-        });
-      }
+     // 6) ⭐ 行きたい（visitedのときは出さない）
+if (!map.getLayer("pin-wanted")) {
+  map.addLayer({
+    id: "pin-wanted",
+    type: "symbol",
+    source: "places",
+    filter: [
+      "all",
+      ["==", ["get", "wantedByMe"], true],
+      ["!=", ["get", "visitedByMe"], true], // ← 追加
+    ],
+    layout: {
+      "icon-image": "pin-star",
+      "icon-size": 0.8,
+      "icon-allow-overlap": true,
+      "icon-anchor": "center",
+    },
+  });
+}
+
+      // ⭐より✓を必ず上にする（超重要）
+if (map.getLayer("pin-wanted")) {
+  map.moveLayer("pin-wanted");
+}
+if (map.getLayer("pin-visited")) {
+  map.moveLayer("pin-visited");
+}
+
 
       // 7) クリック（📷/📷🔒/⭐/✓ 全部同じ挙動にしとく）
       const clickableLayers = ["pin-camera-public", "pin-camera-private", "pin-wanted", "pin-visited"] as const;
