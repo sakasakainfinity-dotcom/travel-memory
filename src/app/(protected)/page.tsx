@@ -1399,7 +1399,7 @@ export default function Page() {
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
-          presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}   
+          presetTitle=""
           onClose={() => {
             setNewAt(null);
             const snap = initialView ?? getViewRef.current();
