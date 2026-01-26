@@ -907,11 +907,14 @@ export default function Page() {
   }, [focusId, wantOpen, places, router]);
 
   // 起動時ロード：places & photos
-  useEffect(() => {
+   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
         const { data: ses } = await supabase.auth.getSession();
         if (!ses.session) return;
+
         const mySpace = await ensureMySpace();
         if (!mySpace?.id) return;
 
@@ -922,12 +925,14 @@ export default function Page() {
           .order("created_at", { ascending: false });
 
         const ids = (ps ?? []).map((p) => p.id);
-        let photosBy: Record<string, string[]> = {};
+
+        const photosBy: Record<string, string[]> = {};
         if (ids.length > 0) {
           const { data: phs } = await supabase
             .from("photos")
             .select("place_id, file_url")
             .in("place_id", ids);
+
           for (const ph of phs ?? []) {
             const k = (ph as any).place_id as string;
             const u = (ph as any).file_url as string;
@@ -935,22 +940,29 @@ export default function Page() {
           }
         }
 
-          setPlaces(
-    (ps ?? []).map((p) => ({
-      id: p.id,
-      name: p.title,
-      memo: p.memo ?? undefined,
-      lat: p.lat,
-      lng: p.lng,
-      photos: photosBy[p.id] ?? [],
-      visibility: (p as any).visibility ?? "private",
-    }))
-  );
-} catch (e) {
-  console.error(e);
-}
+        if (cancelled) return;
+
+        setPlaces(
+          (ps ?? []).map((p) => ({
+            id: p.id,
+            name: p.title,
+            memo: p.memo ?? undefined,
+            lat: p.lat,
+            lng: p.lng,
+            photos: photosBy[p.id] ?? [],
+            visibility: (p as any).visibility ?? "private",
+          }))
+        );
+      } catch (e) {
+        console.error(e);
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
 
   // モーダルを開く前にビューを保持
   function openModalAt(p: { lat: number; lng: number }) {
