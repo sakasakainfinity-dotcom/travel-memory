@@ -849,6 +849,7 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newAt, setNewAt] = useState<{ lat: number; lng: number } | null>(null);
 
     
 
@@ -1175,6 +1176,58 @@ export default function Page() {
   }}
   initialView={initialView}
 />
+
+      {newAt && (
+  <PostModal
+    open={true}
+    place={{ lat: newAt.lat, lng: newAt.lng }}
+    presetTitle=""
+    onClose={() => {
+      setNewAt(null);
+      const snap = initialView ?? getViewRef.current();
+      setTimeout(() => setViewRef.current(snap), 0);
+    }}
+    onSubmit={async (d) => {
+      try {
+        const created = await insertPlace({
+          clientRequestId: d.clientRequestId,
+          lat: d.lat,
+          lng: d.lng,
+          title: d.title?.trim() || undefined,
+          memo: d.memo,
+          visitedAt: d.visitedAt,
+          files: d.photos,
+          visibility: d.visibility,
+        });
+
+        // 追加して即表示
+        setPlaces((prev) => [
+          {
+            id: created.id,
+            name: created.title ?? "無題",
+            memo: created.memo ?? "",
+            lat: created.lat,
+            lng: created.lng,
+            photos: created.photos ?? [],
+            visibility: created.visibility ?? "private",
+          },
+          ...prev,
+        ]);
+
+        setSelectedId(created.id);
+        setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
+
+        setNewAt(null);
+        const snap = initialView ?? getViewRef.current();
+        setTimeout(() => setViewRef.current(snap), 0);
+      } catch (e: any) {
+        alert(`保存に失敗しました: ${e?.message ?? e}`);
+        console.error(e);
+      }
+    }}
+  />
+)}
+
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
       <div
