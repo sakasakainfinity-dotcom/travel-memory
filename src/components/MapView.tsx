@@ -254,7 +254,7 @@ export default function MapView({
           filter: ["all", ["==", ["get", "visibility"], "private"]],
           layout: {
             "icon-image": "pin-camera-private",
-            "icon-size": 1.1,
+            "icon-size": 1.55,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -270,7 +270,7 @@ if (!map.getLayer("pin-visited")) {
     filter: ["all", ["==", ["get", "visitedByMe"], true]],
     layout: {
       "icon-image": "pin-star-check",
-      "icon-size": 0.9,              // ← 少し大きめ推奨
+      "icon-size": 1.4,              // ← 少し大きめ推奨
       "icon-allow-overlap": true,
       "icon-anchor": "center",
     },
@@ -291,7 +291,7 @@ if (!map.getLayer("pin-wanted")) {
     ],
     layout: {
       "icon-image": "pin-star",
-      "icon-size": 0.9,
+      "icon-size": 1.4,
       "icon-allow-overlap": true,
       "icon-anchor": "center",
     },
