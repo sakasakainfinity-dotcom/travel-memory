@@ -15,8 +15,6 @@ import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
-const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
-const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -852,133 +850,8 @@ export default function Page() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
-    // ===== 巡礼レイヤー（将来対応・汎用） =====
-  const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
-  const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
-  const [layerErr, setLayerErr] = useState<string | null>(null);
+    
 
-  const [layerToggleVisible, setLayerToggleVisible] = useState(false);
-  const [enabledLayerSlugs, setEnabledLayerSlugs] = useState<string[]>([]);
-  const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
-
-  const loadedSlugsRef = useRef<Set<string>>(new Set());
-
-  const [newAt, setNewAt] = useState<{
-  lat: number;
-  lng: number;
-  // 巡礼用（城タップ時だけ入る）
-  mode?: "normal" | "pilgrimage";
-  slug?: string | null;
-  spotId?: string | null;
-  presetTitle?: string | null;
-} | null>(null);
-
-  const parsePilgrimageKeys = (placeId: string) => {
-  if (!placeId?.startsWith("layer:")) return null;
-  const parts = placeId.split(":");
-  if (parts.length < 3) return null;
-  return { slug: parts[1], spotId: parts.slice(2).join(":") };
-};
-
-const cleanPilgrimageTitle = (name?: string | null) =>
-  (name ?? "").replace(/^🏯\s*/, "").replace(/（済）\s*$/, "").trim();
-
-  
-    // 巡礼レイヤー：初回に localStorage から復元
-  useEffect(() => {
-    try {
-      const vis = localStorage.getItem(LS_LAYER_TOGGLE_VISIBLE) === "1";
-      setLayerToggleVisible(vis);
-
-      const raw = localStorage.getItem(LS_ENABLED_LAYER_SLUGS);
-      const arr = raw ? JSON.parse(raw) : [];
-      setEnabledLayerSlugs(Array.isArray(arr) ? arr : []);
-    } catch {
-      setLayerToggleVisible(false);
-      setEnabledLayerSlugs([]);
-    }
-  }, []);
-
-useEffect(() => {
-  (async () => {
-    try {
-      setLayerErr(null);
-
-      // 何もONじゃなければ終わり（ついでにロード済みもリセット）
-      if (enabledLayerSlugs.length === 0) {
-        loadedSlugsRef.current = new Set();
-        setLayerPlacesBySlug({});
-        return;
-      }
-
-      const { data: ses, error: sesErr } = await supabase.auth.getSession();
-      if (sesErr) throw new Error(`session: ${sesErr.message}`);
-      const uid = ses.session?.user.id;
-      if (!uid) throw new Error("not logged in");
-
-      // OFFになったslugは掃除（表示もキャッシュも）
-      setLayerPlacesBySlug((prev) => {
-        const next: Record<string, MapPlace[]> = {};
-        for (const slug of enabledLayerSlugs) {
-          if (prev[slug]) next[slug] = prev[slug];
-        }
-        return next;
-      });
-      loadedSlugsRef.current = new Set(
-        [...loadedSlugsRef.current].filter((s) => enabledLayerSlugs.includes(s))
-      );
-
-      for (const slug of enabledLayerSlugs) {
-        if (loadedSlugsRef.current.has(slug)) continue;
-
-        // mission
-        const { data: m, error: me } = await supabase
-          .from("pilgrimage_missions")
-          .select("id")
-          .eq("slug", slug)
-          .maybeSingle();
-        if (me) throw new Error(`missions: ${me.message}`);
-        if (!m?.id) throw new Error(`mission not found: ${slug}`);
-
-        // spots
-        const { data: spots, error: se } = await supabase
-          .from("pilgrimage_spots")
-          .select("id,name,lat,lng")
-          .eq("mission_id", m.id);
-        if (se) throw new Error(`spots: ${se.message}`);
-        if (!spots || spots.length === 0) throw new Error(`spots empty: ${slug}`);
-
-        // progress
-        const { data: prog, error: pe } = await supabase
-          .from("pilgrimage_progress")
-          .select("spot_id")
-          .eq("user_id", uid);
-        if (pe) throw new Error(`progress: ${pe.message}`);
-
-        const achieved = new Set((prog ?? []).map((r: any) => r.spot_id));
-
-        const layerPlaces: MapPlace[] = spots.map((s: any) => {
-  const done = achieved.has(s.id);
-  return {
-    id: `layer:${slug}:${s.id}`,
-    name: done ? `🏯 ${s.name}（済）` : `🏯 ${s.name}`,
-    memo: done ? "visited" : undefined,
-    lat: s.lat,
-    lng: s.lng,
-    photos: [{ url: "", storage_path: "" } as any], // ←重要：MapViewのフィルタ突破
-    visibility: "public",
-    visitedByMe: done,
-  };
-});
-        setLayerPlacesBySlug((prev) => ({ ...prev, [slug]: layerPlaces }));
-        loadedSlugsRef.current.add(slug);
-      }
-    } catch (e: any) {
-      setLayerErr(e?.message ?? String(e));
-    }
-  })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [enabledLayerSlugs]);
 
 
 
@@ -1009,13 +882,6 @@ useEffect(() => {
   const qLng = sp.get("lng");
   const didApplyRef = useRef(false);
 
-  // ▼▼ ④ 地図に渡すplacesを合体（ここに追加） ▼▼
-const mergedPlaces = useMemo(() => {
-  const layerPlaces = Object.values(layerPlacesBySlug).flat();
-  return enabledLayerSlugs.length > 0
-    ? [...places, ...layerPlaces]
-    : places;
-}, [places, layerPlacesBySlug, enabledLayerSlugs.length]);
   
 
   // 1) 座標が来てたら先にジャンプ
@@ -1285,50 +1151,12 @@ const mergedPlaces = useMemo(() => {
       )}
 
 
-      {layerErr && (
-  <div
-    style={{
-      position: "fixed",
-      left: 16,
-      top: 16,
-      zIndex: 99999,
-      maxWidth: 360,
-      background: "rgba(127,29,29,0.92)",
-      border: "1px solid rgba(248,113,113,0.5)",
-      color: "#fff",
-      padding: "10px 12px",
-      borderRadius: 12,
-      boxShadow: "0 12px 30px rgba(0,0,0,.35)",
-      fontSize: 12,
-      lineHeight: 1.4,
-    }}
-  >
-    <b>巡礼レイヤー読込エラー</b>
-    <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{layerErr}</div>
-    <button
-      onClick={() => setLayerErr(null)}
-      style={{
-        marginTop: 8,
-        width: "100%",
-        background: "rgba(255,255,255,0.15)",
-        border: "1px solid rgba(255,255,255,0.25)",
-        color: "#fff",
-        padding: "6px 10px",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontWeight: 700,
-      }}
-    >
-      閉じる
-    </button>
-  </div>
-)}
-
-      
+    
       
       {/* 🗺 マップ（1つだけ） */}
-      <MapView
-  places={mergedPlaces}
+  <MapView
+  places={places}
+
   onRequestNew={openModalAt}
         mode="private"
   onSelect={(p) => {
