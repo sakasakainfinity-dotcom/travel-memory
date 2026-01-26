@@ -935,38 +935,38 @@ export default function Page() {
           }
         }
 
-        setPlaces(
-          (ps ?? []).map((p) => ({
-            id: p.id,
-            name: p.title,
-            memo: p.memo ?? undefined,
-            lat: p.lat,
-            lng: p.lng,
-            photos: photosBy[p.id] ?? [],
-            visibility: (p as any).visibility ?? "private",
-          }))
-        );
-      } catch (e) {
-        console.error(e);
-      }
+          setPlaces(
+    (ps ?? []).map((p) => ({
+      id: p.id,
+      name: p.title,
+      memo: p.memo ?? undefined,
+      lat: p.lat,
+      lng: p.lng,
+      photos: photosBy[p.id] ?? [],
+      visibility: (p as any).visibility ?? "private",
+    }))
+  );
+} catch (e) {
+  console.error(e);
+}
     })();
   }, []);
 
   // モーダルを開く前にビューを保持
-  const openModalAt = (p: { lat: number; lng: number }) => {
+  function openModalAt(p: { lat: number; lng: number }) {
     const snap = getViewRef.current();
     setInitialView(snap);
     setNewAt(p);
     setSelectedId(null);
     setTimeout(() => setViewRef.current(snap), 0);
-  };
+  }
 
   const selected = useMemo(
     () => places.find((x) => x.id === selectedId) || null,
     [places, selectedId]
   );
 
-   return (
+  return (
     <>
       {/* 右上トグル（private 側） */}
       <div
@@ -1014,6 +1014,7 @@ export default function Page() {
             />
             Private
           </button>
+
 
           {/* Public 側（ここではOFF） */}
           <button
