@@ -1332,22 +1332,7 @@ const mergedPlaces = useMemo(() => {
   onRequestNew={openModalAt}
         mode="private"
   onSelect={(p) => {
-    if (p.visibility === "pilgrimage" && p.id.startsWith("layer:")) {
-      const keys = parsePilgrimageKeys(p.id);
-      if (!keys) return;
-
-      setNewAt({
-        lat: p.lat,
-        lng: p.lng,
-        mode: "pilgrimage",
-        slug: keys.slug,
-        spotId: keys.spotId,
-        presetTitle: cleanPilgrimageTitle(p.name),
-      });
-      setSelectedId(null);
-      return;
-    }
-  
+    
 
     // 通常（丸ピン）
     setSelectedId(p.id);
