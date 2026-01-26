@@ -1177,7 +1177,7 @@ export default function Page() {
   initialView={initialView}
 />
 
-      {newAt && (
+    {newAt && (
   <PostModal
     open={true}
     place={{ lat: newAt.lat, lng: newAt.lng }}
@@ -1200,7 +1200,6 @@ export default function Page() {
           visibility: d.visibility,
         });
 
-        // 追加して即表示
         setPlaces((prev) => [
           {
             id: created.id,
@@ -1227,6 +1226,7 @@ export default function Page() {
     }}
   />
 )}
+
 
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
@@ -1394,59 +1394,7 @@ export default function Page() {
         </div>
       )}
 
-      {/* 📝 投稿モーダル：newAt がある時だけ表示 */}
-      {newAt && (
-        <PostModal
-          open={true}
-          place={{ lat: newAt.lat, lng: newAt.lng }}
-          presetTitle=""
-          onClose={() => {
-            setNewAt(null);
-            const snap = initialView ?? getViewRef.current();
-            setTimeout(() => setViewRef.current(snap), 0);
-          }}
-          onSubmit={async (d) => {
-  try {
-    const created = await insertPlace({
-      clientRequestId: d.clientRequestId,
-      lat: d.lat,
-      lng: d.lng,
-      title: d.title?.trim() || undefined,
-      memo: d.memo,
-      visitedAt: d.visitedAt,
-      files: d.photos,
-      visibility: d.visibility,
-      // ✅ 巡礼は消す：spotId は渡さない
-    });
-
-    // ✅ 投稿を state に追加（即反映）
-    setPlaces((prev) => [
-      {
-        id: created.id,
-        name: created.title ?? "無題",
-        memo: created.memo ?? "",
-        lat: created.lat,
-        lng: created.lng,
-        photos: created.photos ?? [],
-        visibility: created.visibility ?? "private",
-      },
-      ...prev,
-    ]);
-
-    // ✅ そのまま開く
-    setSelectedId(created.id);
-    setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
-
-    setNewAt(null);
-    const snap = initialView ?? getViewRef.current();
-    setTimeout(() => setViewRef.current(snap), 0);
-  } catch (e: any) {
-    alert(`保存に失敗しました: ${e?.message ?? e}`);
-    console.error(e);
-  }
-}}
-
-
+   
 
               setPlaces((prev) => [
                 {
