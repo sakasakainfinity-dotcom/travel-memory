@@ -963,8 +963,7 @@ export default function Page() {
     };
   }, []);
 
-
-  // モーダルを開く前にビューを保持
+// モーダルを開く前にビューを保持
   const openModalAt = (p: { lat: number; lng: number }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
