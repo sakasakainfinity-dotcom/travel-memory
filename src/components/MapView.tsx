@@ -12,7 +12,7 @@ export type Place = {
   lng: number;
   photos?: string[];
   postCount?: number;
-  visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
+  visibility?: "public" | "private";
   wantedByMe?: boolean;
   visitedByMe?: boolean;
 };
@@ -56,13 +56,21 @@ const CAMERA_PRIVATE_SVG = `
 </svg>
 `;
 
-const CAMERA_PRIVATE_SVG = `
+const LOCK_BADGE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="22" fill="#6b7280" stroke="#ffffff" stroke-width="4"/>
-  <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
-  <circle cx="32" cy="36" r="5" fill="#6b7280"/>
+  <circle cx="32" cy="32" r="22" fill="#f59e0b" stroke="#ffffff" stroke-width="4"/>
+  <path d="M24 30v-4c0-5.5 4.5-10 10-10s10 4.5 10 10v4"
+        fill="none" stroke="#fff7ed" stroke-width="6" stroke-linecap="round"/>
+  <path d="M24 30v-4c0-5.5 4.5-10 10-10s10 4.5 10 10v4"
+        fill="none" stroke="#92400e" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <rect x="20" y="28" width="28" height="22" rx="6"
+        fill="#fcd34d" stroke="#92400e" stroke-width="4"/>
+  <circle cx="34" cy="39" r="3" fill="#92400e"/>
+  <rect x="33" y="42" width="2" height="6" rx="1" fill="#92400e"/>
+  <path d="M26 34c0-4 2.5-6.5 6.5-6.5" fill="none" stroke="#fff7ed" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
 </svg>
 `;
+
 
 
 // ☆ 行きたい（枠なし）
@@ -132,7 +140,7 @@ export default function MapView({
         properties: {
           id: p.id,
           title: p.name ?? "",
-          visibility: p.visibility ?? "private",
+          visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
           wantedByMe: !!p.wantedByMe,
           visitedByMe: !!p.visitedByMe,
         },
@@ -197,8 +205,8 @@ export default function MapView({
 
       // 2) 画像登録
      await loadSvgAsImage(map, "pin-camera-public", CAMERA_PUBLIC_SVG);
-await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
-await loadSvgAsImage(map, "pin-lock-badge", LOCK_BADGE_SVG);
+      await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
+      await loadSvgAsImage(map, "pin-lock-badge", LOCK_BADGE_SVG);
       await loadSvgAsImage(map, "pin-star", STAR_SVG);
       await loadSvgAsImage(map, "pin-star-check", VISITED_STAR_CHECK_SVG);
 
