@@ -210,7 +210,7 @@ export default function MapView({
           ],
           layout: {
             "icon-image": "pin-camera-public",
-            "icon-size": 0.6,
+            "icon-size": 1.1,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -226,7 +226,7 @@ export default function MapView({
           filter: ["all", ["==", ["get", "visibility"], "private"]],
           layout: {
             "icon-image": "pin-camera-private",
-            "icon-size": 0.6,
+            "icon-size": 1.1,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -242,7 +242,7 @@ export default function MapView({
           filter: ["all", ["==", ["get", "visitedByMe"], true]],
           layout: {
             "icon-image": "pin-check",
-            "icon-size": 0.55,
+            "icon-size": 0.8,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -258,7 +258,7 @@ export default function MapView({
           filter: ["all", ["==", ["get", "wantedByMe"], true]],
           layout: {
             "icon-image": "pin-star",
-            "icon-size": 0.56,
+            "icon-size": 0.8,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
