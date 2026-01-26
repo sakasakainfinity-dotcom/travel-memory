@@ -1406,57 +1406,46 @@ export default function Page() {
             setTimeout(() => setViewRef.current(snap), 0);
           }}
           onSubmit={async (d) => {
+  try {
+    const created = await insertPlace({
+      clientRequestId: d.clientRequestId,
+      lat: d.lat,
+      lng: d.lng,
+      title: d.title?.trim() || undefined,
+      memo: d.memo,
+      visitedAt: d.visitedAt,
+      files: d.photos,
+      visibility: d.visibility,
+      // ✅ 巡礼は消す：spotId は渡さない
+    });
 
-            const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
+    // ✅ 投稿を state に追加（即反映）
+    setPlaces((prev) => [
+      {
+        id: created.id,
+        name: created.title ?? "無題",
+        memo: created.memo ?? "",
+        lat: created.lat,
+        lng: created.lng,
+        photos: created.photos ?? [],
+        visibility: created.visibility ?? "private",
+      },
+      ...prev,
+    ]);
 
-            try {
-              const created = await insertPlace({
-  clientRequestId: d.clientRequestId,
-  lat: d.lat,
-  lng: d.lng,
+    // ✅ そのまま開く
+    setSelectedId(created.id);
+    setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
 
-  // タイトルが空なら preset を強制採用（これで絶対入る）
-  title: (d.title?.trim() || (newAt.presetTitle ?? "")).trim(),
+    setNewAt(null);
+    const snap = initialView ?? getViewRef.current();
+    setTimeout(() => setViewRef.current(snap), 0);
+  } catch (e: any) {
+    alert(`保存に失敗しました: ${e?.message ?? e}`);
+    console.error(e);
+  }
+}}
 
-  memo: d.memo,
-  visitedAt: d.visitedAt,
-  files: d.photos,
-  visibility: d.visibility,
-
-  spotId: spotIdForSave, // ←ここが城を塗るスイッチ
-});
-
-              // ✅ 投稿をローカルstateに追加（これが無いと “見えない” になる）
-setPlaces((prev) => [
-  {
-    id: created.id,
-    name: created.title ?? "無題",
-    memo: created.memo ?? "",
-    lat: created.lat,
-    lng: created.lng,
-    photos: created.photos ?? [],
-    visibility: created.visibility ?? "private",
-  },
-  ...prev,
-]);
-
-// ✅ いま作った投稿をそのまま開く（= 自分で見える）
-setSelectedId(created.id);
-setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
-
-
-              
-
-              if (newAt.mode === "pilgrimage" && newAt.slug && newAt.spotId) {
-  const layerId = `layer:${newAt.slug}:${newAt.spotId}`;
-  setLayerPlacesBySlug((prev) => {
-    const arr = prev[newAt.slug!] ?? [];
-    const next = arr.map((x) =>
-      x.id === layerId ? { ...x, visitedByMe: true, name: `🏯 ${cleanPilgrimageTitle(x.name)}（済）`, memo: "visited" } : x
-    );
-    return { ...prev, [newAt.slug!]: next };
-  });
-}
 
 
               setPlaces((prev) => [
