@@ -48,7 +48,7 @@ function PostModal({
     lat: number;
     lng: number;
     photos: File[];
-    visibility: "public" | "private" | "pair";
+    visibility: "public" | "private";
   }) => Promise<void>;
 }) {
   const [title, setTitle] = useState("");
@@ -63,9 +63,8 @@ function PostModal({
   const [lat, setLat] = useState(place.lat);
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
-    "private"
-  );
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
+  
 
 
   
@@ -314,12 +313,6 @@ function PostModal({
                 label: "非公開",
                 sub: "自分だけ",
                 color: "#ef4444",
-              },
-              {
-                key: "pair" as const,
-                label: "ペア限定",
-                sub: "ペア相手とのマップだけ",
-                color: "#eab308",
               },
             ].map((opt) => {
               const active = visibility === opt.key;
@@ -752,7 +745,7 @@ async function insertPlace({
   memo?: string;
   visitedAt?: string;
   files: File[];
-  visibility: "public" | "private" | "pair";
+  visibility: "public" | "private";
    spotId?: string | null;
 }) {
   // 認証
@@ -1277,7 +1270,6 @@ const mergedPlaces = useMemo(() => {
           <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
           <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
           <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
-          <MenuButton label="ペア機能" onClick={() => router.push("/pair")} />
           <MenuButton label="シェアする" onClick={() => router.push("/share")} />
           <MenuButton label="巡礼マップ" onClick={() => router.push("/pilgrimage")} />
           <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
