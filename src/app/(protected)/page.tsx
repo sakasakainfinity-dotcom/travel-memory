@@ -965,18 +965,17 @@ export default function Page() {
 
 
   // モーダルを開く前にビューを保持
-  function openModalAt(p: { lat: number; lng: number }) {
+  const openModalAt = (p: { lat: number; lng: number }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
     setNewAt(p);
     setSelectedId(null);
     setTimeout(() => setViewRef.current(snap), 0);
-  }
+  };
 
-  const selected = useMemo(
-    () => places.find((x) => x.id === selectedId) || null,
-    [places, selectedId]
-  );
+  const selected = useMemo(() => {
+    return places.find((x) => x.id === selectedId) || null;
+  }, [places, selectedId]);
 
   return (
     <>
