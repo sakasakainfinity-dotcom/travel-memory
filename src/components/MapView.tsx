@@ -28,48 +28,38 @@ function svgToDataUrl(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-async function addSvgImage(map: Map, name: string, svg: string, pixelRatio = 2) {
-  if (map.hasImage(name)) return;
-  await new Promise<void>((resolve) => {
+function loadSvgAsImage(map: any, name: string, svg: string) {
+  return new Promise<void>((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      try {
-        map.addImage(name, img, { pixelRatio });
-      } catch {}
+      if (!map.hasImage(name)) map.addImage(name, img, { pixelRatio: 2 });
       resolve();
     };
+    img.onerror = reject;
     img.src = svgToDataUrl(svg);
   });
 }
 
-const STAR_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M32 6l8.2 16.6 18.3 2.7-13.2 12.9 3.1 18.2L32 48.8 15.6 56.4l3.1-18.2L5.5 25.3l18.3-2.7L32 6z"
-    fill="#f59e0b" stroke="#ffffff" stroke-width="2" />
+const CAMERA_PUBLIC_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
+  <circle cx="32" cy="36" r="5" fill="#2563eb"/>
 </svg>
-`.trim();
+`;
 
-const CHECK_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M24.5 45.5L12 33l5-5 7.5 7.5L47 13l5 5-27.5 27.5z"
-    fill="#10b981" stroke="#ffffff" stroke-width="2" />
+const CAMERA_PRIVATE_LOCK_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="#6b7280" stroke="#ffffff" stroke-width="4"/>
+  <path d="M24 28h4l2-3h8l2 3h4c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 3H24c-1.7 0-3-1.3-3-3V31c0-1.7 1.3-3 3-3z" fill="#ffffff"/>
+  <circle cx="32" cy="36" r="5" fill="#6b7280"/>
+  <!-- lock badge -->
+  <circle cx="44" cy="22" r="9" fill="#111827" stroke="#ffffff" stroke-width="3"/>
+  <path d="M41 22v-2.2c0-1.7 1.3-3 3-3s3 1.3 3 3V22" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <rect x="40" y="22" width="8" height="7" rx="1.5" fill="#ffffff"/>
+  <circle cx="44" cy="25.5" r="1" fill="#111827"/>
 </svg>
-`.trim();
-
-// 🏯 城アイコン
-const CASTLE_OUTLINE_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M8 56h48v-6H8v6zm4-8h40V22l-6-4v-6h-6v6l-8-4-8 4v-6h-6v6l-6 4v26z"
-        fill="none" stroke="#0f766e" stroke-width="3"/>
-</svg>
-`.trim();
-
-const CASTLE_FILLED_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M8 56h48v-6H8v6zm4-8h40V22l-6-4v-6h-6v6l-8-4-8 4v-6h-6v6l-6 4v26z"
-        fill="#0f766e" stroke="#ffffff" stroke-width="2"/>
-</svg>
-`.trim();
+`;
 
 export default function MapView({
   places,
@@ -192,22 +182,47 @@ export default function MapView({
       onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
     });
 
-    map.on("load", async () => {
-      map.addSource("places", { type: "geojson", data: geojson });
+   map.on("load", async () => {
+  await loadSvgAsImage(map, "pin-camera-public", CAMERA_PUBLIC_SVG);
+  await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_LOCK_SVG);
 
-      // 通常ピン（巡礼は除外）
-      map.addLayer({
-        id: "pins",
-        type: "circle",
-        source: "places",
-        filter: ["!=", ["get", "visibility"], "pilgrimage"],
-        paint: {
-          "circle-radius": 6.5,
-          "circle-color": "#2563eb",
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
-        },
-      });
+  // ここから下に layer 定義を置く
+});
+
+   // public 投稿
+map.addLayer({
+  id: "pin-camera-public",
+  type: "symbol",
+  source: "places",
+  filter: ["all",
+    ["==", ["get", "visibility"], "public"],
+    ["!=", ["get", "visibility"], "pilgrimage"],
+  ],
+  layout: {
+    "icon-image": "pin-camera-public",
+    "icon-size": 0.6,
+    "icon-allow-overlap": true,
+    "icon-anchor": "center",
+  },
+});
+
+// private 投稿
+map.addLayer({
+  id: "pin-camera-private",
+  type: "symbol",
+  source: "places",
+  filter: ["all",
+    ["==", ["get", "visibility"], "private"],
+    ["!=", ["get", "visibility"], "pilgrimage"],
+  ],
+  layout: {
+    "icon-image": "pin-camera-private",
+    "icon-size": 0.6,
+    "icon-allow-overlap": true,
+    "icon-anchor": "center",
+  },
+});
+
 
       // ⭐/✓（public専用）アイコン登録
 await addSvgImage(map, "pin-star", STAR_SVG, 2);
@@ -254,37 +269,7 @@ map.moveLayer("pin-wanted");
 map.moveLayer("pin-visited");
 
 
-      // 🏯 巡礼ピン（SVG登録）
-      await addSvgImage(map, "castle-outline", CASTLE_OUTLINE_SVG, 2);
-      await addSvgImage(map, "castle-filled", CASTLE_FILLED_SVG, 2);
 
-      // 未訪問（線だけ）
-      map.addLayer({
-        id: "pin-castle-outline",
-        type: "symbol",
-        source: "places",
-        filter: ["all", ["==", ["get", "visibility"], "pilgrimage"], ["!=", ["get", "visitedByMe"], true]],
-        layout: {
-          "icon-image": "castle-outline",
-          "icon-size": 0.3,
-          "icon-anchor": "bottom",
-          "icon-allow-overlap": true,
-        },
-      });
-
-      // 訪問済（塗り）
-      map.addLayer({
-        id: "pin-castle-filled",
-        type: "symbol",
-        source: "places",
-        filter: ["all", ["==", ["get", "visibility"], "pilgrimage"], ["==", ["get", "visitedByMe"], true]],
-        layout: {
-          "icon-image": "castle-filled",
-          "icon-size": 0.3,
-          "icon-anchor": "bottom",
-          "icon-allow-overlap": true,
-        },
-      });
 
       // 重なり順（いちばん上）
       map.moveLayer("pin-castle-outline");
