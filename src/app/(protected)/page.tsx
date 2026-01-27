@@ -1267,6 +1267,7 @@ const mergedPlaces = useMemo(() => {
             ×
           </button>
 
+          <MenuButton label="みんなの投稿" onClick={() => router.push("/community")} />
           <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
           <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
           <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
