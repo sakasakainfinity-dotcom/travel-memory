@@ -114,21 +114,7 @@ export default function PilgrimagePage() {
             gap: 12,
           }}
         >
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(2,6,23,0.55)",
-              color: "#e2e8f0",
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-          >
-            ← 地図へ
-          </button>
+          
 
           <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>
             My List
@@ -290,8 +276,33 @@ export default function PilgrimagePage() {
           )}
         </div>
       </div>
-    </div>
-  );
+
+      <button
+      type="button"
+      onClick={() => router.push("/")}
+      style={{
+        position: "fixed",
+        right: "max(14px, env(safe-area-inset-right, 0px))",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
+        zIndex: 99999,
+        padding: "12px 14px",
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.35)",
+        background: "rgba(2,6,23,0.70)",
+        color: "#e2e8f0",
+        fontSize: 13,
+        fontWeight: 900,
+        cursor: "pointer",
+        boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
+        backdropFilter: "blur(8px)",
+        minHeight: 44,
+      }}
+    >
+      地図へ ↩
+    </button>
+
+  </div>
+);
 }
 
 function SectionTitle({ title }: { title: string }) {
