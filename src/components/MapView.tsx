@@ -262,11 +262,11 @@ if (!map.getLayer("pin-lock-badge")) {
     filter: ["all", ["==", ["get", "visibility"], "private"]],
     layout: {
       "icon-image": "pin-lock",
-      "icon-size": 0.95,          // ← 鍵だけサイズ調整はここ
+      "icon-size": 0.75,          // ← 鍵だけサイズ調整はここ
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
-      "icon-offset": [0.65, -0.65], // ← 右上にちょい（微調整OK）
+      "icon-offset": [1.25, -1.35], // ← 右上にちょい（微調整OK）
     },
   });
 }
