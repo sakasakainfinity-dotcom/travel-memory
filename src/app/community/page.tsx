@@ -55,93 +55,53 @@ export default function CommunityPage() {
   }
 
   async function loadMore(isFirst = false) {
-    if (loading) return;
-    if (!hasMore && !isFirst) return;
+  if (loading) return;
+  if (!hasMore && !isFirst) return;
 
-    setLoading(true);
-    setErr(null);
+  setLoading(true);
+  setErr(null);
 
-    try {
-      const pageSize = 20;
+  try {
+    const pageSize = 20;
 
-      // 1) places（public）を新しい順
-      let query = supabase
-        .from("places")
-        .select("id, title, memo, created_by_name, created_at, lat, lng, visibility")
-        .eq("visibility", "public")
-        .order("created_at", { ascending: false })
-        .limit(pageSize);
+    const { data, error } = await supabase.rpc("public_feed", {
+      q: dq.trim() || null,
+      cursor: cursor || null,
+      page_size: pageSize,
+      viewer: uid || null,
+    });
+    if (error) throw error;
 
-      if (cursor) {
-        query = query.lt("created_at", cursor);
-      }
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) {
+      setHasMore(false);
+      return;
+    }
 
-      // 2) キーワード検索（雑に OR ilike）
-      const kw = dq.trim();
-      if (kw) {
-        // OR: title / memo / created_by_name
-        query = query.or(
-          `title.ilike.%${kw}%,memo.ilike.%${kw}%,created_by_name.ilike.%${kw}%`
-        );
-      }
+    const nextCursor = rows[rows.length - 1]?.created_at ?? null;
 
-   
+    const page: FeedPost[] = rows.map((r: any) => ({
+      id: r.id,
+      title: r.title ?? null,
+      memo: r.memo ?? null,
+      created_by_name: r.created_by_name ?? "名無しの旅人",
+      created_at: r.created_at ?? null,
+      photos: (r.photo_urls ?? []).slice(0, 4), // ★最大4枚
+      likeCount: Number(r.like_count ?? 0),
+      likedByMe: !!r.liked_by_me,
+    }));
 
-      // 5) const { data, error } = await supabase.rpc("public_feed", {
-  q: dq.trim() || null,
-  cursor: cursor || null,
-  page_size: 20,
-  viewer: uid || null,
-});
-if (error) throw error;
-
-const rows = (data ?? []) as any[];
-if (rows.length === 0) {
-  setHasMore(false);
-  return;
+    setPosts((prev) => [...prev, ...page]);
+    setCursor(nextCursor);
+    if (rows.length < pageSize) setHasMore(false);
+  } catch (e: any) {
+    console.error(e);
+    setErr(e?.message ?? String(e));
+  } finally {
+    setLoading(false);
+  }
 }
 
-const nextCursor = rows[rows.length - 1]?.created_at ?? null;
-
-const page = rows.map((r: any) => ({
-  id: r.id,
-  title: r.title ?? null,
-  memo: r.memo ?? null,
-  created_by_name: r.created_by_name ?? "名無しの旅人",
-  created_at: r.created_at ?? null,
-  photos: (r.photo_urls ?? []).slice(0, 4), // ★最大4枚に制限（軽量化）
-  likeCount: Number(r.like_count ?? 0),
-  likedByMe: !!r.liked_by_me,
-}));
-
-setPosts((prev) => [...prev, ...page]);
-setCursor(nextCursor);
-if (rows.length < 20) setHasMore(false);
-画面用に整形
-      const page: FeedPost[] = rows.map((r) => {
-        const lk = likeByPost[r.id] ?? { count: 0, likedByMe: false };
-        return {
-          id: r.id,
-          title: r.title ?? null,
-          memo: r.memo ?? null,
-          created_by_name: r.created_by_name ?? "名無しの旅人",
-          created_at: r.created_at ?? null,
-          photos: photosBy[r.id] ?? [],
-          likeCount: lk.count,
-          likedByMe: lk.likedByMe,
-        };
-      });
-
-      setPosts((prev) => [...prev, ...page]);
-      setCursor(nextCursor);
-      if (rows.length < pageSize) setHasMore(false);
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message ?? String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
     // 検索語が変わったら最初から
