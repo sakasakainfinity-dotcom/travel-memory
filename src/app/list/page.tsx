@@ -9,7 +9,7 @@ type MyPlace = {
   title: string;
   wanted: boolean;
   visited: boolean;
-  last_at: string; // 並び替え用
+  last_at: string;
 };
 
 export default function PilgrimagePage() {
@@ -19,7 +19,6 @@ export default function PilgrimagePage() {
   const [myErr, setMyErr] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // ✅ public地図の ☆/✓ から自動で出す（place_flags）
   useEffect(() => {
     (async () => {
       try {
@@ -42,7 +41,6 @@ export default function PilgrimagePage() {
 
         if (error) throw error;
 
-        // 取得した data だけでまとめる（再fetchしない）
         const byKey: Record<string, MyPlace> = {};
 
         for (const r of (data ?? []) as any[]) {
@@ -60,14 +58,11 @@ export default function PilgrimagePage() {
             };
           }
 
-          // 最新の日時を保持（並び替え用）
           if (createdAt > byKey[key].last_at) byKey[key].last_at = createdAt;
-
           if (kind === "want") byKey[key].wanted = true;
           if (kind === "visited") byKey[key].visited = true;
         }
 
-        // 並び：最新順
         const arr = Object.values(byKey).sort((a, b) =>
           (b.last_at ?? "").localeCompare(a.last_at ?? "")
         );
@@ -110,12 +105,10 @@ export default function PilgrimagePage() {
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             gap: 12,
           }}
         >
-          
-
           <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>
             My List
           </div>
@@ -155,7 +148,7 @@ export default function PilgrimagePage() {
           </div>
         )}
 
-        {/* ✅ 達成率（1枚だけ） */}
+        {/* 達成率 */}
         <SectionTitle title="達成率" />
         <div
           style={{
@@ -200,8 +193,8 @@ export default function PilgrimagePage() {
           )}
         </div>
 
-        {/* ✅ 行きたいリスト */}
-        <SectionTitle title={`行きたい（${wantList.length}）`} />
+        {/* 行きたい */}
+        <SectionTitle title={`行きたい（⭐ ${wantList.length}）`} />
         <div
           style={{
             borderRadius: 16,
@@ -237,8 +230,8 @@ export default function PilgrimagePage() {
           )}
         </div>
 
-        {/* ✅ 行ったリスト */}
-        <SectionTitle title={`行った（${doneList.length}）`} />
+        {/* 行った */}
+        <SectionTitle title={`行った（✓ ${doneList.length}）`} />
         <div
           style={{
             borderRadius: 16,
@@ -277,32 +270,31 @@ export default function PilgrimagePage() {
         </div>
       </div>
 
+      {/* ✅ 右下：地図へ戻る（env()なしで安全） */}
       <button
-      type="button"
-      onClick={() => router.push("/")}
-      style={{
-        position: "fixed",
-        right: "max(14px, env(safe-area-inset-right, 0px))",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
-        zIndex: 99999,
-        padding: "12px 14px",
-        borderRadius: 999,
-        border: "1px solid rgba(148,163,184,0.35)",
-        background: "rgba(2,6,23,0.70)",
-        color: "#e2e8f0",
-        fontSize: 13,
-        fontWeight: 900,
-        cursor: "pointer",
-        boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
-        backdropFilter: "blur(8px)",
-        minHeight: 44,
-      }}
-    >
-      地図へ ↩
-    </button>
-
-  </div>
-);
+        type="button"
+        onClick={() => router.push("/")}
+        style={{
+          position: "fixed",
+          right: 14,
+          bottom: 14,
+          zIndex: 99999,
+          padding: "12px 14px",
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.35)",
+          background: "rgba(2,6,23,0.70)",
+          color: "#e2e8f0",
+          fontSize: 13,
+          fontWeight: 900,
+          cursor: "pointer",
+          boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
+          minHeight: 44,
+        }}
+      >
+        地図へ ↩
+      </button>
+    </div>
+  );
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -322,7 +314,3 @@ function SectionTitle({ title }: { title: string }) {
   );
 }
 
-
-
-
-     
