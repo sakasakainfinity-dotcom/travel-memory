@@ -230,7 +230,7 @@ await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
 
           layout: {
             "icon-image": "pin-camera-public",
-            "icon-size": 1.1,
+            "icon-size": 0.9,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -246,7 +246,7 @@ await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
           filter: ["all", ["==", ["get", "visibility"], "private"]],
           layout: {
             "icon-image": "pin-camera-private",
-            "icon-size": 1.55,
+            "icon-size": 0.9,
             "icon-allow-overlap": true,
             "icon-anchor": "center",
           },
@@ -262,7 +262,7 @@ if (!map.getLayer("pin-lock-badge")) {
     filter: ["all", ["==", ["get", "visibility"], "private"]],
     layout: {
       "icon-image": "pin-lock",
-      "icon-size": 1.05,          // ← 鍵だけサイズ調整はここ
+      "icon-size": 0.95,          // ← 鍵だけサイズ調整はここ
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
@@ -280,7 +280,7 @@ if (!map.getLayer("pin-visited")) {
     filter: ["all", ["==", ["get", "visitedByMe"], true]],
     layout: {
       "icon-image": "pin-star-check-fill",
-      "icon-size": 1.45,
+      "icon-size": 1.15,
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
@@ -300,7 +300,7 @@ if (!map.getLayer("pin-wanted")) {
     ],
     layout: {
       "icon-image": "pin-star-fill",
-      "icon-size": 1.45,
+      "icon-size": 1.05,
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
