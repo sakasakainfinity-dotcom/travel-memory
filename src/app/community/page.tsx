@@ -85,53 +85,39 @@ export default function CommunityPage() {
         );
       }
 
-      const { data: ps, error } = await query;
-      if (error) throw error;
+   
 
-      const rows = (ps ?? []) as any[];
-      if (rows.length === 0) {
-        setHasMore(false);
-        return;
-      }
+      // 5) const { data, error } = await supabase.rpc("public_feed", {
+  q: dq.trim() || null,
+  cursor: cursor || null,
+  page_size: 20,
+  viewer: uid || null,
+});
+if (error) throw error;
 
-      const postIds = rows.map((r) => r.id as string);
-      const nextCursor = rows[rows.length - 1]?.created_at ?? null;
+const rows = (data ?? []) as any[];
+if (rows.length === 0) {
+  setHasMore(false);
+  return;
+}
 
-      // 3) photos（まとめて取得）
-      const photosBy: Record<string, string[]> = {};
-      if (postIds.length > 0) {
-        const { data: phs, error: ePh } = await supabase
-          .from("photos")
-          .select("place_id, file_url")
-          .in("place_id", postIds);
-        if (ePh) throw ePh;
+const nextCursor = rows[rows.length - 1]?.created_at ?? null;
 
-        for (const ph of phs ?? []) {
-          const pid = (ph as any).place_id as string;
-          const url = (ph as any).file_url as string;
-          (photosBy[pid] ||= []).push(url);
-        }
-      }
+const page = rows.map((r: any) => ({
+  id: r.id,
+  title: r.title ?? null,
+  memo: r.memo ?? null,
+  created_by_name: r.created_by_name ?? "名無しの旅人",
+  created_at: r.created_at ?? null,
+  photos: (r.photo_urls ?? []).slice(0, 4), // ★最大4枚に制限（軽量化）
+  likeCount: Number(r.like_count ?? 0),
+  likedByMe: !!r.liked_by_me,
+}));
 
-      // 4) likes（post_likes 全件引いて集計）
-      const likeByPost: Record<string, { count: number; likedByMe: boolean }> = {};
-      if (postIds.length > 0) {
-        const { data: ls, error: eL } = await supabase
-          .from("post_likes")
-          .select("post_id, user_id")
-          .in("post_id", postIds);
-        if (eL) throw eL;
-
-        for (const r of (ls ?? []) as any[]) {
-          const pid = r.post_id as string;
-          const userId = r.user_id as string;
-          if (!likeByPost[pid]) likeByPost[pid] = { count: 0, likedByMe: false };
-          likeByPost[pid].count++;
-          if (uid && userId === uid) likeByPost[pid].likedByMe = true;
-        }
-      }
-
-      // 5) 画面用に整形
+setPosts((prev) => [...prev, ...page]);
+setCursor(nextCursor);
+if (rows.length < 20) setHasMore(false);
+画面用に整形
       const page: FeedPost[] = rows.map((r) => {
         const lk = likeByPost[r.id] ?? { count: 0, likedByMe: false };
         return {
