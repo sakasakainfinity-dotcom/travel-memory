@@ -282,59 +282,62 @@ export default function PublicPage() {
     }
   }
 
-  async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
-    const busyKey = `${placeKey}:${kind}`;
-    try {
-      setReactBusyId(busyKey);
+async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
+  const busyKey = `${placeKey}:${kind}`;
+  try {
+    setReactBusyId(busyKey);
 
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return alert("ログインが必要じゃよ。");
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (!uid) return alert("ログインが必要じゃよ。");
 
-      const marker = places.find((p) => p.id === placeKey);
-      if (!marker) return;
+    const marker = places.find((p) => p.id === placeKey);
+    if (!marker) return;
 
-      const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+    const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
-      // ✅ UI即時反映（places側＝ヘッダーとMapViewに効く）
-      setPlaces((prev) =>
-        prev.map((p) => {
-          if (p.id !== placeKey) return p;
-          if (kind === "want") {
-            return {
-              ...p,
-              wantedByMe: !already,
-              wantCount: Math.max(0, (p.wantCount ?? 0) + (already ? -1 : 1)),
-            };
-          }
+    // ✅ UI即時反映
+    setPlaces((prev) =>
+      prev.map((p) => {
+        if (p.id !== placeKey) return p;
+        if (kind === "want") {
           return {
             ...p,
-            visitedByMe: !already,
-            visitedCount: Math.max(0, (p.visitedCount ?? 0) + (already ? -1 : 1)),
+            wantedByMe: !already,
+            wantCount: Math.max(0, (p.wantCount ?? 0) + (already ? -1 : 1)),
           };
-        })
-      );
+        }
+        return {
+          ...p,
+          visitedByMe: !already,
+          visitedCount: Math.max(0, (p.visitedCount ?? 0) + (already ? -1 : 1)),
+        };
+      })
+    );
 
-      // DB
-      if (already) {
-        const { error } = await supabase
-          .from("place_flags")
-          .delete()
-          .eq("place_key", placeKey)
-          .eq("user_id", uid)
-          .eq("kind", kind);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("place_flags").insert({ place_key: placeKey, user_id: uid, kind });
-        if (error) throw error;
-      }
-    } catch (e) {
-      console.error(e);
-      alert("場所フラグ更新に失敗したかも…");
-    } finally {
-      setReactBusyId(null);
+    // DB
+    if (already) {
+      const { error } = await supabase
+        .from("place_flags")
+        .delete()
+        .eq("place_key", placeKey)
+        .eq("user_id", uid)
+        .eq("kind", kind);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("place_flags")
+        .insert({ place_key: placeKey, user_id: uid, kind });
+      if (error) throw error;
     }
+  } catch (e) {
+    console.error(e);
+    alert("場所フラグ更新に失敗したかも…");
+  } finally {
+    setReactBusyId(null);
   }
+}
+
 
   return (
     <>
