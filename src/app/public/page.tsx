@@ -45,6 +45,8 @@ function chunk<T>(arr: T[], size: number) {
 
 export default function PublicPage() {
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
 
   // ✅ ここが正しい：useStateはコンポーネント内
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
@@ -394,6 +396,86 @@ export default function PublicPage() {
         </div>
       </div>
 
+      <div
+  style={{
+    position: "fixed",
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+    right: "max(12px, env(safe-area-inset-right, 0px))",
+    zIndex: 10001,
+    pointerEvents: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8, // ← トグルと☰の間隔
+    alignItems: "flex-end",
+  }}
+>
+  {/* Private / Public トグル */}
+  <div
+    style={{
+      display: "flex",
+      borderRadius: 999,
+      border: "1px solid #111827",
+      overflow: "hidden",
+      background: "#fff",
+      fontSize: 12,
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => router.push("/")}
+      style={{
+        padding: "6px 14px",
+        background: "#ffffff",
+        color: "#111827",
+        border: "none",
+        cursor: "pointer",
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#22c55e" }} />
+      Private
+    </button>
+
+    <div
+      style={{
+        padding: "6px 14px",
+        background: "#111827",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontWeight: 700,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#2563eb" }} />
+      Public
+    </div>
+  </div>
+
+  {/* ☰ メニューボタン（トグルの下） */}
+  <button
+    type="button"
+    onClick={() => setMenuOpen(true)}
+    style={{
+      width: 36,
+      height: 32,
+      borderRadius: 8,
+      border: "1px solid rgba(17,24,39,0.25)",
+      background: "#fff",
+      color: "#111827",
+      cursor: "pointer",
+      fontWeight: 900,
+    }}
+    aria-label="メニュー"
+  >
+    ☰
+  </button>
+</div>
+
+
       {/* 左上 検索 */}
       <div
         style={{
@@ -454,6 +536,70 @@ export default function PublicPage() {
             gap: 10,
           }}
         >
+
+          {menuOpen && (
+  <div
+    onClick={() => setMenuOpen(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      zIndex: 10050,
+      display: "grid",
+      justifyItems: "end",
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "min(420px, 92vw)",
+        height: "100%",
+        background: "rgba(255,255,255,0.98)",
+        borderLeft: "1px solid rgba(17,24,39,0.12)",
+        padding: 14,
+        overflowY: "auto",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ fontWeight: 900 }}>メニュー</div>
+        <button
+          onClick={() => setMenuOpen(false)}
+          style={{
+            borderRadius: 10,
+            border: "1px solid rgba(17,24,39,0.15)",
+            background: "#fff",
+            padding: "6px 10px",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* ここにあなたのMenuButton群をそのまま */}
+      <div style={{ display: "grid", gap: 10 }}>
+        <MenuButton label="みんなの投稿" onClick={() => { setMenuOpen(false); router.push("/community"); }} />
+        <MenuButton label="投稿履歴" onClick={() => { setMenuOpen(false); router.push("/history"); }} />
+        <MenuButton label="有料プラン" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
+        <MenuButton label="AI 旅行プラン" onClick={() => { setMenuOpen(false); router.push("/ai-trip"); }} />
+        <MenuButton label="シェアする" onClick={() => { setMenuOpen(false); router.push("/share"); }} />
+        <MenuButton label="撮りたいリスト" onClick={() => { setMenuOpen(false); router.push("/list"); }} />
+        <MenuButton label="アカウント設定" onClick={() => { setMenuOpen(false); router.push("/account"); }} />
+        <MenuButton label="このアプリについて" onClick={() => { setMenuOpen(false); router.push("/about"); }} />
+        <MenuButton
+          label="ログアウト"
+          onClick={async () => {
+            setMenuOpen(false);
+            await supabase.auth.signOut();
+            router.push("/login");
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
           {/* タイトル（場所） + Placeボタン */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
