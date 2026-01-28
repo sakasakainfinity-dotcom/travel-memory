@@ -9,6 +9,11 @@ import { useRouter } from "next/navigation";
 import SearchBox from "@/components/SearchBox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+const [photoModalOpen, setPhotoModalOpen] = useState(false);
+const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+const [activePostId, setActivePostId] = useState<string | null>(null);
+
+
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -654,6 +659,93 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
             ⭐ 行きたい
           </button>
 
+          {photoModalOpen && activePhotoUrl && (
+  <div
+    onClick={() => setPhotoModalOpen(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.92)",
+      zIndex: 999999,
+      display: "grid",
+      placeItems: "center",
+      padding: 12,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "min(980px, 96vw)",
+        height: "min(86vh, 900px)",
+        display: "grid",
+        gridTemplateRows: "1fr auto",
+        gap: 12,
+      }}
+    >
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <img
+          src={activePhotoUrl}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            borderRadius: 12,
+            background: "rgba(255,255,255,0.04)",
+          }}
+        />
+
+        <button
+          onClick={() => setPhotoModalOpen(false)}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(0,0,0,0.35)",
+            color: "#fff",
+            borderRadius: 10,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* 下部アクション（ここに「システム利用料（¥100）」） */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 10,
+        }}
+      >
+        <button
+          onClick={() => {
+            // ②でここにStripeの処理を入れる
+            alert("ここに『システム利用料（¥100）』決済を繋ぐで");
+          }}
+          style={{
+            width: "fit-content",
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+            color: "#fff",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          高画質で保存（システム利用料 ¥100）
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
           <button
             type="button"
             disabled={reactBusyId === `${selectedId}:visited`}
@@ -763,18 +855,24 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
                   )}
                   {(post.photos ?? []).map((u) => (
                     <img
-                      key={u}
-                      src={u}
-                      loading="lazy"
-                      style={{
-                        width: "100%",
-                        height: "22vh",
-                        objectFit: "cover",
-                        borderRadius: 10,
-                        border: "1px solid #eee",
-                      }}
-                      alt=""
-                    />
+　　　　　　　　　　  key={u}
+　　　　　　　　　　  src={u}
+　　　　　　　　　　  loading="lazy"
+　　　　　　　　　　  onClick={() => {
+ 　　　　　　　　　   setActivePhotoUrl(u);
+  　　　　　　　　　  setActivePostId(post.id);
+  　　　　　　　　　  setPhotoModalOpen(true);
+　　　　　　　　　　　  }}
+　　　　　　　　　　  style={{
+　　　　　　　　    width: "100%",
+　　　　　　　　    height: "22vh",
+　　　　　　　　    objectFit: "cover",
+　　　　　　　　    borderRadius: 10,
+ 　　　　　　　　   border: "1px solid #eee",
+　　　　　　　　    cursor: "pointer",
+　　　　　　　　　  }}
+　　　　　　　　  alt=""
+　　　　　　　　　/>
                   ))}
                 </div>
               </div>
