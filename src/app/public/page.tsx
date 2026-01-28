@@ -514,7 +514,7 @@ export default function PublicPage() {
   mode="public"
 />
 
-{/* ================= 下パネル：同じ場所の投稿 ================= */}
+{/* ================= 下パネル：同じ場所の投稿（1回だけ） ================= */}
 {selectedId && (
   <div
     style={{
@@ -530,16 +530,12 @@ export default function PublicPage() {
       boxShadow: "0 18px 50px rgba(0,0,0,.25)",
       zIndex: 9000,
       padding: 12,
+      pointerEvents: "auto",
       display: "flex",
       flexDirection: "column",
       gap: 10,
     }}
   >
-    {/* タイトル */}
-    <div style={{ textAlign: "center", fontWeight: 900 }}>
-      {selectedTitle || "無題"}（{selectedPosts.length}件）
-    </div>
-
     {/* 閉じる */}
     <button
       onClick={() => setSelectedId(null)}
@@ -557,8 +553,80 @@ export default function PublicPage() {
       ×
     </button>
 
-    {/* 投稿一覧 */}
-    <div style={{ overflowY: "auto", display: "grid", gap: 12 }}>
+    {/* タイトル（場所） + Placeボタン */}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+      <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
+        <div
+          style={{
+            fontWeight: 900,
+            fontSize: 18,
+            lineHeight: 1.2,
+            maxWidth: "90%",
+            margin: "0 auto",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            letterSpacing: "0.02em",
+          }}
+          title={selectedTitle || "無題"}
+        >
+          {selectedTitle || "無題"}（{selectedPosts.length}件）
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+        {(() => {
+          const m = places.find((x) => x.id === selectedId);
+          const wanted = !!m?.wantedByMe;
+          const visited = !!m?.visitedByMe;
+
+          return (
+            <>
+              <button
+                type="button"
+                disabled={reactBusyId === `${selectedId}:want`}
+                onClick={() => togglePlaceFlag(selectedId!, "want")}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  border: wanted ? "1px solid #f59e0b" : "1px solid #fde68a",
+                  background: wanted ? "linear-gradient(180deg,#fcd34d,#f59e0b)" : "#fffbeb",
+                  color: wanted ? "#111827" : "#92400e",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  boxShadow: wanted ? "0 10px 18px rgba(245,158,11,0.25)" : "none",
+                }}
+              >
+                ⭐ 行きたい
+              </button>
+
+              <button
+                type="button"
+                disabled={reactBusyId === `${selectedId}:visited`}
+                onClick={() => togglePlaceFlag(selectedId!, "visited")}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  border: visited ? "1px solid #10b981" : "1px solid #bbf7d0",
+                  background: visited ? "linear-gradient(180deg,#34d399,#10b981)" : "#ecfdf5",
+                  color: visited ? "#052e16" : "#065f46",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  boxShadow: visited ? "0 10px 18px rgba(16,185,129,0.22)" : "none",
+                }}
+              >
+                ✓ 行った
+              </button>
+            </>
+          );
+        })()}
+      </div>
+    </div>
+
+    {/* 投稿一覧（スクロール） */}
+    <div style={{ overflowY: "auto", display: "grid", gap: 12, paddingTop: 4 }}>
       {selectedPosts.length === 0 && (
         <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: 20 }}>
           投稿が見つからんかった…
@@ -577,20 +645,51 @@ export default function PublicPage() {
             gap: 10,
           }}
         >
+          {/* 投稿者 + 投稿日時 */}
           <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>
             {post.createdByName ?? "名無しの旅人"}{" "}
             {post.createdAt && `・${post.createdAt.toLocaleDateString("ja-JP")}`}
           </div>
 
-          <div style={{ fontSize: 13 }}>{post.memo || "（メモなし）"}</div>
+          {/* Like（投稿単位） */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              disabled={reactBusyId === `${post.id}:like`}
+              onClick={() => togglePostLike(post.id)}
+              style={{
+                padding: "7px 12px",
+                borderRadius: 999,
+                border: post.likedByMe ? "1px solid #fb7185" : "1px solid #fecdd3",
+                background: post.likedByMe ? "linear-gradient(180deg,#fb7185,#f43f5e)" : "#fff1f2",
+                color: post.likedByMe ? "#fff" : "#9f1239",
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: reactBusyId === `${post.id}:like` ? "default" : "pointer",
+                boxShadow: post.likedByMe ? "0 10px 18px rgba(244,63,94,0.20)" : "none",
+              }}
+            >
+              ❤️ {post.likeCount ?? 0}
+            </button>
+          </div>
 
+          {/* メモ */}
+          <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+            {post.memo || "（メモなし）"}
+          </div>
+
+          {/* 写真一覧 */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
               gap: 8,
             }}
           >
+            {(post.photos ?? []).length === 0 && (
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+            )}
+
             {(post.photos ?? []).map((u) => (
               <img
                 key={u}
@@ -598,11 +697,12 @@ export default function PublicPage() {
                 loading="lazy"
                 onClick={() => {
                   setActivePhotoUrl(u);
+                  setActivePostId(post.id);
                   setPhotoModalOpen(true);
                 }}
                 style={{
                   width: "100%",
-                  height: "20vh",
+                  height: "22vh",
                   objectFit: "cover",
                   borderRadius: 10,
                   border: "1px solid #eee",
@@ -618,7 +718,7 @@ export default function PublicPage() {
   </div>
 )}
 
-{/* ================= 右スライドメニュー（returnの最後！） ================= */}
+{/* ================= 右スライドメニュー（下パネルの外！） ================= */}
 {menuOpen && (
   <div
     onClick={() => setMenuOpen(false)}
@@ -642,285 +742,119 @@ export default function PublicPage() {
         overflowY: "auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontWeight: 900 }}>メニュー</div>
-        <button onClick={() => setMenuOpen(false)}>×</button>
+        <button
+          onClick={() => setMenuOpen(false)}
+          style={{
+            borderRadius: 10,
+            border: "1px solid rgba(17,24,39,0.15)",
+            background: "#fff",
+            padding: "6px 10px",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          ×
+        </button>
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
-        <MenuButton label="みんなの投稿" onClick={() => router.push("/community")} />
-        <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
-        <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
-        <MenuButton label="AI 旅行プラン" onClick={() => router.push("/ai-trip")} />
-        <MenuButton label="シェアする" onClick={() => router.push("/share")} />
-        <MenuButton label="撮りたいリスト" onClick={() => router.push("/list")} />
-        <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
-        <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
+        <MenuButton label="みんなの投稿" onClick={() => { setMenuOpen(false); router.push("/community"); }} />
+        <MenuButton label="投稿履歴" onClick={() => { setMenuOpen(false); router.push("/history"); }} />
+        <MenuButton label="有料プラン" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
+        <MenuButton label="AI 旅行プラン" onClick={() => { setMenuOpen(false); router.push("/ai-trip"); }} />
+        <MenuButton label="シェアする" onClick={() => { setMenuOpen(false); router.push("/share"); }} />
+        <MenuButton label="撮りたいリスト" onClick={() => { setMenuOpen(false); router.push("/list"); }} />
+        <MenuButton label="アカウント設定" onClick={() => { setMenuOpen(false); router.push("/account"); }} />
+        <MenuButton label="このアプリについて" onClick={() => { setMenuOpen(false); router.push("/about"); }} />
       </div>
     </div>
   </div>
 )}
 
-
-          {/* タイトル（場所） + Placeボタン */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: 18,
-                  lineHeight: 1.2,
-                  maxWidth: "90%",
-                  margin: "0 auto",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  letterSpacing: "0.02em",
-                }}
-                title={selectedTitle || "無題"}
-              >
-                {selectedTitle || "無題"}（{selectedPosts.length}件）
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              {(() => {
-                const m = places.find((x) => x.id === selectedId);
-                const wanted = !!m?.wantedByMe;
-                const visited = !!m?.visitedByMe;
-
-                return (
-                  <>
-                    <button
-                      type="button"
-                      disabled={reactBusyId === `${selectedId}:want`}
-                      onClick={() => togglePlaceFlag(selectedId!, "want")}
-                      style={{
-                        padding: "7px 12px",
-                        borderRadius: 999,
-                        border: wanted ? "1px solid #f59e0b" : "1px solid #fde68a",
-                        background: wanted ? "linear-gradient(180deg,#fcd34d,#f59e0b)" : "#fffbeb",
-                        color: wanted ? "#111827" : "#92400e",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        boxShadow: wanted ? "0 10px 18px rgba(245,158,11,0.25)" : "none",
-                      }}
-                    >
-                      ⭐ 行きたい
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={reactBusyId === `${selectedId}:visited`}
-                      onClick={() => togglePlaceFlag(selectedId!, "visited")}
-                      style={{
-                        padding: "7px 12px",
-                        borderRadius: 999,
-                        border: visited ? "1px solid #10b981" : "1px solid #bbf7d0",
-                        background: visited ? "linear-gradient(180deg,#34d399,#10b981)" : "#ecfdf5",
-                        color: visited ? "#052e16" : "#065f46",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        boxShadow: visited ? "0 10px 18px rgba(16,185,129,0.22)" : "none",
-                      }}
-                    >
-                      ✓ 行った
-                    </button>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* 閉じる */}
-          <button
-            onClick={() => setSelectedId(null)}
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 12,
-              border: "1px solid #ddd",
-              background: "#fff",
-              borderRadius: 8,
-              padding: "6px 10px",
-              cursor: "pointer",
-            }}
-          >
-            ×
-          </button>
-
-          {/* 投稿一覧（スクロール） */}
-          <div style={{ overflowY: "auto", display: "grid", gap: 12, paddingTop: 4 }}>
-            {selectedPosts.length === 0 && (
-              <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: 20 }}>
-                投稿が見つからんかった…
-              </div>
-            )}
-
-            {selectedPosts.map((post) => (
-              <div
-                key={post.id}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  padding: 12,
-                  background: "#fff",
-                  display: "grid",
-                  gap: 10,
-                }}
-              >
-                {/* 投稿者 + 投稿日時 */}
-                <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>
-                  {post.createdByName ?? "名無しの旅人"}{" "}
-                  {post.createdAt && `・${post.createdAt.toLocaleDateString("ja-JP")}`}
-                </div>
-
-                {/* Like（投稿単位） */}
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    disabled={reactBusyId === `${post.id}:like`}
-                    onClick={() => togglePostLike(post.id)}
-                    style={{
-                      padding: "7px 12px",
-                      borderRadius: 999,
-                      border: post.likedByMe ? "1px solid #fb7185" : "1px solid #fecdd3",
-                      background: post.likedByMe ? "linear-gradient(180deg,#fb7185,#f43f5e)" : "#fff1f2",
-                      color: post.likedByMe ? "#fff" : "#9f1239",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: reactBusyId === `${post.id}:like` ? "default" : "pointer",
-                      boxShadow: post.likedByMe ? "0 10px 18px rgba(244,63,94,0.20)" : "none",
-                    }}
-                  >
-                    ❤️ {post.likeCount ?? 0}
-                  </button>
-                </div>
-
-                {/* メモ */}
-                <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
-                  {post.memo || "（メモなし）"}
-                </div>
-
-                {/* 写真一覧 */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                    gap: 8,
-                  }}
-                >
-                  {(post.photos ?? []).length === 0 && <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>}
-
-                  {(post.photos ?? []).map((u) => (
-                    <img
-                      key={u}
-                      src={u}
-                      loading="lazy"
-                      onClick={() => {
-                        setActivePhotoUrl(u);
-                        setActivePostId(post.id);
-                        setPhotoModalOpen(true);
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "22vh",
-                        objectFit: "cover",
-                        borderRadius: 10,
-                        border: "1px solid #eee",
-                        cursor: "pointer",
-                      }}
-                      alt=""
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ✅ 全画面モーダルは return の最後（ここが正しい） */}
-      {photoModalOpen && activePhotoUrl && (
-        <div
-          onClick={() => setPhotoModalOpen(false)}
+{/* ================= 全画面写真モーダル（returnの最後） ================= */}
+{photoModalOpen && activePhotoUrl && (
+  <div
+    onClick={() => {
+      setPhotoModalOpen(false);
+      setActivePhotoUrl(null);
+      setActivePostId(null);
+    }}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.92)",
+      zIndex: 999999,
+      display: "grid",
+      placeItems: "center",
+      padding: 12,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "min(980px, 96vw)",
+        height: "min(86vh, 900px)",
+        display: "grid",
+        gridTemplateRows: "1fr auto",
+        gap: 12,
+      }}
+    >
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <img
+          src={activePhotoUrl}
+          alt=""
           style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.92)",
-            zIndex: 999999,
-            display: "grid",
-            placeItems: "center",
-            padding: 12,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            borderRadius: 12,
+            background: "rgba(255,255,255,0.04)",
+          }}
+        />
+
+        <button
+          onClick={() => {
+            setPhotoModalOpen(false);
+            setActivePhotoUrl(null);
+            setActivePostId(null);
+          }}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(0,0,0,0.35)",
+            color: "#fff",
+            borderRadius: 10,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontWeight: 800,
           }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(980px, 96vw)",
-              height: "min(86vh, 900px)",
-              display: "grid",
-              gridTemplateRows: "1fr auto",
-              gap: 12,
-            }}
-          >
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              <img
-                src={activePhotoUrl}
-                alt=""
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.04)",
-                }}
-              />
+          ×
+        </button>
+      </div>
 
-              <button
-                onClick={() => setPhotoModalOpen(false)}
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  left: 10,
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  background: "rgba(0,0,0,0.35)",
-                  color: "#fff",
-                  borderRadius: 10,
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                  fontWeight: 800,
-                }}
-              >
-                ×
-              </button>
-            </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button
+          onClick={() => alert("ここに『システム利用料（¥100）』のStripe決済を繋ぐで（次やる）")}
+          style={{
+            width: "fit-content",
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+            color: "#fff",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          高画質で保存（システム利用料 ¥100）
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-            {/* 下部アクション（Stripeは次段階で繋ぐ） */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button
-                onClick={() => {
-                  alert("ここに『システム利用料（¥100）』のStripe決済を繋ぐで（次やる）");
-                }}
-                style={{
-                  width: "fit-content",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
-                  color: "#fff",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                高画質で保存（システム利用料 ¥100）
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
