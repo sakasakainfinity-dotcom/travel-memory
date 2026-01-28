@@ -525,7 +525,6 @@ export default function CommunityPage() {
           )}
         </div>
 
-        {/* ====== ここから：写真 全画面モーダル（みんなの投稿） ====== */}
         {photoModalOpen && activePhotoUrl && (
           <div
             onClick={() => {
@@ -610,7 +609,6 @@ export default function CommunityPage() {
             </div>
           </div>
         )}
-        {/* ====== ここまで：写真 全画面モーダル（みんなの投稿） ====== */}
       </div>
     </div>
   );
