@@ -39,6 +39,10 @@ export default function CommunityPage() {
 
   const [uid, setUid] = useState<string | null>(null);
   const busyRef = useRef<Set<string>>(new Set()); // postId:like
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+  const [activeFeedPostId, setActiveFeedPostId] = useState<string | null>(null);
+
 
   useEffect(() => {
     (async () => {
@@ -307,49 +311,195 @@ export default function CommunityPage() {
               </div>
 
               {/* photos */}
-              <div style={{ marginTop: 10 }}>
-                {p.photos.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>写真なし</div>
-                ) : (
-                  <>
-                    <img
-                      src={p.photos[0]}
-                      alt=""
-                      style={{
-                        width: "100%",
-                        height: 260,
-                        objectFit: "cover",
-                        borderRadius: 14,
-                        border: "1px solid rgba(148,163,184,0.18)",
-                      }}
-                      loading="lazy"
-                    />
-                    {p.photos.length > 1 && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
-                        {p.photos.slice(1).map((u) => (
-                          <img
-                            key={u}
-                            src={u}
-                            alt=""
-                            style={{
-                              width: 120,
-                              height: 84,
-                              objectFit: "cover",
-                              borderRadius: 12,
-                              border: "1px solid rgba(148,163,184,0.18)",
-                              flex: "0 0 auto",
-                            }}
-                            loading="lazy"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+<div style={{ marginTop: 10 }}>
+  {p.photos.length === 0 ? (
+    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>写真なし</div>
+  ) : (
+    <>
+      {/* 1枚目（でかいの） */}
+      <img
+        src={p.photos[0]}
+        alt=""
+        onClick={() => {
+          setActivePhotoUrl(p.photos[0]);
+          setActiveFeedPostId(p.id);
+          setPhotoModalOpen(true);
+        }}
+        style={{
+          width: "100%",
+          height: 260,
+          objectFit: "cover",
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.18)",
+          cursor: "pointer",
+        }}
+        loading="lazy"
+      />
+
+      {/* 2枚目以降（小さいやつ） */}
+      {p.photos.length > 1 && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
+          {p.photos.slice(1).map((u) => (
+            <img
+              key={u}
+              src={u}
+              alt=""
+              onClick={() => {
+                setActivePhotoUrl(u);
+                setActiveFeedPostId(p.id);
+                setPhotoModalOpen(true);
+              }}
+              style={{
+                width: 120,
+                height: 84,
+                objectFit: "cover",
+                borderRadius: 12,
+                border: "1px solid rgba(148,163,184,0.18)",
+                flex: "0 0 auto",
+                cursor: "pointer",
+              }}
+              loading="lazy"
+            />
           ))}
         </div>
+
+              {/* ====== ここから：写真 全画面モーダル（みんなの投稿） ====== */}
+        {photoModalOpen && activePhotoUrl && (
+          <div
+            onClick={() => setPhotoModalOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.92)",
+              zIndex: 999999,
+              display: "grid",
+              placeItems: "center",
+              padding: 12,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(980px, 96vw)",
+                height: "min(86vh, 900px)",
+                display: "grid",
+                gridTemplateRows: "1fr auto",
+                gap: 12,
+              }}
+            >
+              <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                <img
+                  src={activePhotoUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.04)",
+                  }}
+                />
+
+                <button
+                  onClick={() => setPhotoModalOpen(false)}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    background: "rgba(0,0,0,0.35)",
+                    color: "#fff",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    fontWeight: 800,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 方針：public投稿だけStripe → みんなの投稿には出さないのが安全 */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  onClick={() => alert("高画質保存（システム利用料¥100）はPublic投稿のみ対応です")}
+                  style={{
+                    width: "fit-content",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+                    color: "#fff",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  高画質で保存（システム利用料 ¥100）
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ====== ここまで：写真 全画面モーダル（みんなの投稿） ====== */}
+
+      )}
+    </>
+  )}
+</div>{/* photos */}
+<div style={{ marginTop: 10 }}>
+  {p.photos.length === 0 ? (
+    <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>写真なし</div>
+  ) : (
+    <>
+      <img
+        src={p.photos[0]}
+        alt=""
+        onClick={() => {
+          setActivePhotoUrl(p.photos[0]);
+          setActiveFeedPostId(p.id);
+          setPhotoModalOpen(true);
+        }}
+        style={{
+          width: "100%",
+          height: 260,
+          objectFit: "cover",
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.18)",
+          cursor: "pointer",
+        }}
+        loading="lazy"
+      />
+
+      {p.photos.length > 1 && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
+          {p.photos.slice(1).map((u) => (
+            <img
+              key={u}
+              src={u}
+              alt=""
+              onClick={() => {
+                setActivePhotoUrl(u);
+                setActiveFeedPostId(p.id);
+                setPhotoModalOpen(true);
+              }}
+              style={{
+                width: 120,
+                height: 84,
+                objectFit: "cover",
+                borderRadius: 12,
+                border: "1px solid rgba(148,163,184,0.18)",
+                flex: "0 0 auto",
+                cursor: "pointer",
+              }}
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</div>
+
 
         {/* More */}
         <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
@@ -374,6 +524,93 @@ export default function CommunityPage() {
             <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)", padding: 10 }}>ここまで</div>
           )}
         </div>
+
+        {/* ====== ここから：写真 全画面モーダル（みんなの投稿） ====== */}
+        {photoModalOpen && activePhotoUrl && (
+          <div
+            onClick={() => {
+              setPhotoModalOpen(false);
+              setActivePhotoUrl(null);
+              setActiveFeedPostId(null);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.92)",
+              zIndex: 999999,
+              display: "grid",
+              placeItems: "center",
+              padding: 12,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(980px, 96vw)",
+                height: "min(86vh, 900px)",
+                display: "grid",
+                gridTemplateRows: "1fr auto",
+                gap: 12,
+              }}
+            >
+              <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                <img
+                  src={activePhotoUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.04)",
+                  }}
+                />
+
+                <button
+                  onClick={() => {
+                    setPhotoModalOpen(false);
+                    setActivePhotoUrl(null);
+                    setActiveFeedPostId(null);
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    background: "rgba(0,0,0,0.35)",
+                    color: "#fff",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    fontWeight: 800,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 方針：public投稿だけStripe → みんなの投稿は案内だけ */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  onClick={() => alert("高画質保存（システム利用料¥100）はPublic投稿のみ対応です")}
+                  style={{
+                    width: "fit-content",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+                    color: "#fff",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  高画質で保存（システム利用料 ¥100）
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ====== ここまで：写真 全画面モーダル（みんなの投稿） ====== */}
       </div>
     </div>
   );
