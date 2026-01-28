@@ -365,65 +365,8 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 
   return (
     <>
-      {/* 右上トグル */}
-      <div
-        style={{
-          position: "fixed",
-          top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          right: "max(12px, env(safe-area-inset-right, 0px))",
-          zIndex: 10001,
-          pointerEvents: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            borderRadius: 999,
-            border: "1px solid #111827",
-            overflow: "hidden",
-            background: "#fff",
-            fontSize: 12,
-          }}
-        >
-          {/* Private */}
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            style={{
-              padding: "6px 14px",
-              background: "#ffffff",
-              color: "#111827",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "999px", background: "#22c55e" }} />
-            Private
-          </button>
-
-          {/* Public */}
-          <div
-            style={{
-              padding: "6px 14px",
-              background: "#111827",
-              color: "#ffffff",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontWeight: 700,
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "999px", background: "#2563eb" }} />
-            Public
-          </div>
-        </div>
-      </div>
-
-      <div
+      {/* 右上：トグル + ☰（トグルの下に配置） */}
+<div
   style={{
     position: "fixed",
     top: "calc(env(safe-area-inset-top, 0px) + 10px)",
@@ -432,11 +375,56 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     pointerEvents: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: 8, // ← トグルと☰の間隔
+    gap: 8, // ← トグルと☰の縦間隔
     alignItems: "flex-end",
   }}
 >
-  
+  {/* Private / Public トグル */}
+  <div
+    style={{
+      display: "flex",
+      borderRadius: 999,
+      border: "1px solid #111827",
+      overflow: "hidden",
+      background: "#fff",
+      fontSize: 12,
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => router.push("/")}
+      style={{
+        padding: "6px 14px",
+        background: "#ffffff",
+        color: "#111827",
+        border: "none",
+        cursor: "pointer",
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#22c55e" }} />
+      Private
+    </button>
+
+    <div
+      style={{
+        padding: "6px 14px",
+        background: "#111827",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontWeight: 700,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#2563eb" }} />
+      Public
+    </div>
+  </div>
+
   {/* ☰ メニューボタン（トグルの下） */}
   <button
     type="button"
@@ -450,12 +438,15 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
       color: "#111827",
       cursor: "pointer",
       fontWeight: 900,
+      display: "grid",
+      placeItems: "center",
     }}
     aria-label="メニュー"
   >
     ☰
   </button>
 </div>
+
 
 
       {/* 左上 検索 */}
