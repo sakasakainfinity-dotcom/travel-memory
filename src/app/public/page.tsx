@@ -43,6 +43,30 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        borderRadius: 12,
+        border: "1px solid rgba(17,24,39,0.12)",
+        background: "#fff",
+        padding: "12px 12px",
+        cursor: "pointer",
+        fontWeight: 900,
+        color: "#111827",
+        boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+
 export default function PublicPage() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
