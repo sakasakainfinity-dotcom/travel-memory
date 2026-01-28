@@ -412,52 +412,7 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     alignItems: "flex-end",
   }}
 >
-  {/* Private / Public トグル */}
-  <div
-    style={{
-      display: "flex",
-      borderRadius: 999,
-      border: "1px solid #111827",
-      overflow: "hidden",
-      background: "#fff",
-      fontSize: 12,
-    }}
-  >
-    <button
-      type="button"
-      onClick={() => router.push("/")}
-      style={{
-        padding: "6px 14px",
-        background: "#ffffff",
-        color: "#111827",
-        border: "none",
-        cursor: "pointer",
-        fontWeight: 600,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#22c55e" }} />
-      Private
-    </button>
-
-    <div
-      style={{
-        padding: "6px 14px",
-        background: "#111827",
-        color: "#ffffff",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        fontWeight: 700,
-      }}
-    >
-      <span style={{ width: 8, height: 8, borderRadius: 999, background: "#2563eb" }} />
-      Public
-    </div>
-  </div>
-
+  
   {/* ☰ メニューボタン（トグルの下） */}
   <button
     type="button"
@@ -860,4 +815,6 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     </div>
   </div>
 )}
-
+ </>
+  );
+}
