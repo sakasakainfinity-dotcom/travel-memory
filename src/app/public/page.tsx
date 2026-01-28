@@ -812,17 +812,17 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <button
-          onClick={() => alert("ここに『システム利用料（¥100）』のStripe決済を繋ぐで（次やる）")}
-          style={{
-            width: "fit-content",
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
-            color: "#fff",
-            fontWeight: 900,
-            cursor: "pointer",
-          }}
+          onClick={async () => {
+  const r = await fetch("/api/stripe/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ postId: activePostId }), // いま開いてる投稿ID
+  });
+  const j = await r.json();
+  if (!r.ok) return alert(j?.error ?? "決済の開始に失敗した…");
+
+  window.location.href = j.url;
+}}
         >
           高画質で保存（システム利用料 ¥100）
         </button>
