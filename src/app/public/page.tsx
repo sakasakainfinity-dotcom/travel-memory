@@ -116,8 +116,10 @@ useEffect(() => {
       const { downloadUrl } = await res.json();
       if (!downloadUrl) throw new Error("downloadUrl missing");
 
-      setDlMsg("ダウンロード準備中…");
-
+      setDlMsg("ダウンロードが完了しました 📸");
+const t = window.setTimeout(() => setDlMsg(null), 1200);
+return () => window.clearTimeout(t);
+      
       const r = await fetch(downloadUrl);
       const blob = await r.blob();
       const a = document.createElement("a");
@@ -894,6 +896,9 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 }}
         >
           高画質で保存（システム利用料 ¥100）
+          <div style={{ marginTop: 6, fontSize: 12, color: "rgba(17,24,39,0.65)", lineHeight: 1.4 }}>
+  ※ダウンロードされた写真は、投稿者へ還元される仕組みを作成中です。
+</div>
         </button>
       </div>
     </div>
