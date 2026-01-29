@@ -90,8 +90,7 @@ export default function PublicPage() {
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
 
-  useEffect(() => {
-  // 決済後だけ発火： paid=1 & session_id & postId が揃ってる時
+useEffect(() => {
   const sp = new URLSearchParams(window.location.search);
   const paid = sp.get("paid");
   const sessionId = sp.get("session_id");
@@ -101,7 +100,7 @@ export default function PublicPage() {
 
   (async () => {
     try {
-      setDlMsg("決済を確認中…");
+      setDlMsg("決済確認中…");
 
       const res = await fetch("/api/stripe/finalize-download", {
         method: "POST",
@@ -114,28 +113,26 @@ export default function PublicPage() {
         throw new Error(t || "finalize-download failed");
       }
 
-      const data = await res.json();
-      const downloadUrl = data?.downloadUrl as string | undefined;
+      const { downloadUrl } = await res.json();
       if (!downloadUrl) throw new Error("downloadUrl missing");
 
       setDlMsg("ダウンロード準備中…");
 
-const r = await fetch(downloadUrl, { mode: "cors" });
-if (!r.ok) throw new Error("failed to fetch file");
+      const r = await fetch(downloadUrl);
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      const objUrl = URL.createObjectURL(blob);
+      a.href = objUrl;
+      a.download = `travel-memory-${postId}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
 
-const blob = await r.blob();
-const a = document.createElement("a");
-const objUrl = URL.createObjectURL(blob);
-
-// ファイル名（適当でOK。拡張子はjpgなら.jpg）
-a.href = objUrl;
-a.download = `travel-memory-${postId}.jpg`;
-document.body.appendChild(a);
-a.click();
-a.remove();
-URL.revokeObjectURL(objUrl);
-
-setDlMsg(null);
+      setDlMsg(null);
+    } catch (e) {
+      console.error(e);
+      setDlMsg("エラーが発生しました");
     }
   })();
 }, []);
