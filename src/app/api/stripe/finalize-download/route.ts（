@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     // 2) postId から photos / photos_bak を取得
     // ※テーブル名が違うならここだけ直して
     const { data, error } = await supabase
-      .from("posts")
+      .from("places")
       .select("photos, photos_bak")
       .eq("id", postId)
       .single();
