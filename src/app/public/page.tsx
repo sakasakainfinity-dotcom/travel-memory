@@ -132,7 +132,7 @@ useEffect(() => {
       setDlMsg(null);
     } catch (e) {
       console.error(e);
-      setDlMsg("エラーが発生しました");
+      setDlMsg(`エラー: ${e?.message ?? "unknown"}`);
     }
   })();
 }, []);
