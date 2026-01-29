@@ -94,7 +94,7 @@ useEffect(() => {
   const sp = new URLSearchParams(window.location.search);
   const paid = sp.get("paid");
   const sessionId = sp.get("session_id");
-  const spaceId = sp.get("spaceId");
+  const placeId = sp.get("placeId");
 
   if (paid !== "1" || !sessionId || !postId) return;
 
@@ -105,7 +105,7 @@ useEffect(() => {
       const res = await fetch("/api/stripe/finalize-download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, spaceId }),
+        body: JSON.stringify({ sessionId, placeId }),
       });
 
       if (!res.ok) {
@@ -123,7 +123,7 @@ useEffect(() => {
       const a = document.createElement("a");
       const objUrl = URL.createObjectURL(blob);
       a.href = objUrl;
-      a.download = `travel-memory-${spaceId}.jpg`;
+      a.download = `travel-memory-${placeId}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
