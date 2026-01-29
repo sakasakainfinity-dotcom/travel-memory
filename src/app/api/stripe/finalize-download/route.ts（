@@ -7,7 +7,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-// ★Service Role必須（サーバーのみ）
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,28 +14,24 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { sessionId, postId } = await req.json();
-    if (!sessionId || !postId) return new Response("missing params", { status: 400 });
+    const { sessionId, spaceId } = await req.json();
+    if (!sessionId || !spaceId) return new Response("missing params", { status: 400 });
 
-    // 1) Stripeで支払い済み確認（paid=1は信用しない）
+    // Stripeで支払い確認
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== "paid") return new Response("not paid", { status: 402 });
 
-    // 2) postId から photos / photos_bak を取得
-    // ※テーブル名が違うならここだけ直して
+    // space_id に紐づく画像URLを取得（最新1枚）
     const { data, error } = await supabase
-      .from("places")
-      .select("photos, photos_bak")
-      .eq("id", postId)
-      .single();
+      .from("photos")              // ←あなたの実テーブル名に合わせて
+      .select("file_url")
+      .eq("space_id", spaceId)
+      .order("created_at", { ascending: false }) // created_at が無いならこの行は消してOK
+      .limit(1);
 
     if (error) return new Response(`db error: ${error.message}`, { status: 500 });
 
-    const photos = normalizeToStringArray(data?.photos);
-    const photosBak = normalizeToStringArray(data?.photos_bak);
-
-    // 3) 返すURLを決める（まずは最新優先：photos→photos_bak）
-    const url = photos[0] ?? photosBak[0];
+    const url = data?.[0]?.file_url;
     if (!url) return new Response("no photo url", { status: 404 });
 
     return Response.json({ downloadUrl: url });
@@ -44,6 +39,7 @@ export async function POST(req: Request) {
     return new Response(e?.message || "server error", { status: 500 });
   }
 }
+
 
 function normalizeToStringArray(v: any): string[] {
   if (!v) return [];
