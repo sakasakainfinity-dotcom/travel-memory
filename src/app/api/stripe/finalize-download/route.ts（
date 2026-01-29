@@ -14,27 +14,26 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { sessionId, spaceId } = await req.json();
-    if (!sessionId || !spaceId) return new Response("missing params", { status: 400 });
+    const { sessionId, placeId } = await req.json();
+    if (!sessionId || !placeId) return new Response("missing params", { status: 400 });
 
-    // Stripeで支払い確認
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== "paid") return new Response("not paid", { status: 402 });
 
-    // space_id に紐づく画像URLを取得（最新1枚）
     const { data, error } = await supabase
-      .from("photos")              // ←あなたの実テーブル名に合わせて
-      .select("file_url")
-      .eq("space_id", spaceId)
-      .order("created_at", { ascending: false }) // created_at が無いならこの行は消してOK
+      .from("photos")
+      .select("file_url, url, thumb_url")
+      .eq("place_id", placeId)
+      .order("created_at", { ascending: false })
       .limit(1);
 
     if (error) return new Response(`db error: ${error.message}`, { status: 500 });
 
-    const url = data?.[0]?.file_url;
-    if (!url) return new Response("no photo url", { status: 404 });
+    const row = data?.[0];
+    const downloadUrl = row?.file_url ?? row?.url ?? row?.thumb_url;
+    if (!downloadUrl) return new Response("no photo url", { status: 404 });
 
-    return Response.json({ downloadUrl: url });
+    return Response.json({ downloadUrl });
   } catch (e: any) {
     return new Response(e?.message || "server error", { status: 500 });
   }
