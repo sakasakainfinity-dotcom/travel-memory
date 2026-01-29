@@ -96,7 +96,7 @@ useEffect(() => {
   const sessionId = sp.get("session_id");
   const placeId = sp.get("placeId");
 
-  if (paid !== "1" || !sessionId || !postId) return;
+  if (paid !== "1" || !sessionId || !placeId) return;
 
   (async () => {
     try {
