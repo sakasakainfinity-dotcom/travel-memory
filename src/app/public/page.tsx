@@ -80,6 +80,7 @@ export default function PublicPage() {
   const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
   const [postsByPlaceKey, setPostsByPlaceKey] = useState<Record<string, PublicPost[]>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dlMsg, setDlMsg] = useState<string | null>(null);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
@@ -88,6 +89,56 @@ export default function PublicPage() {
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
+
+  useEffect(() => {
+  // 決済後だけ発火： paid=1 & session_id & postId が揃ってる時
+  const sp = new URLSearchParams(window.location.search);
+  const paid = sp.get("paid");
+  const sessionId = sp.get("session_id");
+  const postId = sp.get("postId");
+
+  if (paid !== "1" || !sessionId || !postId) return;
+
+  (async () => {
+    try {
+      setDlMsg("決済を確認中…");
+
+      const res = await fetch("/api/stripe/finalize-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, postId }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || "finalize-download failed");
+      }
+
+      const data = await res.json();
+      const downloadUrl = data?.downloadUrl as string | undefined;
+      if (!downloadUrl) throw new Error("downloadUrl missing");
+
+      setDlMsg("ダウンロード開始…");
+
+      // 自動ダウンロード開始（最小操作）
+      window.location.href = downloadUrl;
+
+      // URLに paid=1 / session_id を残すのは危険＆邪魔なので消す
+      sp.delete("paid");
+      sp.delete("session_id");
+      // postId も残したくないなら消してOK
+      // sp.delete("postId");
+
+      const qs = sp.toString();
+      const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", newUrl);
+    } catch (e) {
+      console.error(e);
+      setDlMsg("エラー：決済確認またはDL準備に失敗");
+    }
+  })();
+}, []);
+
 
   // 公開投稿の読み込み
   useEffect(() => {
@@ -365,6 +416,25 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 
   return (
     <>
+      {/* ★★★ ここに入れる ★★★ */}
+    {dlMsg && (
+      <div
+        style={{
+          position: "fixed",
+          top: 12,
+          left: 12,
+          zIndex: 10002,
+          padding: "10px 12px",
+          background: "rgba(0,0,0,0.7)",
+          color: "#fff",
+          borderRadius: 10,
+          fontSize: 12,
+        }}
+      >
+        {dlMsg}
+      </div>
+    )}
+      
       {/* 右上：トグル + ☰（トグルの下に配置） */}
 <div
   style={{
