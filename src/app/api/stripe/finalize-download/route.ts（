@@ -1,0 +1,65 @@
+import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
+
+export const runtime = "nodejs";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-12-15.clover",
+});
+
+// ★Service Role必須（サーバーのみ）
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(req: Request) {
+  try {
+    const { sessionId, postId } = await req.json();
+    if (!sessionId || !postId) return new Response("missing params", { status: 400 });
+
+    // 1) Stripeで支払い済み確認（paid=1は信用しない）
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status !== "paid") return new Response("not paid", { status: 402 });
+
+    // 2) postId から photos / photos_bak を取得
+    // ※テーブル名が違うならここだけ直して
+    const { data, error } = await supabase
+      .from("posts")
+      .select("photos, photos_bak")
+      .eq("id", postId)
+      .single();
+
+    if (error) return new Response(`db error: ${error.message}`, { status: 500 });
+
+    const photos = normalizeToStringArray(data?.photos);
+    const photosBak = normalizeToStringArray(data?.photos_bak);
+
+    // 3) 返すURLを決める（まずは最新優先：photos→photos_bak）
+    const url = photos[0] ?? photosBak[0];
+    if (!url) return new Response("no photo url", { status: 404 });
+
+    return Response.json({ downloadUrl: url });
+  } catch (e: any) {
+    return new Response(e?.message || "server error", { status: 500 });
+  }
+}
+
+function normalizeToStringArray(v: any): string[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+  // json文字列で入ってる場合
+  if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.filter((x) => typeof x === "string");
+      // 文字列単体URLの可能性
+      if (typeof parsed === "string") return [parsed];
+      // URL文字列そのものの場合
+      if (v.startsWith("http")) return [v];
+    } catch {
+      if (v.startsWith("http")) return [v];
+    }
+  }
+  return [];
+}
