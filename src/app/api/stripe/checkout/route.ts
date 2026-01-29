@@ -65,8 +65,8 @@ export async function POST(req: Request) {
       // ここで postId を紐づけ（Webhook/成功画面で使える）
       metadata: { postId },
 
-      success_url: `${origin}/public?paid=1&postId=${encodeURIComponent(postId)}&session_id={CHECKOUT_SESSION_ID}`,
-cancel_url: `${origin}/public?paid=0`,
+      success_url: `${origin}/public?paid=1&spaceId=${encodeURIComponent(spaceId)}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/public?paid=0`,
     });
 
     return NextResponse.json({ url: session.url });
