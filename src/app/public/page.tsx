@@ -118,23 +118,24 @@ export default function PublicPage() {
       const downloadUrl = data?.downloadUrl as string | undefined;
       if (!downloadUrl) throw new Error("downloadUrl missing");
 
-      setDlMsg("ダウンロード開始…");
+      setDlMsg("ダウンロード準備中…");
 
-      // 自動ダウンロード開始（最小操作）
-      window.location.href = downloadUrl;
+const r = await fetch(downloadUrl, { mode: "cors" });
+if (!r.ok) throw new Error("failed to fetch file");
 
-      // URLに paid=1 / session_id を残すのは危険＆邪魔なので消す
-      sp.delete("paid");
-      sp.delete("session_id");
-      // postId も残したくないなら消してOK
-      // sp.delete("postId");
+const blob = await r.blob();
+const a = document.createElement("a");
+const objUrl = URL.createObjectURL(blob);
 
-      const qs = sp.toString();
-      const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-      window.history.replaceState(null, "", newUrl);
-    } catch (e) {
-      console.error(e);
-      setDlMsg("エラー：決済確認またはDL準備に失敗");
+// ファイル名（適当でOK。拡張子はjpgなら.jpg）
+a.href = objUrl;
+a.download = `travel-memory-${postId}.jpg`;
+document.body.appendChild(a);
+a.click();
+a.remove();
+URL.revokeObjectURL(objUrl);
+
+setDlMsg(null);
     }
   })();
 }, []);
