@@ -109,9 +109,9 @@ useEffect(() => {
       });
 
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "finalize-download failed");
-      }
+  const t = await res.text();
+  throw new Error(`finalize-download ${res.status}: ${t || "empty body"}`);
+}
 
       const { downloadUrl } = await res.json();
       if (!downloadUrl) throw new Error("downloadUrl missing");
