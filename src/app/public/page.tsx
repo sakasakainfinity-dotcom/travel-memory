@@ -131,9 +131,10 @@ useEffect(() => {
 
       setDlMsg(null);
     } catch (e) {
-      console.error(e);
-      setDlMsg(`エラー: ${msg}`);
-    }
+  console.error(e);
+  const msg = e instanceof Error ? e.message : String(e);
+  setDlMsg(`エラー: ${msg}`);
+}
   })();
 }, []);
 
