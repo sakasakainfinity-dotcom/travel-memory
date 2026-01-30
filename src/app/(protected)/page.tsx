@@ -851,6 +851,7 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [createMode, setCreateMode] = useState(false);
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
   const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
@@ -1193,12 +1194,18 @@ const mergedPlaces = useMemo(() => {
         <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
           <div style={{ position: "relative" }}>
             <SearchBox
-              places={places}
-              onPick={(p) => {
-                setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
-                if (p.id) setSelectedId(p.id);
-              }}
-            />
+  places={places}
+  onPickPost={(p) => {
+    setCreateMode(false); // ←投稿選んだときは作成モード解除
+    setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
+    // もし投稿詳細を開くならここで router.push 等
+  }}
+  onPickLocation={(p) => {
+    setCreateMode(true);  // ←場所を選んだら作成モードON
+    setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 16 });
+    // ここでは投稿画面は開かない（地図で微調整させる）
+  }}
+/>
           </div>
         </div>
       </div>
@@ -1299,6 +1306,7 @@ const mergedPlaces = useMemo(() => {
   }}
   selectedId={selectedId}
   flyTo={flyTo}
+        places={places}
   bindGetView={(fn) => {
     getViewRef.current = fn;
   }}
@@ -1306,6 +1314,7 @@ const mergedPlaces = useMemo(() => {
     setViewRef.current = fn;
   }}
   initialView={initialView}
+        createMode={createMode}
 />
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
