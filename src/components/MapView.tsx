@@ -213,11 +213,10 @@ export default function MapView({
 
     mapRef.current = map;
 
-   map.on("dblclick", (e) => {
-  if (!createMode) return;          // ← createMode中だけ
-  e.preventDefault();               // ← ズーム防止
+ map.on("dblclick", (e) => {
+  e.preventDefault(); // ダブルタップズームを防ぐ（スマホ事故防止）
 
-  const c = map.getCenter();        // ← 中央固定
+  const c = map.getCenter(); // 中央固定
   onRequestNew({ lat: c.lat, lng: c.lng });
 });
 
