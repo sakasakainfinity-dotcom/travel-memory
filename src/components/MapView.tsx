@@ -399,24 +399,6 @@ if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
         📷
       </div>
     )}
-
-    {createMode && (
-      <div
-        style={{
-          position: "fixed",
-          right: 16,
-          bottom: 120,
-          zIndex: 10,
-          background: "rgba(17,24,39,0.9)",
-          color: "#fff",
-          padding: "8px 12px",
-          borderRadius: 999,
-          fontSize: 12,
-        }}
-      >
-        位置を合わせて<br />ダブルタップで投稿
-      </div>
-    )}
   </>
 );
 }
