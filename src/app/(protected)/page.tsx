@@ -194,7 +194,7 @@ function PostModal({
     }
   }
 
-  if (!open) return null;
+    if (!open) return null;
 
   return (
     <div
@@ -220,17 +220,16 @@ function PostModal({
           boxShadow: "0 20px 60px rgba(0,0,0,.35)",
         }}
       >
-        <div
-  style={{
-    fontWeight: 900,
-    fontSize: 20,
-    marginBottom: 14,
-    textAlign: "center",
-    letterSpacing: -0.2,
-  }}
->
-  新しい投稿
-</div>
+        <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 14, textAlign: "center" }}>
+          新しい投稿
+        </div>
+
+        {/* ここから下に、フォーム本体を戻していく */}
+      </div>
+    </div>
+  );
+}
+
 
 
         {/* 写真（必須） */}
