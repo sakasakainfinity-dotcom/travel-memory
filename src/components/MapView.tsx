@@ -419,3 +419,4 @@ if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
       )}
     </div>
   );
+}
