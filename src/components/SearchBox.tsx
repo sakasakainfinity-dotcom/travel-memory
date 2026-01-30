@@ -1,7 +1,7 @@
 // src/components/SearchBox.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type LocalPlace = {
   id: string;
@@ -11,16 +11,38 @@ type LocalPlace = {
   lng: number;
 };
 
-type Props = {
-  places: LocalPlace[];
-  onPick: (p: { id?: string; lat: number; lng: number; zoom?: number }) => void;
+type RemotePlace = {
+  name: string;
+  address?: string;
+  lat: number;
+  lng: number;
 };
 
-export default function SearchBox({ places, onPick }: Props) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
+type Props = {
+  places: LocalPlace[]; // 投稿（ローカル）
+  onPickPost: (p: { id: string; lat: number; lng: number; zoom?: number }) => void;
+  onPickLocation: (p: { name: string; address?: string; lat: number; lng: number; zoom?: number }) => void;
+};
 
-  const results = useMemo(() => {
+function useDebounced<T>(value: T, ms = 250) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
+export default function SearchBox({ places, onPickPost, onPickLocation }: Props) {
+  const [q, setQ] = useState("");
+  const dq = useDebounced(q, 250);
+
+  const [open, setOpen] = useState(false);
+  const [remote, setRemote] = useState<RemotePlace[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+
+  // 投稿（ローカル）検索
+  const postResults = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return [];
     return places
@@ -29,23 +51,65 @@ export default function SearchBox({ places, onPick }: Props) {
         const memo = (p.memo ?? "").toLowerCase();
         return name.includes(query) || memo.includes(query);
       })
-      .slice(0, 20);
+      .slice(0, 10);
   }, [q, places]);
 
-  const pick = (p: LocalPlace) => {
+  // 場所（リモート）検索
+  useEffect(() => {
+    const query = dq.trim();
+    if (!query) {
+      setRemote([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setRemoteLoading(true);
+        const res = await fetch(`/api/place-search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) throw new Error(`place-search failed: ${res.status}`);
+        const json = await res.json();
+        const items = (json?.items ?? json ?? []) as any[];
+
+        const normalized: RemotePlace[] = items
+          .map((x) => ({
+            name: x.name ?? x.title ?? "",
+            address: x.address ?? x.subTitle ?? x.description ?? "",
+            lat: Number(x.lat),
+            lng: Number(x.lng),
+          }))
+          .filter((x) => x.name && Number.isFinite(x.lat) && Number.isFinite(x.lng))
+          .slice(0, 10);
+
+        if (!cancelled) setRemote(normalized);
+      } catch {
+        if (!cancelled) setRemote([]);
+      } finally {
+        if (!cancelled) setRemoteLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dq]);
+
+  const pickPost = (p: LocalPlace) => {
     setOpen(false);
     setQ(p.name ?? "");
-    onPick({ id: p.id, lat: p.lat, lng: p.lng, zoom: 15 });
+    onPickPost({ id: p.id, lat: p.lat, lng: p.lng, zoom: 15 });
   };
 
-    return (
-  <div
-    style={{
-      position: "relative",
-      width: "100%",
-      maxWidth: "100%",
-    }}
-  >
+  const pickLocation = (p: RemotePlace) => {
+    setOpen(false);
+    setQ(p.name);
+    onPickLocation({ name: p.name, address: p.address, lat: p.lat, lng: p.lng, zoom: 16 });
+  };
+
+  const hasAny = postResults.length > 0 || remote.length > 0 || remoteLoading;
+
+  return (
+    <div style={{ position: "relative", width: "100%", maxWidth: "100%" }}>
       <input
         type="search"
         value={q}
@@ -53,18 +117,17 @@ export default function SearchBox({ places, onPick }: Props) {
           setQ(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => {
-          if (results.length > 0) setOpen(true);
-        }}
+        onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
+          if (e.key === "Escape") setOpen(false);
           if (e.key === "Enter") {
             e.preventDefault();
-            if (results[0]) pick(results[0]);
-          } else if (e.key === "Escape") {
-            setOpen(false);
+            // 優先：投稿 -> 場所
+            if (postResults[0]) pickPost(postResults[0]);
+            else if (remote[0]) pickLocation(remote[0]);
           }
         }}
-        placeholder="投稿内容を検索（タイトル・メモ）"
+        placeholder="投稿 or 場所を検索（タイトル・メモ・地名）"
         style={{
           width: "100%",
           borderRadius: 12,
@@ -76,7 +139,7 @@ export default function SearchBox({ places, onPick }: Props) {
         }}
       />
 
-      {open && results.length > 0 && (
+      {open && hasAny && (
         <div
           style={{
             position: "absolute",
@@ -89,15 +152,52 @@ export default function SearchBox({ places, onPick }: Props) {
             borderRadius: 12,
             overflow: "hidden",
             boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
-            maxHeight: 260,
+            maxHeight: 320,
             overflowY: "auto",
           }}
         >
-          {results.map((p) => (
+          {/* 投稿 */}
+          {postResults.length > 0 && (
+            <>
+              <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 800, color: "#6b7280", background: "#f9fafb" }}>
+                投稿
+              </div>
+              {postResults.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => pickPost(p)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "8px 10px",
+                    border: "none",
+                    background: "#fff",
+                    borderBottom: "1px solid #eee",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 13 }}>{p.name || "無題の投稿"}</div>
+                  {p.memo && (
+                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.memo}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* 場所 */}
+          <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 800, color: "#6b7280", background: "#f9fafb" }}>
+            場所 {remoteLoading ? "（検索中…）" : ""}
+          </div>
+
+          {remote.map((p, idx) => (
             <button
-              key={p.id}
+              key={`${p.name}-${p.lat}-${p.lng}-${idx}`}
               type="button"
-              onClick={() => pick(p)}
+              onClick={() => pickLocation(p)}
               style={{
                 width: "100%",
                 textAlign: "left",
@@ -108,29 +208,17 @@ export default function SearchBox({ places, onPick }: Props) {
                 cursor: "pointer",
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: 13 }}>
-                {p.name || "無題の投稿"}
-              </div>
-              {p.memo && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#6b7280",
-                    marginTop: 2,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {p.memo}
-                </div>
-              )}
+              <div style={{ fontWeight: 800, fontSize: 13 }}>{p.name}</div>
+              {p.address && <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{p.address}</div>}
             </button>
           ))}
+
+          {!remoteLoading && remote.length === 0 && (
+            <div style={{ padding: "10px", fontSize: 12, color: "#9ca3af" }}>場所は見つからんかった</div>
+          )}
         </div>
       )}
     </div>
   );
 }
-
 
