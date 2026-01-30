@@ -1294,19 +1294,15 @@ const mergedPlaces = useMemo(() => {
 
 
       {/* 🗺 マップ（1つだけ） */}
-      <MapView
+     <MapView
   places={mergedPlaces}
   onRequestNew={openModalAt}
-        mode="private"
+  mode="private"
   onSelect={(p) => {
-    
-
-    // 通常（丸ピン）
     setSelectedId(p.id);
   }}
   selectedId={selectedId}
   flyTo={flyTo}
-        places={places}
   bindGetView={(fn) => {
     getViewRef.current = fn;
   }}
@@ -1314,8 +1310,9 @@ const mergedPlaces = useMemo(() => {
     setViewRef.current = fn;
   }}
   initialView={initialView}
-        createMode={createMode}
+  createMode={createMode}
 />
+
 
       {/* 🗺 ヒント：地図クリックで投稿できる */}
       <div
