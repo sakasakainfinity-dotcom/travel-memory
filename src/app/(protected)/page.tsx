@@ -229,7 +229,7 @@ function PostModal({
     letterSpacing: -0.2,
   }}
 >
-  新しい投稿
+  📷新しい投稿📷
 </div>
 
         {/* 写真（必須） */}
@@ -332,52 +332,90 @@ function PostModal({
 
         {/* 時間帯（任意）チップ */}
         <div style={{ marginTop: 12 }}>
-          <label style={{ fontSize: 12, color: "#111827", fontWeight: 700 }}>
-            時間帯（任意）
-          </label>
+  <label
+    style={{
+      fontSize: 12,
+      color: "#555",
+      display: "block",
+      marginBottom: 6,
+      textAlign: "center",
+    }}
+  >
+    時間帯（任意）
+  </label>
 
-         <div
-  style={{
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 10,
-  }}
->
-             {[
-  { key: "morning" as const, label: "朝", on: "rgba(251,146,60,0.22)", bd: "rgba(251,146,60,0.55)" }, // orange
-  { key: "noon" as const, label: "昼", on: "rgba(59,130,246,0.18)", bd: "rgba(59,130,246,0.50)" },   // blue
-  { key: "evening" as const, label: "夕", on: "rgba(244,63,94,0.16)", bd: "rgba(244,63,94,0.45)" },   // rose
-  { key: "night" as const, label: "夜", on: "rgba(15,23,42,0.18)", bd: "rgba(15,23,42,0.45)" },       // slate
-].map((x) => {
-  const active = timeOfDay === x.key;
-  return (
-    <button
-      key={x.key}
-      type="button"
-      onClick={() => setTimeOfDay(active ? "" : x.key)}
-      style={{
-        height: 38,
-        minWidth: 88,               // ← 横長
-        padding: "0 16px",          // ← 横長感
-        borderRadius: 999,
-        border: active ? `2px solid ${x.bd}` : "1px solid #d1d5db",
-        background: active ? x.on : "#fff",
-        color: "#111827",
-        fontSize: 12,
-        fontWeight: 900,
-        cursor: "pointer",
-        boxShadow: active ? "0 8px 18px rgba(0,0,0,0.12)" : "none",
-        transform: active ? "translateY(-1px)" : "none",
-      }}
-    >
-      {x.label}
-    </button>
-  );
-})}
-          </div>
-        </div>
+  <div
+    style={{
+      display: "flex",
+      gap: 12,
+      justifyContent: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    {[
+      {
+        key: "morning" as const,
+        label: "朝",
+        softBg: "rgba(253, 224, 71, 0.25)",   // 薄い黄色
+        strongBg: "#fde047",
+        text: "#92400e",
+      },
+      {
+        key: "noon" as const,
+        label: "昼",
+        softBg: "rgba(34, 197, 94, 0.22)",   // 薄い緑
+        strongBg: "#22c55e",
+        text: "#064e3b",
+      },
+      {
+        key: "evening" as const,
+        label: "夕",
+        softBg: "rgba(251, 146, 60, 0.25)",  // 薄いオレンジ
+        strongBg: "#fb923c",
+        text: "#7c2d12",
+      },
+      {
+        key: "night" as const,
+        label: "夜",
+        softBg: "rgba(168, 85, 247, 0.22)",  // 薄い紫
+        strongBg: "#a855f7",
+        text: "#3b0764",
+      },
+    ].map((t) => {
+      const active = timeOfDay === t.key;
+
+      return (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => setTimeOfDay(active ? "" : t.key)}
+          style={{
+            height: 40,
+            minWidth: 92,
+            padding: "0 18px",
+            borderRadius: 999,
+            border: active
+              ? `2px solid ${t.strongBg}`
+              : "1px solid rgba(0,0,0,0.12)",
+            background: active ? t.strongBg : t.softBg,
+            color: t.text,
+            fontWeight: 900,
+            fontSize: 13,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: active
+              ? "0 10px 22px rgba(0,0,0,0.18)"
+              : "none",
+            transform: active ? "translateY(-1px)" : "none",
+          }}
+        >
+          {t.label}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
 
         {/* 📷 撮影データ（任意）折りたたみ */}
         <div style={{ marginTop: 16 }}>
@@ -847,52 +885,91 @@ function EditModal({
         </div>
 
         {/* 時間帯 */}
-        <div style={{ marginTop: 12 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
-            時間帯（任意）
-          </label>
-          <div
-  style={{
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 10,
-  }}
->
-            {[
-  { key: "morning" as const, label: "朝", on: "rgba(251,146,60,0.22)", bd: "rgba(251,146,60,0.55)" }, // orange
-  { key: "noon" as const, label: "昼", on: "rgba(59,130,246,0.18)", bd: "rgba(59,130,246,0.50)" },   // blue
-  { key: "evening" as const, label: "夕", on: "rgba(244,63,94,0.16)", bd: "rgba(244,63,94,0.45)" },   // rose
-  { key: "night" as const, label: "夜", on: "rgba(15,23,42,0.18)", bd: "rgba(15,23,42,0.45)" },       // slate
-].map((x) => {
-  const active = timeOfDay === x.key;
-  return (
-    <button
-      key={x.key}
-      type="button"
-      onClick={() => setTimeOfDay(active ? "" : x.key)}
-      style={{
-        height: 38,
-        minWidth: 88,               // ← 横長
-        padding: "0 16px",          // ← 横長感
-        borderRadius: 999,
-        border: active ? `2px solid ${x.bd}` : "1px solid #d1d5db",
-        background: active ? x.on : "#fff",
-        color: "#111827",
-        fontSize: 12,
-        fontWeight: 900,
-        cursor: "pointer",
-        boxShadow: active ? "0 8px 18px rgba(0,0,0,0.12)" : "none",
-        transform: active ? "translateY(-1px)" : "none",
-      }}
-    >
-      {x.label}
-    </button>
-  );
-})}
-          </div>
-        </div>
+       <div style={{ marginTop: 12 }}>
+  <label
+    style={{
+      fontSize: 12,
+      color: "#555",
+      display: "block",
+      marginBottom: 6,
+      textAlign: "center",
+    }}
+  >
+    時間帯（任意）
+  </label>
+
+  <div
+    style={{
+      display: "flex",
+      gap: 12,
+      justifyContent: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    {[
+      {
+        key: "morning" as const,
+        label: "朝",
+        softBg: "rgba(253, 224, 71, 0.25)",   // 薄い黄色
+        strongBg: "#fde047",
+        text: "#92400e",
+      },
+      {
+        key: "noon" as const,
+        label: "昼",
+        softBg: "rgba(34, 197, 94, 0.22)",   // 薄い緑
+        strongBg: "#22c55e",
+        text: "#064e3b",
+      },
+      {
+        key: "evening" as const,
+        label: "夕",
+        softBg: "rgba(251, 146, 60, 0.25)",  // 薄いオレンジ
+        strongBg: "#fb923c",
+        text: "#7c2d12",
+      },
+      {
+        key: "night" as const,
+        label: "夜",
+        softBg: "rgba(168, 85, 247, 0.22)",  // 薄い紫
+        strongBg: "#a855f7",
+        text: "#3b0764",
+      },
+    ].map((t) => {
+      const active = timeOfDay === t.key;
+
+      return (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => setTimeOfDay(active ? "" : t.key)}
+          style={{
+            height: 40,
+            minWidth: 92,
+            padding: "0 18px",
+            borderRadius: 999,
+            border: active
+              ? `2px solid ${t.strongBg}`
+              : "1px solid rgba(0,0,0,0.12)",
+            background: active ? t.strongBg : t.softBg,
+            color: t.text,
+            fontWeight: 900,
+            fontSize: 13,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: active
+              ? "0 10px 22px rgba(0,0,0,0.18)"
+              : "none",
+            transform: active ? "translateY(-1px)" : "none",
+          }}
+        >
+          {t.label}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
 
         {/* 撮影データ */}
         <div style={{ marginTop: 16 }}>
