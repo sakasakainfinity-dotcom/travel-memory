@@ -1960,7 +1960,6 @@ setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
                       ...p,
                       name: title ?? p.name,
                       memo: memo ?? p.memo,
-                      photos: [...(p.photos ?? []), ...(addPhotos ?? [])],
                     }
                   : p
               )
