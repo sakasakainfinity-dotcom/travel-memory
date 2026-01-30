@@ -532,12 +532,20 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
       >
         <div style={{ width: "clamp(220px, 60vw, 340px)" }}>
           <SearchBox
-            places={places}
-            onPick={(p) => {
-              setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
-              if (p.id) setSelectedId(p.id);
-            }}
-          />
+  places={places}
+  onPickPost={(p) => {
+    // 投稿を選んだとき
+    setCreateMode(false);
+    setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
+    if (p.id) setSelectedId(p.id);
+  }}
+  onPickLocation={(p) => {
+    // 場所を選んだとき
+    setSelectedId(null);
+    setCreateMode(true);
+    setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 16 });
+  }}
+/>
         </div>
       </div>
 
