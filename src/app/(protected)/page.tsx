@@ -464,247 +464,348 @@ const [openMeta, setOpenMeta] = useState(false);
 }
 
 
-/* ================== 編集モーダル（更新 / 追加アップロード / 写真削除 / 投稿削除） ================== */
-function EditModal({
+/* ================== 投稿モーダル（新規作成・カメラ重視） ================== */
+function PostModal({
   open,
   place,
+  presetTitle,
   onClose,
-  onSaved,
-  onDeleted,
+  onSubmit,
 }: {
   open: boolean;
-  place: { id: string; title?: string | null; memo?: string | null };
+  place: { lat: number; lng: number };
+  presetTitle?: string;
   onClose: () => void;
-  onSaved: (updated: { title?: string | null; memo?: string | null; addPhotos?: string[]; removePhotoIds?: string[] }) => void;
-  onDeleted: () => void;
+  onSubmit: (d: {
+    clientRequestId: string;
+    title: string;
+    memo?: string;
+    timeOfDay?: "morning" | "noon" | "evening" | "night";
+    lat: number;
+    lng: number;
+    photos: File[];
+    visibility: "public" | "private";
+
+    // 撮影データ（任意）
+    cameraModel?: string;
+    focalLength?: string;
+    aperture?: string;
+    shutterSpeed?: string;
+    iso?: string;
+    shootMemo?: string;
+  }) => Promise<void>;
 }) {
-  const [title, setTitle] = useState(place.title ?? "");
-  const [memo, setMemo] = useState(place.memo ?? "");
-  const [loading, setLoading] = useState(false);
+  /* ---------- 基本 ---------- */
+  const [title, setTitle] = useState("");
+  const [memo, setMemo] = useState("");
+  const [timeOfDay, setTimeOfDay] = useState<
+    "" | "morning" | "noon" | "evening" | "night"
+  >("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
 
-  const [photos, setPhotos] = useState<PhotoRow[]>([]);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const newPreviews = useMemo(() => newFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name })), [newFiles]);
+  const [lat, setLat] = useState(place.lat);
+  const [lng, setLng] = useState(place.lng);
 
-  // 既存写真をロード
+  /* ---------- 撮影データ（折りたたみ） ---------- */
+  const [openMeta, setOpenMeta] = useState(false);
+  const [cameraModel, setCameraModel] = useState("");
+  const [focalLength, setFocalLength] = useState("");
+  const [aperture, setAperture] = useState("");
+  const [shutterSpeed, setShutterSpeed] = useState("");
+  const [iso, setIso] = useState("");
+  const [shootMemo, setShootMemo] = useState("");
+
+  /* ---------- 制御 ---------- */
+  const [clientRequestId, setClientRequestId] = useState(() =>
+    crypto.randomUUID()
+  );
+  const creatingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     if (!open) return;
-    (async () => {
-      const { data } = await supabase
-        .from("photos")
-        .select("id, place_id, file_url, storage_path")
-        .eq("place_id", place.id)
-        .order("created_at", { ascending: true });
-      setPhotos((data as PhotoRow[]) ?? []);
-    })();
-  }, [open, place.id]);
+    setTitle((presetTitle ?? "").trim());
+    setMemo("");
+    setTimeOfDay("");
+    setFiles([]);
+    setVisibility("private");
+    setLat(place.lat);
+    setLng(place.lng);
 
-  useEffect(() => () => newPreviews.forEach((p) => URL.revokeObjectURL(p.url)), [newPreviews]);
+    setCameraModel("");
+    setFocalLength("");
+    setAperture("");
+    setShutterSpeed("");
+    setIso("");
+    setShootMemo("");
+
+    setClientRequestId(crypto.randomUUID());
+    creatingRef.current = false;
+    setSaving(false);
+  }, [open, place.lat, place.lng, presetTitle]);
+
+  const previews = useMemo(
+    () => files.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
+    [files]
+  );
+  useEffect(
+    () => () => previews.forEach((p) => URL.revokeObjectURL(p.url)),
+    [previews]
+  );
+
+  const canSave = title.trim().length > 0 && files.length > 0;
+
+  async function submit() {
+    if (creatingRef.current || !canSave) return;
+    creatingRef.current = true;
+    setSaving(true);
+    try {
+      await onSubmit({
+        clientRequestId,
+        title: title.trim(),
+        memo: memo.trim() || undefined,
+        timeOfDay: timeOfDay || undefined,
+        lat,
+        lng,
+        photos: files,
+        visibility,
+
+        cameraModel: cameraModel.trim() || undefined,
+        focalLength: focalLength.trim() || undefined,
+        aperture: aperture.trim() || undefined,
+        shutterSpeed: shutterSpeed.trim() || undefined,
+        iso: iso.trim() || undefined,
+        shootMemo: shootMemo.trim() || undefined,
+      });
+    } finally {
+      creatingRef.current = false;
+      setSaving(false);
+    }
+  }
 
   if (!open) return null;
 
-  async function save() {
-    try {
-      setLoading(true);
-      // 1) place 更新
-      if (title !== place.title || memo !== place.memo) {
-        const { error } = await supabase.from("places").update({ title, memo }).eq("id", place.id);
-        if (error) throw new Error(`[UPDATE] ${error.message}`);
-      }
-
-      const addedUrls: string[] = [];
-
-// 2) 追加アップロード（HEIC/HDRでも必ずJPEG化）
-if (newFiles.length > 0) {
-  const { data: ses } = await supabase.auth.getSession();
-  const uid = ses.session?.user.id;
-  if (!uid) throw new Error("ログインが必要です（sessionなし）");
-
-  const sp = await ensureMySpace();
-  if (!sp?.id) throw new Error("スペースが取得できませんでした");
-
-  for (const f of newFiles) {
-    const jpegBlob = await compress(f);
-    const path = `${place.id}/${crypto.randomUUID()}.jpg`;
-
-    const { error: eUp } = await supabase.storage
-      .from("photos")
-      .upload(path, jpegBlob, {
-        upsert: false,
-        cacheControl: "3600",
-        contentType: "image/jpeg",
-      });
-    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
-
-    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-    const publicUrl = pub.publicUrl;
-
-    const { error: ePhoto } = await supabase.from("photos").insert({
-      place_id: place.id,
-      space_id: sp.id,
-      file_url: publicUrl,
-      storage_path: path,
-    });
-    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
-
-    // 画面の即時反映（呼び出し側の onSaved へ渡す）
-    addedUrls.push(publicUrl);
-  }
-
-  setNewFiles([]);
-}
-
-
-
-      onSaved({ title, memo, addPhotos: addedUrls });
-      onClose();
-    } catch (e: any) {
-      alert(`保存に失敗しました: ${e?.message ?? e}`);
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function removePhoto(row: PhotoRow) {
-    if (!confirm("この写真を削除しますか？")) return;
-    try {
-      setLoading(true);
-      // 1) storage 削除
-      const { error: eRm } = await supabase.storage.from("photos").remove([row.storage_path]);
-      if (eRm) throw new Error(`[STORAGE] ${eRm.message}`);
-      // 2) DB 行削除
-      const { error: eDb } = await supabase.from("photos").delete().eq("id", row.id);
-      if (eDb) throw new Error(`[PHOTOS] ${eDb.message}`);
-      setPhotos((prev) => prev.filter((p) => p.id !== row.id));
-    } catch (e: any) {
-      alert(`削除に失敗しました: ${e?.message ?? e}`);
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function deletePlace() {
-    if (!confirm("この投稿を完全に削除しますか？（写真も含めて削除）")) return;
-    try {
-      setLoading(true);
-      // 1) 写真の storage をまとめて削除
-      const paths = photos.map((p) => p.storage_path);
-      if (paths.length > 0) {
-        const { error: eRm } = await supabase.storage.from("photos").remove(paths);
-        if (eRm) throw new Error(`[STORAGE] ${eRm.message}`);
-      }
-      // 2) DB 側も削除（外部キーで cascade の場合は place だけでもOKだが、明示で消す）
-      await supabase.from("photos").delete().eq("place_id", place.id);
-      const { error: eDel } = await supabase.from("places").delete().eq("id", place.id);
-      if (eDel) throw new Error(`[PLACES] ${eDel.message}`);
-
-      onDeleted();
-      onClose();
-    } catch (e: any) {
-      alert(`削除に失敗しました: ${e?.message ?? e}`);
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000000, display: "grid", placeItems: "center" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.45)",
+        zIndex: 999999,
+        display: "grid",
+        placeItems: "center",
+      }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "min(960px, 96vw)", maxHeight: "88vh", overflow: "auto", background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 20px 60px rgba(0,0,0,.35)" }}
+        style={{
+          width: "min(820px, 92vw)",
+          maxHeight: "86vh",
+          overflow: "auto",
+          background: "#fff",
+          borderRadius: 14,
+          padding: 16,
+          boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+        }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>編集</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={deletePlace} disabled={loading} style={{ border: "1px solid #ef4444", background: "#fff", color: "#ef4444", padding: "8px 10px", borderRadius: 8, fontWeight: 700 }}>
-              投稿を削除
-            </button>
-            <button onClick={onClose} style={{ border: "1px solid #ddd", background: "#fff", padding: "8px 10px", borderRadius: 8 }}>閉じる</button>
-          </div>
+        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>
+          📷 新しい投稿
         </div>
 
-        <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
-        </div>
+        {/* 写真 */}
+        <label style={{ fontSize: 12, fontWeight: 700 }}>写真（必須）</label>
+        <label style={{ display: "inline-block", marginTop: 6 }}>
+          <span
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            写真を追加
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            style={{ display: "none" }}
+          />
+        </label>
 
-        <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>メモ</label>
-          <textarea value={memo} onChange={(e) => setMemo(e.target.value)} style={{ width: "100%", height: 150, border: "1px solid #ddd", borderRadius: 8, padding: "8px 10px" }} />
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>既存の写真</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {photos.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>}
-            {photos.map((ph) => (
-              <div key={ph.id} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden", position: "relative" }}>
-                <img src={ph.file_url} style={{ width: 160, height: 120, objectFit: "cover", display: "block" }} alt="" />
-                <button
-                  onClick={() => removePhoto(ph)}
-                  style={{ position: "absolute", top: 6, right: 6, background: "rgba(255,255,255,0.95)", border: "1px solid #ddd", borderRadius: 8, padding: "4px 6px", cursor: "pointer" }}
-                >
-                  削除
-                </button>
-              </div>
+        {previews.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3,1fr)",
+              gap: 8,
+              marginTop: 8,
+            }}
+          >
+            {previews.map((p) => (
+              <img
+                key={p.url}
+                src={p.url}
+                style={{
+                  width: "100%",
+                  height: 120,
+                  objectFit: "cover",
+                  borderRadius: 10,
+                }}
+              />
             ))}
           </div>
+        )}
+
+        {/* タイトル */}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 700 }}>タイトル（必須）</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="例：夕暮れの川沿い"
+            style={{
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}
+          />
         </div>
 
-        {/* 追加アップロード */}
-{/* 写真を追加 */}
-<div style={{ marginTop: 16 }}>
-  <label style={{ fontSize: 12, color: "#555" }}>写真を追加</label>
-  <label style={{ display: "inline-block", marginTop: 6 }}>
-    <span
-      style={{
-        display: "inline-block",
-        padding: "10px 14px",
-        borderRadius: 10,
-        border: "1px solid #ddd",
-        background: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-      }}
-    >
-      写真を追加
-    </span>
-    <input
-      type="file"
-      accept="image/*,image/heic,image/heif"
-      multiple
-      onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))}
-      style={{ display: "none" }}
-    />
-  </label>
-  {newPreviews.length > 0 && (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-      {newPreviews.map((p) => (
-        <div key={p.url} style={{ border: "1px solid #eee", borderRadius: 10, overflow: "hidden" }}>
-          <img src={p.url} style={{ width: 160, height: 120, objectFit: "cover" }} />
+        {/* ひとこと */}
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 12 }}>ひとこと（任意）</label>
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            style={{
+              width: "100%",
+              height: 60,
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}
+          />
         </div>
-      ))}
-    </div>
-  )}
-</div>
 
+        {/* 時間帯 */}
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 12 }}>時間帯（任意）</label>
+          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+            {[
+              ["morning", "朝"],
+              ["noon", "昼"],
+              ["evening", "夕"],
+              ["night", "夜"],
+            ].map(([k, l]) => {
+              const active = timeOfDay === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() =>
+                    setTimeOfDay(active ? "" : (k as any))
+                  }
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 999,
+                    border: active ? "2px solid #000" : "1px solid #ddd",
+                    background: active ? "rgba(0,0,0,.12)" : "#fff",
+                    fontWeight: 700,
+                  }}
+                >
+                  {l}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
+        {/* 撮影データ */}
+        <div style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={() => setOpenMeta((v) => !v)}
+            style={{
+              fontWeight: 700,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            📷 撮影データ（任意） {openMeta ? "▲" : "▼"}
+          </button>
 
+          {openMeta && (
+            <div style={{ marginTop: 8 }}>
+              <input
+                placeholder="カメラ機種"
+                value={cameraModel}
+                onChange={(e) => setCameraModel(e.target.value)}
+                style={{ width: "100%", marginBottom: 6, padding: 8 }}
+              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <input
+                  placeholder="焦点距離（例：35mm）"
+                  value={focalLength}
+                  onChange={(e) => setFocalLength(e.target.value)}
+                />
+                <input
+                  placeholder="F値（例：f/1.8）"
+                  value={aperture}
+                  onChange={(e) => setAperture(e.target.value)}
+                />
+                <input
+                  placeholder="シャッター速度（例：1/250）"
+                  value={shutterSpeed}
+                  onChange={(e) => setShutterSpeed(e.target.value)}
+                />
+                <input
+                  placeholder="ISO（例：100）"
+                  value={iso}
+                  onChange={(e) => setIso(e.target.value)}
+                />
+              </div>
+
+              <textarea
+                placeholder="撮影メモ（任意）"
+                value={shootMemo}
+                onChange={(e) => setShootMemo(e.target.value)}
+                style={{ width: "100%", height: 80, marginTop: 6 }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button onClick={save} disabled={loading} style={{ padding: "10px 14px", borderRadius: 10, background: "#111827", color: "#fff", fontWeight: 800 }}>
-            変更を保存
+          <button onClick={onClose}>閉じる</button>
+          <button
+            onClick={submit}
+            disabled={!canSave || saving}
+            style={{
+              padding: "10px 14px",
+              background: "#000",
+              color: "#fff",
+              borderRadius: 10,
+              opacity: !canSave || saving ? 0.6 : 1,
+              fontWeight: 700,
+            }}
+          >
+            {saving ? "保存中…" : "保存"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* =============== DB 保存（新規） =============== */
 async function insertPlace({
