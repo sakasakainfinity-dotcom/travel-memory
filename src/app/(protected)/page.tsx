@@ -1314,27 +1314,6 @@ const mergedPlaces = useMemo(() => {
 />
 
 
-      {/* 🗺 ヒント：地図クリックで投稿できる */}
-      <div
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: 150,
-          zIndex: 10000,
-          background: "rgba(17,24,39,0.92)",
-          color: "#fff",
-          padding: "8px 12px",
-          borderRadius: 999,
-          fontSize: 12,
-          boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
-          pointerEvents: "none",
-          lineHeight: 1.4,
-        }}
-      >
-        🗺 地図をタップ or 長押しで
-        <br />
-        その場所に投稿できるよ
-      </div>
 
       {/* ➕ 投稿フローティングボタン */}
       <button
