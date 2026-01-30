@@ -116,13 +116,11 @@ export default function MapView({
   bindSetView,
   initialView,
   mode,
-  createMode, // ←追加
   onCenterChange,
   showCenterMarker = false,
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
-  showCenterMarker?: boolean;
   onSelect?: (p: Place) => void;
   selectedId?: string | null;
   flyTo?: { lat: number; lng: number; zoom?: number; label?: string } | null;
@@ -130,7 +128,9 @@ export default function MapView({
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
   mode?: "private" | "public";
-  createMode?: boolean; // ←追加
+
+  onCenterChange?: (c: { lat: number; lng: number }) => void;
+  showCenterMarker?: boolean;
 }) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -394,27 +394,28 @@ if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
     });
   }, [flyTo]);
 
-  return (
-  <>
-    <div ref={containerRef} style={{ position: "fixed", inset: 0 }} />
+   return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      {/* map container（ここにMapLibreが描画される） */}
+      <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
 
-     {showCenterMarker && (
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -100%)", // ちょい上に（ピンっぽく）
-          zIndex: 5,
-          pointerEvents: "none",               // 地図操作の邪魔しない
-          fontSize: 28,
-          filter: "drop-shadow(0 8px 10px rgba(0,0,0,0.25))",
-        }}
-        aria-hidden="true"
-      >
-        📷
-      </div>
-    )}
-  </div>
-);
-}
+      {/* center camera overlay */}
+      {showCenterMarker && (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -100%)",
+            zIndex: 5,
+            pointerEvents: "none",
+            fontSize: 28,
+            filter: "drop-shadow(0 8px 10px rgba(0,0,0,0.25))",
+          }}
+          aria-hidden="true"
+        >
+          📷
+        </div>
+      )}
+    </div>
+  );
