@@ -1372,6 +1372,8 @@ export default function Page() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [createMode, setCreateMode] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
   const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
@@ -1831,16 +1833,19 @@ const mergedPlaces = useMemo(() => {
   }}
   initialView={initialView}
   createMode={createMode}
+        showCenterMarker={true}
+  onCenterChange={(c) => setMapCenter(c)}
 />
+
 
 
 
       {/* ➕ 投稿フローティングボタン */}
       <button
         onClick={() => {
-          const c = getViewRef.current();
-          openModalAt({ lat: c.lat, lng: c.lng });
-        }}
+  if (!mapCenter) return;
+  openModalAt({ lat: mapCenter.lat, lng: mapCenter.lng });
+}}
         style={{
           position: "fixed",
           right: 20,
