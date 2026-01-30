@@ -359,7 +359,7 @@ function PostModal({
   <div
     style={{
       display: "flex",
-      gap: 12,
+      gap: 8,
       justifyContent: "center",
       flexWrap: "wrap",
     }}
@@ -402,17 +402,17 @@ function PostModal({
           type="button"
           onClick={() => setTimeOfDay(active ? "" : t.key)}
           style={{
-            height: 40,
-            minWidth: 92,
-            padding: "0 18px",
+            height: 34,
+            minWidth: 72,
+            padding: "0 12px",
             borderRadius: 999,
             border: active
               ? `2px solid ${t.strongBg}`
               : "1px solid rgba(0,0,0,0.12)",
             background: active ? t.strongBg : t.softBg,
             color: t.text,
-            fontWeight: 900,
-            fontSize: 13,
+            fontWeight: 800,
+            fontSize: 11,
             cursor: "pointer",
             transition: "all 0.15s ease",
             boxShadow: active
@@ -913,7 +913,7 @@ function EditModal({
   <div
     style={{
       display: "flex",
-      gap: 12,
+      gap: 8,
       justifyContent: "center",
       flexWrap: "wrap",
     }}
@@ -956,17 +956,17 @@ function EditModal({
           type="button"
           onClick={() => setTimeOfDay(active ? "" : t.key)}
           style={{
-            height: 40,
-            minWidth: 92,
-            padding: "0 18px",
+            height: 34,
+            minWidth: 72,
+            padding: "0 12px",
             borderRadius: 999,
             border: active
               ? `2px solid ${t.strongBg}`
               : "1px solid rgba(0,0,0,0.12)",
             background: active ? t.strongBg : t.softBg,
             color: t.text,
-            fontWeight: 900,
-            fontSize: 13,
+            fontWeight: 800,
+            fontSize: 10,
             cursor: "pointer",
             transition: "all 0.15s ease",
             boxShadow: active
