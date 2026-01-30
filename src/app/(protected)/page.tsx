@@ -1832,7 +1832,7 @@ const mergedPlaces = useMemo(() => {
     setViewRef.current = fn;
   }}
   initialView={initialView}
-        showCenterMarker={true}
+       showCenterMarker={true}
   onCenterChange={(c) => setMapCenter(c)}
 />
 
