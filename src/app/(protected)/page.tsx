@@ -220,17 +220,29 @@ function PostModal({
           boxShadow: "0 20px 60px rgba(0,0,0,.35)",
         }}
       >
-        <div
+       <div
   style={{
-    fontWeight: 900,
-    fontSize: 20,
-    marginBottom: 14,
-    textAlign: "center",
-    letterSpacing: -0.2,
+    margin: "-16px -16px 14px -16px", // モーダルpadding(16)を相殺して端まで帯にする
+    padding: "10px 16px",
+    background: "linear-gradient(90deg, rgba(34,197,94,0.10), rgba(251,146,60,0.10), rgba(168,85,247,0.10))",
+    borderBottom: "1px solid rgba(0,0,0,0.08)",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
   }}
 >
-  📷新しい投稿📷
+  <div
+    style={{
+      fontWeight: 900,
+      fontSize: 16,
+      textAlign: "center",
+      letterSpacing: -0.2,
+      color: "#111827",
+    }}
+  >
+    ■ 新しい投稿 ■
+  </div>
 </div>
+
 
         {/* 写真（必須） */}
         <div style={{ marginTop: 6 }}>
