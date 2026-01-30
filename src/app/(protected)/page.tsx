@@ -53,7 +53,6 @@ function PostModal({
 }) {
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
-  const [address, setAddress] = useState("");
   const [visitedAt, setVisitedAt] = useState<string>(() => {
     const d = new Date();
     const z = (n: number) => String(n).padStart(2, "0");
@@ -64,7 +63,17 @@ function PostModal({
   const [lng, setLng] = useState(place.lng);
   const [files, setFiles] = useState<File[]>([]);
   const [visibility, setVisibility] = useState<"public" | "private">("private");
-  
+  const canSave = title.trim().length > 0 && files.length > 0;
+  const [timeOfDay, setTimeOfDay] = useState<"" | "morning" | "noon" | "evening" | "night">("");
+  const [cameraModel, setCameraModel] = useState("");
+const [focalLength, setFocalLength] = useState("");
+const [aperture, setAperture] = useState("");
+const [shutterSpeed, setShutterSpeed] = useState("");
+const [iso, setIso] = useState("");
+const [shootMemo, setShootMemo] = useState("");
+const [openMeta, setOpenMeta] = useState(false);
+
+
 
 
   
@@ -167,80 +176,43 @@ function PostModal({
           投稿
         </div>
 
-        {/* 📍 場所を検索して反映（Yahoo 2ステップ） */}
         <div style={{ marginTop: 10 }}>
-          <label
-            style={{
-              fontSize: 12,
-              color: "#555",
-              display: "block",
-              marginBottom: 4,
-            }}
-          >
-            場所を検索して反映
-          </label>
-
-          <PlaceGeocodeSearch
-            onPick={({ lat, lng, name, address: addr }) => {
-              setLat(lat);
-              setLng(lng);
-              if (name && !title) setTitle(name);
-              if (addr && !address) setAddress(addr);
-            }}
-            onReset={() => {
-              setTitle("");
-              setAddress("");
-            }}
-          />
-
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 11,
-              color: "#6b7280",
-              lineHeight: 1.5,
-            }}
-          >
-            🗺 検索で出んときは、地図を動かしてピンを置いた位置でそのまま投稿してOKじゃよ
-          </div>
-        </div>
-
-        {/* 緯度・経度（必要なら手でいじれる） */}
-        <div
+  <label style={{ fontSize: 12, color: "#555", display: "block", marginBottom: 6 }}>
+    時間帯（任意）
+  </label>
+  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    {[
+      { key: "morning", label: "朝" },
+      { key: "noon", label: "昼" },
+      { key: "evening", label: "夕" },
+      { key: "night", label: "夜" },
+    ].map((x) => {
+      const active = timeOfDay === x.key;
+      return (
+        <button
+          key={x.key}
+          type="button"
+          onClick={() => setTimeOfDay(active ? "" : (x.key as any))}
           style={{
-            marginTop: 10,
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
+            padding: "8px 12px",
+            borderRadius: 999,
+            border: active ? "2px solid #111827" : "1px solid #d1d5db",
+            background: active ? "rgba(17,24,39,0.12)" : "#fff",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
           }}
         >
-          <label style={{ fontSize: 12, color: "#555" }}>
-            緯度
-            <input
-              value={Number.isFinite(lat) ? lat : ""}
-              onChange={(e) => setLat(parseFloat(e.target.value))}
-              style={{
-                width: "100%",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                padding: "8px 10px",
-              }}
-            />
-          </label>
-          <label style={{ fontSize: 12, color: "#555" }}>
-            経度
-            <input
-              value={Number.isFinite(lng) ? lng : ""}
-              onChange={(e) => setLng(parseFloat(e.target.value))}
-              style={{
-                width: "100%",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                padding: "8px 10px",
-              }}
-            />
-          </label>
-        </div>
+          {x.label}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
+
+        
+    
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>タイトル</label>
@@ -257,20 +229,7 @@ function PostModal({
           />
         </div>
 
-        <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>住所（任意）</label>
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="住所など"
-            style={{
-              width: "100%",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: "8px 10px",
-            }}
-          />
-        </div>
+       
 
         <div style={{ marginTop: 10 }}>
           <label style={{ fontSize: 12, color: "#555" }}>訪問日</label>
@@ -366,13 +325,13 @@ function PostModal({
         </div>
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: "#555" }}>メモ</label>
+          <label style={{ fontSize: 12, color: "#555" }}>一言（任意）</label>
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             style={{
               width: "100%",
-              height: 120,
+              height: 80,
               border: "1px solid #ddd",
               borderRadius: 8,
               padding: "8px 10px",
@@ -405,6 +364,27 @@ function PostModal({
               style={{ display: "none" }}
             />
           </label>
+
+          await onSubmit({
+  clientRequestId,
+  title: title.trim(),
+  memo,                 // ひとこと
+  visitedAt,
+  lat,
+  lng,
+  photos: files,
+  visibility,
+
+  // 追加（任意）
+  timeOfDay: timeOfDay || undefined,
+  cameraModel: cameraModel.trim() || undefined,
+  focalLength: focalLength.trim() || undefined,
+  aperture: aperture.trim() || undefined,
+  shutterSpeed: shutterSpeed.trim() || undefined,
+  iso: iso.trim() || undefined,
+  shootMemo: shootMemo.trim() || undefined,
+});
+
 
           {previews.length > 0 && (
             <div
@@ -464,7 +444,7 @@ function PostModal({
 
           <button
             onClick={submit}
-            disabled={saving}
+            disabled={saving || !canSave}>
             style={{
               padding: "10px 14px",
               borderRadius: 10,
