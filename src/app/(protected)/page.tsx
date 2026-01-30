@@ -194,7 +194,7 @@ function PostModal({
     }
   }
 
-    if (!open) return null;
+  if (!open) return null;
 
   return (
     <div
@@ -220,17 +220,9 @@ function PostModal({
           boxShadow: "0 20px 60px rgba(0,0,0,.35)",
         }}
       >
-        <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 14, textAlign: "center" }}>
-          新しい投稿
+        <div style={{ fontWeight: 900, fontSize: 23, marginBottom: 14, textAlign: "center",letterSpacing: -0.2,}}>
+          📷 新しい投稿
         </div>
-
-        {/* ここから下に、フォーム本体を戻していく */}
-      </div>
-    </div>
-  );
-}
-
-
 
         {/* 写真（必須） */}
         <div style={{ marginTop: 6 }}>
@@ -331,7 +323,12 @@ function PostModal({
         </div>
 
         {/* 時間帯（任意）チップ */}
-       <div
+        <div style={{ marginTop: 12 }}>
+          <label style={{ fontSize: 12, color: "#111827", fontWeight: 700 }}>
+            時間帯（任意）
+          </label>
+
+          <div
   style={{
     display: "flex",
     gap: 10,
@@ -340,11 +337,7 @@ function PostModal({
     marginTop: 10,
   }}
 >
-            時間帯（任意）
-          </label>
-
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-            {[
+           {[
   { key: "morning" as const, label: "朝", on: "rgba(251,146,60,0.22)", bd: "rgba(251,146,60,0.55)" }, // orange
   { key: "noon" as const, label: "昼", on: "rgba(59,130,246,0.18)", bd: "rgba(59,130,246,0.50)" },   // blue
   { key: "evening" as const, label: "夕", on: "rgba(244,63,94,0.16)", bd: "rgba(244,63,94,0.45)" },   // rose
@@ -405,7 +398,7 @@ function PostModal({
             <div
               style={{
                 marginTop: 10,
-                border: "1px solid rgba(0,0,0,0.12)",
+                border: "1px solid #eee",
                 borderRadius: 12,
                 padding: 12,
                 background: "#fafafa",
@@ -804,21 +797,13 @@ function EditModal({
           boxShadow: "0 20px 60px rgba(0,0,0,.35)",
         }}
       >
-        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>
           ✏️ 投稿を編集
         </div>
 
         {/* タイトル */}
         <div style={{ marginTop: 6 }}>
-          <div
-  style={{
-    fontWeight: 900,
-    fontSize: 20,
-    marginBottom: 14,
-    textAlign: "center",
-    letterSpacing: -0.2,
-  }}
->
+          <label style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>
             タイトル（必須）
           </label>
           <input
@@ -858,47 +843,34 @@ function EditModal({
           <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
             時間帯（任意）
           </label>
-          <div
-  style={{
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 10,
-  }}
->
-
-           {[
-  { key: "morning" as const, label: "朝", on: "rgba(251,146,60,0.22)", bd: "rgba(251,146,60,0.55)" }, // orange
-  { key: "noon" as const, label: "昼", on: "rgba(59,130,246,0.18)", bd: "rgba(59,130,246,0.50)" },   // blue
-  { key: "evening" as const, label: "夕", on: "rgba(244,63,94,0.16)", bd: "rgba(244,63,94,0.45)" },   // rose
-  { key: "night" as const, label: "夜", on: "rgba(15,23,42,0.18)", bd: "rgba(15,23,42,0.45)" },       // slate
-].map((x) => {
-  const active = timeOfDay === x.key;
-  return (
-    <button
-      key={x.key}
-      type="button"
-      onClick={() => setTimeOfDay(active ? "" : x.key)}
-      style={{
-        height: 38,
-        minWidth: 88,               // ← 横長
-        padding: "0 16px",          // ← 横長感
-        borderRadius: 999,
-        border: active ? `2px solid ${x.bd}` : "1px solid #d1d5db",
-        background: active ? x.on : "#fff",
-        color: "#111827",
-        fontSize: 12,
-        fontWeight: 900,
-        cursor: "pointer",
-        boxShadow: active ? "0 8px 18px rgba(0,0,0,0.12)" : "none",
-        transform: active ? "translateY(-1px)" : "none",
-      }}
-    >
-      {x.label}
-    </button>
-  );
-})}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {[
+              { key: "morning" as const, label: "朝" },
+              { key: "noon" as const, label: "昼" },
+              { key: "evening" as const, label: "夕" },
+              { key: "night" as const, label: "夜" },
+            ].map((x) => {
+              const active = timeOfDay === x.key;
+              return (
+                <button
+                  key={x.key}
+                  type="button"
+                  onClick={() => setTimeOfDay(active ? "" : x.key)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 999,
+                    border: active ? "2px solid #111827" : "1px solid #d1d5db",
+                    background: active ? "rgba(17,24,39,0.12)" : "#fff",
+                    color: "#111827",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {x.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -943,7 +915,7 @@ function EditModal({
                 onChange={(e) => setCameraModel(e.target.value)}
                 style={{
                   width: "100%",
-                  border: "1px solid rgba(0,0,0,0.12)",
+                  border: "1px solid #ddd",
                   borderRadius: 8,
                   padding: "8px 10px",
                   marginTop: 6,
@@ -1163,6 +1135,122 @@ function EditModal({
   );
 }
 
+
+
+/* =============== DB 保存（新規） =============== */
+async function insertPlace({
+  clientRequestId, 
+  lat,
+  lng,
+  title,
+  memo,
+  visitedAt,
+  files,
+  visibility,
+  spotId,
+}: {
+  clientRequestId: string;
+  lat: number;
+  lng: number;
+  title?: string;
+  memo?: string;
+  visitedAt?: string;
+  files: File[];
+  visibility: "public" | "private";
+   spotId?: string | null;
+}) {
+  // 認証
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) throw new Error("ログインが必要です（sessionなし）");
+
+  // 👇★ ここで displayName を作る
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes.user;
+  const displayName =
+    (user?.user_metadata as any)?.display_name ||
+    (user?.user_metadata as any)?.name ||
+    (user?.email?.split("@")[0] ?? "名無しの旅人");
+
+  // 自分のスペース
+  const sp = await ensureMySpace();
+  if (!sp?.id) throw new Error("スペースが取得できませんでした");
+
+  // 1) places 行を先に作る（★ created_by_name を保存）
+  const { data: placeRow, error: ePlace } = await supabase
+  .from("places")
+  .upsert(
+    {
+      space_id: sp.id,
+      client_request_id: clientRequestId,
+      title: title ?? null,
+      memo: memo ?? null,
+      lat,
+      lng,
+      visited_at: visitedAt ?? null,
+      created_by: uid,
+      created_by_name: displayName,
+      visibility,
+    },
+    { onConflict: "space_id,client_request_id" }
+  )
+  .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+  .single();
+
+  if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
+
+   if (spotId) {
+    const { error: eProg } = await supabase
+      .from("pilgrimage_progress")
+      .upsert(
+        { user_id: uid, spot_id: spotId, post_id: placeRow.id },
+        { onConflict: "user_id,spot_id" }
+      );
+    if (eProg) throw new Error(`[PILGRIMAGE] ${eProg.message}`);
+  }
+  
+  // 2) 写真（JPEG化→保存）
+  const urls: string[] = [];
+  for (const f of files ?? []) {
+    const jpegBlob = await compress(f);
+
+    const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
+    const { error: eUp } = await supabase.storage
+      .from("photos")
+      .upload(path, jpegBlob, {
+        upsert: false,
+        cacheControl: "3600",
+        contentType: "image/jpeg",
+      });
+    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
+
+    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
+    const publicUrl = pub.publicUrl;
+
+    const { error: ePhoto } = await supabase.from("photos").insert({
+      place_id: placeRow.id,
+      space_id: sp.id,
+      file_url: publicUrl,
+      storage_path: path,
+    });
+    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
+
+    urls.push(publicUrl);
+  }
+
+  // 呼び出し側が使う返り値
+  return {
+    id: placeRow.id,
+    title: placeRow.title,
+    memo: placeRow.memo,
+    lat: placeRow.lat,
+    lng: placeRow.lng,
+    visibility: placeRow.visibility,
+    createdByName: placeRow.created_by_name,
+    createdAt: placeRow.created_at,
+    photos: urls,
+  };
+}
 
 
 /* =============== DB 保存（新規） =============== */
