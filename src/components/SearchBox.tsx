@@ -76,7 +76,7 @@ export default function SearchBox({ places, onPickPost, onPickLocation }: Props)
             name: x.name ?? x.title ?? "",
             address: x.address ?? x.subTitle ?? x.description ?? "",
             lat: Number(x.lat),
-            lng: Number(x.lng),
+            lng: Number(x.lng ?? x.lon),
           }))
           .filter((x) => x.name && Number.isFinite(x.lat) && Number.isFinite(x.lng))
           .slice(0, 10);
@@ -221,4 +221,5 @@ export default function SearchBox({ places, onPickPost, onPickLocation }: Props)
     </div>
   );
 }
+
 
