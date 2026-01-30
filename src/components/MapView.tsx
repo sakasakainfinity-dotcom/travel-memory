@@ -116,6 +116,7 @@ export default function MapView({
   bindSetView,
   initialView,
   mode,
+  createMode, // ←追加
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
@@ -126,7 +127,9 @@ export default function MapView({
   bindSetView?: (fn: (v: View) => void) => void;
   initialView?: View;
   mode?: "private" | "public";
+  createMode?: boolean; // ←追加
 }) {
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const placesRef = useRef<Place[]>(places);
@@ -194,9 +197,14 @@ export default function MapView({
 
     mapRef.current = map;
 
-    map.on("dblclick", (e) => {
-      onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
-    });
+   map.on("dblclick", (e) => {
+  if (!createMode) return;          // ← createMode中だけ
+  e.preventDefault();               // ← ズーム防止
+
+  const c = map.getCenter();        // ← 中央固定
+  onRequestNew({ lat: c.lat, lng: c.lng });
+});
+
 
     const pickPlaceFromFeature = (f: any) => {
       const id = String(f?.properties?.id ?? "");
@@ -372,5 +380,43 @@ if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
     });
   }, [flyTo]);
 
-  return <div ref={containerRef} style={{ position: "fixed", inset: 0 }} />;
+  return (
+  <>
+    <div ref={containerRef} style={{ position: "fixed", inset: 0 }} />
+
+    {createMode && (
+      <div
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -100%)",
+          zIndex: 10,
+          pointerEvents: "none",
+          fontSize: 32,
+        }}
+      >
+        📷
+      </div>
+    )}
+
+    {createMode && (
+      <div
+        style={{
+          position: "fixed",
+          right: 16,
+          bottom: 120,
+          zIndex: 10,
+          background: "rgba(17,24,39,0.9)",
+          color: "#fff",
+          padding: "8px 12px",
+          borderRadius: 999,
+          fontSize: 12,
+        }}
+      >
+        位置を合わせて<br />ダブルタップで投稿
+      </div>
+    )}
+  </>
+);
 }
