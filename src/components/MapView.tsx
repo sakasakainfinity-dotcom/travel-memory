@@ -117,9 +117,12 @@ export default function MapView({
   initialView,
   mode,
   createMode, // ←追加
+  onCenterChange,
+  showCenterMarker = false,
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
+  showCenterMarker?: boolean;
   onSelect?: (p: Place) => void;
   selectedId?: string | null;
   flyTo?: { lat: number; lng: number; zoom?: number; label?: string } | null;
@@ -142,6 +145,17 @@ export default function MapView({
     if (mode) return mode;
     return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
   }, [mode, places]);
+
+      const emitCenter = () => {
+      const c = map.getCenter();
+      onCenterChange?.({ lat: c.lat, lng: c.lng });
+    };
+
+    map.on("moveend", emitCenter);
+
+    // 初期値も一回流す（地図開いた直後に center を持てる）
+    emitCenter();
+
 
   const geojson = useMemo(() => {
     return {
@@ -384,21 +398,23 @@ if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
   <>
     <div ref={containerRef} style={{ position: "fixed", inset: 0 }} />
 
-    {createMode && (
+     {showCenterMarker && (
       <div
         style={{
-          position: "fixed",
+          position: "absolute",
           left: "50%",
           top: "50%",
-          transform: "translate(-50%, -100%)",
-          zIndex: 10,
-          pointerEvents: "none",
-          fontSize: 32,
+          transform: "translate(-50%, -100%)", // ちょい上に（ピンっぽく）
+          zIndex: 5,
+          pointerEvents: "none",               // 地図操作の邪魔しない
+          fontSize: 28,
+          filter: "drop-shadow(0 8px 10px rgba(0,0,0,0.25))",
         }}
+        aria-hidden="true"
       >
         📷
       </div>
     )}
-  </>
+  </div>
 );
 }
