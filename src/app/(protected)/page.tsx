@@ -612,6 +612,518 @@ function PostModal({
   );
 }
 
+/* ================== 編集モーダル（カメラ重視・memoにまとめて保存） ================== */
+function EditModal({
+  open,
+  place,
+  onClose,
+  onSaved,
+  onDeleted,
+}: {
+  open: boolean;
+  place: { id: string; title: string; memo: string };
+  onClose: () => void;
+  onSaved: (d: { title?: string; memo?: string; addPhotos?: File[] }) => void;
+  onDeleted: () => void;
+}) {
+  const [title, setTitle] = useState(place.title ?? "");
+  const [hitokoto, setHitokoto] = useState(""); // ひとこと
+  const [timeOfDay, setTimeOfDay] = useState<
+    "" | "morning" | "noon" | "evening" | "night"
+  >("");
+
+  const [openMeta, setOpenMeta] = useState(false);
+  const [cameraModel, setCameraModel] = useState("");
+  const [focalLength, setFocalLength] = useState("");
+  const [aperture, setAperture] = useState("");
+  const [shutterSpeed, setShutterSpeed] = useState("");
+  const [iso, setIso] = useState("");
+  const [shootMemo, setShootMemo] = useState("");
+
+  const [addFiles, setAddFiles] = useState<File[]>([]);
+
+  // 既存memoから「ざっくり復元」(完全じゃなくてOK)
+  useEffect(() => {
+    if (!open) return;
+
+    setTitle(place.title ?? "");
+
+    // デフォルト：全部空で開始（沼らない）
+    setHitokoto("");
+    setTimeOfDay("");
+    setOpenMeta(false);
+    setCameraModel("");
+    setFocalLength("");
+    setAperture("");
+    setShutterSpeed("");
+    setIso("");
+    setShootMemo("");
+    setAddFiles([]);
+
+    // できる範囲で復元（あなたの新規投稿のフォーマットに合わせる）
+    const m = (place.memo ?? "").trim();
+    if (m) {
+      // 時間帯：朝/昼/夕/夜
+      const tod = m.match(/時間帯：([^\n]+)/)?.[1]?.trim();
+      if (tod === "朝") setTimeOfDay("morning");
+      if (tod === "昼") setTimeOfDay("noon");
+      if (tod === "夕") setTimeOfDay("evening");
+      if (tod === "夜") setTimeOfDay("night");
+
+      // [撮影データ] の前をひとこと扱い（雑だけど実用的）
+      const parts = m.split("\n[撮影データ]\n");
+      const before = parts[0] ?? "";
+      // 「時間帯：」行を除いた残りをひとことへ
+      const hk = before
+        .split("\n")
+        .filter((line) => !line.startsWith("時間帯："))
+        .join("\n")
+        .trim();
+      if (hk) setHitokoto(hk);
+
+      const meta = parts[1];
+      if (meta) {
+        const cam = meta.match(/機種：([^\n]+)/)?.[1]?.trim();
+        if (cam) setCameraModel(cam);
+
+        const fl = meta.match(/焦点距離：([^/]+)\/\s*F：([^\n]+)/);
+        if (fl) {
+          setFocalLength((fl[1] ?? "").trim().replace(/^-$/, ""));
+          setAperture((fl[2] ?? "").trim().replace(/^-$/, ""));
+        }
+
+        const ss = meta.match(/SS：([^/]+)\/\s*ISO：([^\n]+)/);
+        if (ss) {
+          setShutterSpeed((ss[1] ?? "").trim().replace(/^-$/, ""));
+          setIso((ss[2] ?? "").trim().replace(/^-$/, ""));
+        }
+
+        const sm = meta.match(/メモ：([^\n]+)/)?.[1]?.trim();
+        if (sm) setShootMemo(sm);
+
+        // 開いてあげる（ガチ勢には嬉しい）
+        setOpenMeta(true);
+      }
+    }
+  }, [open, place.id, place.title, place.memo]);
+
+  const previews = useMemo(
+    () => addFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
+    [addFiles]
+  );
+  useEffect(() => {
+    return () => previews.forEach((p) => URL.revokeObjectURL(p.url));
+  }, [previews]);
+
+  const timeOfDayLabel = (v: typeof timeOfDay) => {
+    switch (v) {
+      case "morning":
+        return "朝";
+      case "noon":
+        return "昼";
+      case "evening":
+        return "夕";
+      case "night":
+        return "夜";
+      default:
+        return "";
+    }
+  };
+
+  const buildMemo = () => {
+    const lines: string[] = [];
+    const t = timeOfDayLabel(timeOfDay);
+    if (t) lines.push(`時間帯：${t}`);
+    if (hitokoto.trim()) lines.push(hitokoto.trim());
+
+    const metaLines: string[] = [];
+    if (cameraModel.trim()) metaLines.push(`機種：${cameraModel.trim()}`);
+    if (focalLength.trim() || aperture.trim()) {
+      metaLines.push(
+        `焦点距離：${focalLength.trim() || "-"} / F：${aperture.trim() || "-"}`
+      );
+    }
+    if (shutterSpeed.trim() || iso.trim()) {
+      metaLines.push(
+        `SS：${shutterSpeed.trim() || "-"} / ISO：${iso.trim() || "-"}`
+      );
+    }
+    if (shootMemo.trim()) metaLines.push(`メモ：${shootMemo.trim()}`);
+
+    if (metaLines.length > 0) {
+      lines.push("");
+      lines.push("[撮影データ]");
+      lines.push(...metaLines);
+    }
+
+    return lines.join("\n").trim();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.45)",
+        zIndex: 999999,
+        display: "grid",
+        placeItems: "center",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(920px, 92vw)",
+          maxHeight: "86vh",
+          overflow: "auto",
+          background: "#fff",
+          borderRadius: 14,
+          padding: 16,
+          boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+        }}
+      >
+        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>
+          ✏️ 投稿を編集
+        </div>
+
+        {/* タイトル */}
+        <div style={{ marginTop: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>
+            タイトル（必須）
+          </label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+              marginTop: 6,
+            }}
+          />
+        </div>
+
+        {/* ひとこと */}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+            ひとこと（任意）
+          </label>
+          <textarea
+            value={hitokoto}
+            onChange={(e) => setHitokoto(e.target.value)}
+            style={{
+              width: "100%",
+              height: 64,
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: "8px 10px",
+              marginTop: 6,
+            }}
+          />
+        </div>
+
+        {/* 時間帯 */}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+            時間帯（任意）
+          </label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {[
+              { key: "morning" as const, label: "朝" },
+              { key: "noon" as const, label: "昼" },
+              { key: "evening" as const, label: "夕" },
+              { key: "night" as const, label: "夜" },
+            ].map((x) => {
+              const active = timeOfDay === x.key;
+              return (
+                <button
+                  key={x.key}
+                  type="button"
+                  onClick={() => setTimeOfDay(active ? "" : x.key)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 999,
+                    border: active ? "2px solid #111827" : "1px solid #d1d5db",
+                    background: active ? "rgba(17,24,39,0.12)" : "#fff",
+                    color: "#111827",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {x.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 撮影データ */}
+        <div style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={() => setOpenMeta((v) => !v)}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              cursor: "pointer",
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>📷 撮影データ（任意）</span>
+            <span style={{ color: "#6b7280" }}>{openMeta ? "▲" : "▼"}</span>
+          </button>
+
+          {openMeta && (
+            <div
+              style={{
+                marginTop: 10,
+                border: "1px solid #eee",
+                borderRadius: 12,
+                padding: 12,
+                background: "#fafafa",
+              }}
+            >
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                カメラ機種（任意）
+              </label>
+              <input
+                value={cameraModel}
+                onChange={(e) => setCameraModel(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  marginTop: 6,
+                  background: "#fff",
+                }}
+              />
+
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                    焦点距離（任意）
+                  </label>
+                  <input
+                    value={focalLength}
+                    onChange={(e) => setFocalLength(e.target.value)}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      marginTop: 6,
+                      background: "#fff",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                    F値（任意）
+                  </label>
+                  <input
+                    value={aperture}
+                    onChange={(e) => setAperture(e.target.value)}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      marginTop: 6,
+                      background: "#fff",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                    シャッター速度（任意）
+                  </label>
+                  <input
+                    value={shutterSpeed}
+                    onChange={(e) => setShutterSpeed(e.target.value)}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      marginTop: 6,
+                      background: "#fff",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                    ISO（任意）
+                  </label>
+                  <input
+                    value={iso}
+                    onChange={(e) => setIso(e.target.value)}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      marginTop: 6,
+                      background: "#fff",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                  撮影メモ（任意）
+                </label>
+                <textarea
+                  value={shootMemo}
+                  onChange={(e) => setShootMemo(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: 90,
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    marginTop: 6,
+                    background: "#fff",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 写真追加（編集なので「追加」だけ） */}
+        <div style={{ marginTop: 14 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+            写真を追加（任意）
+          </label>
+          <div style={{ marginTop: 6 }}>
+            <label style={{ display: "inline-block" }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                }}
+              >
+                写真を追加
+              </span>
+              <input
+                type="file"
+                accept="image/*,image/heic,image/heif"
+                multiple
+                onChange={(e) => setAddFiles(Array.from(e.target.files ?? []))}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+
+          {previews.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3,1fr)",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              {previews.map((p) => (
+                <img
+                  key={p.url}
+                  src={p.url}
+                  alt={p.name}
+                  style={{
+                    width: "100%",
+                    height: 120,
+                    objectFit: "cover",
+                    borderRadius: 10,
+                    border: "1px solid #eee",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 操作 */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button
+            onClick={onDeleted}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #ef4444",
+              borderRadius: 8,
+              background: "#fff",
+              color: "#ef4444",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            削除
+          </button>
+
+          <button
+            onClick={onClose}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            閉じる
+          </button>
+
+          <button
+            onClick={() => onSaved({ title: title.trim(), memo: buildMemo(), addPhotos: addFiles })}
+            disabled={title.trim().length === 0}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#000",
+              color: "#fff",
+              fontWeight: 800,
+              opacity: title.trim().length === 0 ? 0.6 : 1,
+              cursor: title.trim().length === 0 ? "not-allowed" : "pointer",
+            }}
+            title={title.trim().length === 0 ? "タイトルは必須です" : ""}
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 /* =============== DB 保存（新規） =============== */
 async function insertPlace({
