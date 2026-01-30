@@ -1334,7 +1334,7 @@ const mergedPlaces = useMemo(() => {
           cursor: "pointer",
         }}
       >
-        ＋ 投稿
+        📷この場所で投稿
       </button>
 
       {/* 下プレビュー（タイトル→メモ→写真） */}
