@@ -146,16 +146,7 @@ export default function MapView({
     return (places ?? []).some(isPublicModeCandidate) ? "public" : "private";
   }, [mode, places]);
 
-      const emitCenter = () => {
-      const c = map.getCenter();
-      onCenterChange?.({ lat: c.lat, lng: c.lng });
-    };
-
-    map.on("moveend", emitCenter);
-
-    // 初期値も一回流す（地図開いた直後に center を持てる）
-    emitCenter();
-
+      
 
   const geojson = useMemo(() => {
     return {
@@ -208,6 +199,17 @@ export default function MapView({
       center: [initialView?.lng ?? 139.76, initialView?.lat ?? 35.68],
       zoom: initialView?.zoom ?? 6,
     });
+
+    const emitCenter = () => {
+      const c = map.getCenter();
+      onCenterChange?.({ lat: c.lat, lng: c.lng });
+    };
+
+    map.on("moveend", emitCenter);
+
+    // 初期値も一回流す（地図開いた直後に center を持てる）
+    emitCenter();
+
 
     mapRef.current = map;
 
