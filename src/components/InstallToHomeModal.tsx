@@ -40,48 +40,49 @@ export default function InstallToHomeModal({ open, onClose, onNever }: Props) {
   }, [open]);
 
   const steps = useMemo(() => {
-    if (!env) return [];
+  if (!env) return [];
 
-    // iOS Safari
-    if (env.isIOS && env.isSafari) {
-      return [
-        { title: "① 画面下（または上）の共有ボタンを押す", note: "四角から矢印が出てるアイコン" },
-        { title: "②「ホーム画面に追加」を選ぶ", note: "見つからない時は下にスクロール" },
-        { title: "③ 追加を押す", note: "次回からアプリみたいに起動できる" },
-      ];
-    }
-
-    // iOS Chrome / others on iOS
-    if (env.isIOS && !env.isSafari) {
-      return [
-        { title: "Safariで開くのが確実", note: "iPhoneはSafariからだとホーム追加がスムーズ" },
-        { title: "このページをSafariで開き直してね", note: "共有 → ホーム画面に追加" },
-      ];
-    }
-
-    // Android Chrome
-    if (env.isAndroid && env.isChrome) {
-      return [
-        { title: "① 右上の「︙」メニューを開く", note: "Chromeのメニュー" },
-        { title: "②「アプリをインストール」または「ホーム画面に追加」", note: "表示名は端末で違う" },
-        { title: "③ 追加 / インストール", note: "次回からホーム画面から起動" },
-      ];
-    }
-
-    // Desktop Chrome/Edge
-    if (!env.isIOS && !env.isAndroid) {
-      return [
-        { title: "① アドレスバー右側のインストールアイコンを探す", note: "四角＋矢印 / PCアイコンなど" },
-        { title: "②「インストール」を押す", note: "アプリのように起動できる" },
-      ];
-    }
-
-    // Fallback
+  // iPhone / iPad：Safari
+  if (env.isIOS && env.isSafari) {
     return [
-      { title: "ブラウザの共有/メニューから「ホーム画面に追加」を探してね", note: "" },
+      { title: "① 共有ボタンを押す", note: "画面下（または上）の「四角＋↑」アイコン" },
+      { title: "②『ホーム画面に追加』をタップ", note: "見つからない時は下へスクロール" },
+      { title: "③ 右上の『追加』を押す", note: "ホーム画面に PhotoMapper が増える" },
+      { title: "④ 次回からはホームのアイコンから起動", note: "ブラウザより速く開ける" },
     ];
-  }, [env]);
+  }
 
+  // iPhone：Chromeなど（Safariじゃない）
+  if (env.isIOS && !env.isSafari) {
+    return [
+      { title: "① まず Safari で開き直してね", note: "iPhoneはSafariが一番確実" },
+      { title: "② Safariで『共有 → ホーム画面に追加』", note: "四角＋↑ → ホーム画面に追加" },
+    ];
+  }
+
+  // Android：Chrome
+  if (env.isAndroid && env.isChrome) {
+    return [
+      { title: "① 右上の『︙』(メニュー) を押す", note: "Chromeのメニュー" },
+      { title: "②『アプリをインストール』or『ホーム画面に追加』", note: "端末で表示名が違う場合あり" },
+      { title: "③『インストール』/『追加』を押す", note: "ホーム画面にアイコンが追加される" },
+      { title: "④ 次回からはホームのアイコンから起動", note: "通知は出ません" },
+    ];
+  }
+
+  // PC（Chrome/Edge想定）
+  if (!env.isIOS && !env.isAndroid) {
+    return [
+      { title: "① アドレスバー右側のインストールアイコンを探す", note: "小さい『インストール』マーク" },
+      { title: "②『インストール』を押す", note: "アプリのように起動できる" },
+    ];
+  }
+
+  return [
+    { title: "ブラウザの共有/メニューから『ホーム画面に追加』を探してね", note: "" },
+  ];
+}, [env]);
+  
   if (!open) return null;
 
   // すでにPWA（ホームから起動）なら出さないのが基本
@@ -107,8 +108,8 @@ export default function InstallToHomeModal({ open, onClose, onNever }: Props) {
           width: "min(560px, 95vw)",
           borderRadius: 18,
           border: "1px solid rgba(148,163,184,0.18)",
-          background: "rgba(15,23,42,0.92)",
-          color: "#f8fafc",
+          background: "#ffffff",
+          color: "#0f172a",
           boxShadow: "0 24px 90px rgba(0,0,0,0.55)",
           overflow: "hidden",
         }}
@@ -199,9 +200,9 @@ export default function InstallToHomeModal({ open, onClose, onNever }: Props) {
             onClick={onNever}
             style={{
               borderRadius: 12,
-              border: "1px solid rgba(148,163,184,0.18)",
-              background: "rgba(2,6,23,0.35)",
-              color: "rgba(226,232,240,0.9)",
+              background: "rgba(15,23,42,0.06)",
+border: "1px solid rgba(15,23,42,0.14)",
+color: "rgba(15,23,42,0.85)",
               padding: "10px 12px",
               cursor: "pointer",
               fontSize: 12,
@@ -215,9 +216,9 @@ export default function InstallToHomeModal({ open, onClose, onNever }: Props) {
             onClick={onClose}
             style={{
               borderRadius: 12,
-              border: "1px solid rgba(59,130,246,0.35)",
-              background: "rgba(59,130,246,0.18)",
-              color: "rgba(226,232,240,0.95)",
+             background: "rgba(59,130,246,0.14)",
+border: "1px solid rgba(59,130,246,0.25)",
+color: "#0f172a",
               padding: "10px 12px",
               cursor: "pointer",
               fontSize: 12,
