@@ -13,6 +13,7 @@ import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
+import InstallToHomeModal from "@/components/InstallToHomeModal";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -1375,6 +1376,7 @@ export default function Page() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [createMode, setCreateMode] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [showInstallTip, setShowInstallTip] = useState(false);
 
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
@@ -1505,6 +1507,22 @@ useEffect(() => {
   })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [enabledLayerSlugs]);
+
+  useEffect(() => {
+  // すでに「今後表示しない」なら終了
+  if (localStorage.getItem("pm_hide_install_tip") === "1") return;
+
+  // PWA（ホーム画面起動）なら出さない
+  const w = window as any;
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
+    w.navigator?.standalone === true;
+  if (standalone) return;
+
+  // ✅ webでログインしてprivateに来た人にだけ出す
+  // （＝ここは protected なので、ログインしてる前提でOK）
+  setShowInstallTip(true);
+}, []);
 
 
 
@@ -1637,6 +1655,17 @@ useEffect(() => {
    return (
     <>
       {booting && <PhotoMapperSplash />}
+
+      {showInstallTip && (
+  <InstallToHomeModal
+    open={showInstallTip}
+    onClose={() => setShowInstallTip(false)}
+    onNever={() => {
+      localStorage.setItem("pm_hide_install_tip", "1");
+      setShowInstallTip(false);
+    }}
+  />
+)}
       
       {/* 右上トグル（private 側） */}
       <div
