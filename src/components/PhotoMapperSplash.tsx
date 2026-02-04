@@ -11,165 +11,40 @@ export default function PhotoMapperSplash() {
         placeItems: "center",
         padding: 24,
         background:
-          "radial-gradient(1200px 600px at 20% 10%, rgba(59,130,246,.22), transparent 60%), linear-gradient(135deg, #05070c, #0b1220, #060a12)",
+          "radial-gradient(900px 500px at 20% 10%, rgba(59,130,246,.18), transparent 60%), linear-gradient(135deg, #05070c, #0b1220, #060a12)",
         color: "#f8fafc",
+        overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          width: "min(560px, 94vw)",
-          display: "grid",
-          gap: 14,
-          textAlign: "center",
-        }}
-      >
-        {/* Title */}
-        <div style={{ display: "grid", gap: 6 }}>
-          <div
-            style={{
-              fontSize: 30,
-              fontWeight: 900,
-              letterSpacing: -0.6,
-              lineHeight: 1.1,
-            }}
-          >
-            PhotoMapper
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(226,232,240,0.7)" }}>
-            大切な写真を、地図にしまう
-          </div>
-        </div>
+      {/* Mosaic Japan (stylized) */}
+      <JapanMosaic />
 
-        {/* Demo Card */}
+      {/* Center text */}
+      <div style={{ position: "relative", textAlign: "center", display: "grid", gap: 10 }}>
         <div
           style={{
-            position: "relative",
-            borderRadius: 18,
-            border: "1px solid rgba(148,163,184,0.18)",
-            background: "rgba(15,23,42,0.6)",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
-            overflow: "hidden",
+            fontSize: 42,
+            fontWeight: 950,
+            letterSpacing: -1.0,
+            lineHeight: 1.0,
+            textShadow: "0 14px 60px rgba(0,0,0,0.55)",
           }}
         >
-          {/* Header */}
-          <div
-            style={{
-              padding: "12px 14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(148,163,184,0.14)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: "#22c55e",
-                  boxShadow: "0 0 0 4px rgba(34,197,94,0.15)",
-                }}
-              />
-              <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.9 }}>
-                Mapping your photos…
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 6, opacity: 0.6 }}>
-              <i className="dot" />
-              <i className="dot" />
-              <i className="dot" />
-            </div>
-          </div>
-
-          {/* Map Area */}
-          <div style={{ position: "relative", height: 240 }}>
-            {/* Grid */}
-            <div className="grid-bg" />
-
-            {/* Pins */}
-            <div style={{ position: "absolute", left: 80, top: 90 }}>
-              <Pin />
-            </div>
-            <div style={{ position: "absolute", left: 260, top: 130 }}>
-              <Pin delayMs={220} />
-            </div>
-            <div style={{ position: "absolute", left: 360, top: 80 }}>
-              <Pin delayMs={420} />
-            </div>
-
-            {/* Photo Card */}
-            <div
-              style={{
-                position: "absolute",
-                right: 14,
-                bottom: 14,
-                width: 170,
-                borderRadius: 14,
-                border: "1px solid rgba(148,163,184,0.18)",
-                background: "rgba(15,23,42,0.7)",
-                overflow: "hidden",
-                boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
-                animation: "pm_float 3.6s ease-in-out infinite",
-              }}
-            >
-              <div
-                style={{
-                  height: 96,
-                  background:
-                    "linear-gradient(135deg, rgba(59,130,246,0.45), rgba(16,185,129,0.35))",
-                }}
-              />
-              <div style={{ padding: 10, display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>
-                  New photo saved
-                </div>
-                <div style={{ fontSize: 11, opacity: 0.7 }}>
-                  Pin → Map → Memory
-                </div>
-              </div>
-            </div>
-          </div>
+          PhotoMapper
         </div>
 
-        {/* Loader */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 6 }}>
+        <div style={{ fontSize: 13, color: "rgba(226,232,240,0.7)" }}>
+          大切な写真を、地図にしまう
+        </div>
+
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 10 }}>
           <Spinner />
-          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.7)" }}>
-            読み込み中…
-          </div>
+          <div style={{ fontSize: 12, color: "rgba(226,232,240,0.65)" }}>読み込み中…</div>
         </div>
       </div>
 
-      {/* styles */}
       <style>{`
-        .grid-bg {
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(rgba(148,163,184,0.10) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(148,163,184,0.10) 1px, transparent 1px);
-          background-size: 28px 28px;
-          background-color: rgba(2,6,23,0.55);
-        }
-        .dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 999px;
-          background: rgba(226,232,240,0.5);
-          display: inline-block;
-        }
-        @keyframes pm_spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes pm_pop {
-          0%, 100% { transform: translateY(0) scale(1); opacity: .95; }
-          50% { transform: translateY(-6px) scale(1.08); opacity: 1; }
-        }
-        @keyframes pm_float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
+        @keyframes pm_spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
@@ -182,7 +57,7 @@ function Spinner() {
         width: 18,
         height: 18,
         borderRadius: 999,
-        border: "2px solid rgba(226,232,240,0.25)",
+        border: "2px solid rgba(226,232,240,0.22)",
         borderTopColor: "rgba(226,232,240,0.9)",
         animation: "pm_spin 0.8s linear infinite",
       }}
@@ -190,20 +65,84 @@ function Spinner() {
   );
 }
 
-function Pin({ delayMs = 0 }: { delayMs?: number }) {
+/**
+ * “モザイクタイル状の日本地図っぽい雰囲気”を
+ * 画像なしで作る簡易版（軽い）
+ *
+ * ほんとの日本地図シルエットにしたい場合は、次ステップでSVG差し込みが最強。
+ */
+function JapanMosaic() {
+  // タイルの「島っぽい」配置（超ラフ）。雰囲気用。
+  // ※本物の地図精度は狙わない。あくまでスタイリッシュな背景。
+  const tiles: Array<[number, number, number]> = [
+    // x, y, opacity(%)
+    // 北海道っぽい
+    [74, 20, 14],[78, 22, 12],[70, 24, 10],[76, 26, 12],[82, 26, 9],
+    // 本州（上）
+    [58, 34, 10],[62, 36, 12],[66, 38, 10],[70, 40, 12],[74, 42, 10],[78, 44, 9],
+    [54, 40, 9],[58, 42, 11],[62, 44, 10],[66, 46, 11],[70, 48, 10],[74, 50, 10],
+    // 本州（中）
+    [50, 48, 9],[54, 50, 10],[58, 52, 12],[62, 54, 11],[66, 56, 12],[70, 58, 10],[74, 60, 9],
+    [46, 54, 8],[50, 56, 9],[54, 58, 11],[58, 60, 10],[62, 62, 12],[66, 64, 11],
+    // 近畿〜中国
+    [42, 60, 8],[46, 62, 9],[50, 64, 10],[54, 66, 11],[58, 68, 10],[62, 70, 9],
+    // 四国
+    [50, 74, 9],[54, 76, 10],[58, 78, 9],
+    // 九州
+    [42, 74, 9],[46, 76, 10],[40, 78, 8],[44, 80, 9],[48, 82, 8],
+    // 沖縄っぽい
+    [24, 86, 6],[20, 88, 6],
+  ];
+
   return (
     <div
+      aria-hidden
       style={{
-        width: 14,
-        height: 14,
-        borderRadius: 999,
-        background: "#60a5fa",
-        boxShadow:
-          "0 0 0 10px rgba(96,165,250,0.14), 0 12px 28px rgba(0,0,0,0.35)",
-        transformOrigin: "center",
-        animation: "pm_pop 1.2s ease-in-out infinite",
-        animationDelay: `${delayMs}ms`,
+        position: "absolute",
+        inset: 0,
+        display: "grid",
+        placeItems: "center",
+        pointerEvents: "none",
+        opacity: 1,
       }}
-    />
+    >
+      <div
+        style={{
+          width: "min(780px, 110vw)",
+          height: "min(520px, 80vh)",
+          position: "relative",
+          transform: "rotate(-8deg) translateY(8px)",
+          filter: "blur(0.2px)",
+        }}
+      >
+        {tiles.map(([x, y, o], i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${x}%`,
+              top: `${y}%`,
+              width: 18,
+              height: 18,
+              borderRadius: 6,
+              background: "rgba(59,130,246,1)",
+              opacity: o / 100,
+              boxShadow: "0 0 0 1px rgba(148,163,184,0.12) inset, 0 18px 60px rgba(0,0,0,0.22)",
+            }}
+          />
+        ))}
+
+        {/* うっすいビネット */}
+        <div
+          style={{
+            position: "absolute",
+            inset: -40,
+            background:
+              "radial-gradient(closest-side at 50% 50%, rgba(255,255,255,0.06), transparent 60%)",
+            opacity: 0.55,
+          }}
+        />
+      </div>
+    </div>
   );
 }
