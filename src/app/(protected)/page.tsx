@@ -12,11 +12,13 @@ import { compress } from "@/lib/image";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
+import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
 const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
+
 
 type View = { lat: number; lng: number; zoom: number };
 
@@ -1385,6 +1387,7 @@ export default function Page() {
   const [layerPlacesBySlug, setLayerPlacesBySlug] = useState<Record<string, MapPlace[]>>({});
 
   const loadedSlugsRef = useRef<Set<string>>(new Set());
+  const [booting, setBooting] = useState(true);
 
   const [newAt, setNewAt] = useState<{
   lat: number;
@@ -1562,51 +1565,60 @@ const mergedPlaces = useMemo(() => {
     router.replace("/", { scroll: false });
   }, [focusId, wantOpen, places, router]);
 
-  // 起動時ロード：places & photos
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: ses } = await supabase.auth.getSession();
-        if (!ses.session) return;
-        const mySpace = await ensureMySpace();
-        if (!mySpace?.id) return;
+ // 起動時ロード：places & photos
+useEffect(() => {
+  (async () => {
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      if (!ses.session) return;
 
-        const { data: ps } = await supabase
-          .from("places")
-          .select("id, title, memo, lat, lng, visibility")
-          .eq("space_id", mySpace.id)
-          .order("created_at", { ascending: false });
+      const mySpace = await ensureMySpace();
+      if (!mySpace?.id) return;
 
-        const ids = (ps ?? []).map((p) => p.id);
-        let photosBy: Record<string, string[]> = {};
-        if (ids.length > 0) {
-          const { data: phs } = await supabase
-            .from("photos")
-            .select("place_id, file_url")
-            .in("place_id", ids);
-          for (const ph of phs ?? []) {
-            const k = (ph as any).place_id as string;
-            const u = (ph as any).file_url as string;
-            (photosBy[k] ||= []).push(u);
-          }
+      const { data: ps } = await supabase
+        .from("places")
+        .select("id, title, memo, lat, lng, visibility")
+        .eq("space_id", mySpace.id)
+        .order("created_at", { ascending: false });
+
+      const ids = (ps ?? []).map((p) => p.id);
+      let photosBy: Record<string, string[]> = {};
+
+      if (ids.length > 0) {
+        const { data: phs } = await supabase
+          .from("photos")
+          .select("place_id, file_url")
+          .in("place_id", ids);
+
+        for (const ph of phs ?? []) {
+          const k = (ph as any).place_id as string;
+          const u = (ph as any).file_url as string;
+          (photosBy[k] ||= []).push(u);
         }
-
-        setPlaces(
-          (ps ?? []).map((p) => ({
-            id: p.id,
-            name: p.title,
-            memo: p.memo ?? undefined,
-            lat: p.lat,
-            lng: p.lng,
-            photos: photosBy[p.id] ?? [],
-            visibility: (p as any).visibility ?? "private",
-          }))
-        );
-      } catch (e) {
-        console.error(e);
       }
-    })();
-  }, []);
+
+      setPlaces(
+        (ps ?? []).map((p) => ({
+          id: p.id,
+          name: p.title,
+          memo: p.memo ?? undefined,
+          lat: p.lat,
+          lng: p.lng,
+          photos: photosBy[p.id] ?? [],
+          visibility: (p as any).visibility ?? "private",
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+    } finally {{
+  setTimeout(() => setBooting(false), 1200);
+}
+      // ★ここが「読み込み終わったら消す」
+      // return が途中にあっても、finally は必ず通るけぇ安心
+      setBooting(false);
+    }
+  })();
+}, []);
 
   // モーダルを開く前にビューを保持
   const openModalAt = (p: { lat: number; lng: number }) => {
@@ -1624,6 +1636,8 @@ const mergedPlaces = useMemo(() => {
 
    return (
     <>
+      {booting && <PhotoMapperSplash />}
+      
       {/* 右上トグル（private 側） */}
       <div
         style={{
