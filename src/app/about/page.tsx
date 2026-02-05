@@ -66,7 +66,7 @@ export default function AboutPage() {
               開発者：かずき
             </h2>
             <div style={{ fontSize: 13, color: "#94a3b8" }}>
-              TripMemory 制作者
+              PhotoMapper 制作者
             </div>
           </div>
         </div>
@@ -74,11 +74,11 @@ export default function AboutPage() {
         <p style={{ fontSize: 14 }}>
           茨城県で「まちやど Motomachi」「古民家宿 Tabi湊」を運営しながら、
           旅の思い出をちゃんと残せるアプリを作りたくて
-          TripMemory を開発しています。
+          PhotoMapper を開発しています。
         </p>
       </section>
 
-       {/* TripMemory 使い方案内 */}
+       {/* PhotoMapper 使い方案内 */}
 <section
   style={{
     background: "rgba(15,23,42,0.9)",
@@ -89,7 +89,7 @@ export default function AboutPage() {
   }}
 >
   <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>
-    TripMemory の使い方
+    PhotoMapper の使い方
   </h2>
 
   <p style={{ fontSize: 14, color: "#e2e8f0", marginBottom: 12 }}>
@@ -115,7 +115,7 @@ export default function AboutPage() {
       boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
     }}
   >
-    ▶ TripMemory の使い方はこちら
+    ▶ PhotoMapperの使い方はこちら
   </a>
 </section>
 
