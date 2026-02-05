@@ -2,14 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Trip Memory",
-    short_name: "TripMemory",
-    description: "旅の思い出を地図に刻む。家族・カップルで共有できる旅ログPWA。",
+    name: "PhotoMapper",
+    short_name: "PhotoMapper",
+    description: "大切な写真を、地図にしまう",
     start_url: "/",
-    scope: "/",
     display: "standalone",
-    background_color: "#0f172a",
-    theme_color: "#0ea5e9",
+    background_color: "#0b1220",
+    theme_color: "#0b1220",
     orientation: "portrait",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
