@@ -14,8 +14,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: { default: "Travel Memory", template: "%s | Travel Memory" },
-  description: "旅の思い出を地図に刻むPWA。家族・カップルで共有できる旅ログ。",
+  title: { default: "PhotoMapper", template: "%s | PhotoMapper" },
+  description: "大切な写真を、地図にしまう。",
   manifest: "/manifest.webmanifest",
   themeColor: "#0ea5e9",
   icons: {
