@@ -43,6 +43,24 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+const FREE_FLAG_LIMIT = 25;
+
+async function getMyFlagCount(kind: "want" | "visited") {
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) return { ok: false as const, reason: "login" as const };
+
+  const { count, error } = await supabase
+    .from("place_flags")
+    .select("place_key", { count: "exact", head: true })
+    .eq("user_id", uid)
+    .eq("kind", kind);
+
+  if (error) throw error;
+  return { ok: true as const, count: count ?? 0 };
+}
+
+
 function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -371,6 +389,22 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     if (!marker) return;
 
     const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+
+        // ✅ 追加（まだ付いてない）ときだけ上限制限チェック
+    if (!already) {
+      // TODO: プレミアム判定があるならここで if (isPremium) でスキップ
+
+      const r = await getMyFlagCount(kind);
+      if (!r.ok) return alert("ログインが必要じゃよ。");
+
+      if (r.count >= FREE_FLAG_LIMIT) {
+        alert(
+          `無料は「${kind === "want" ? "行きたい" : "行った"}」が${FREE_FLAG_LIMIT}件までじゃよ。\nプレミアムで無制限にできるで。`
+        );
+        return; // ← ここ超大事（この先のUI更新＆insertを止める）
+      }
+    }
+
 
     // ✅ UI即時反映
     setPlaces((prev) =>
