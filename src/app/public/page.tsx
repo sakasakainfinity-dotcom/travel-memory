@@ -140,7 +140,6 @@ useEffect(() => {
 
       setDlMsg("ダウンロードが完了しました 📸");
 const t = window.setTimeout(() => setDlMsg(null), 1200);
-return () => window.clearTimeout(t);
       
       const r = await fetch(downloadUrl);
       const blob = await r.blob();
@@ -883,6 +882,93 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
       padding: 12,
     }}
   >
+    {paywallOpen && (
+  <div
+    onClick={() => setPaywallOpen(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      zIndex: 100000,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 560,
+        borderRadius: 18,
+        background: "rgba(10,12,18,0.98)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+        padding: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ fontWeight: 900, fontSize: 16 }}>
+          🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
+        </div>
+        <button
+          onClick={() => setPaywallOpen(false)}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "rgba(255,255,255,0.75)",
+            fontSize: 18,
+            cursor: "pointer",
+          }}
+          aria-label="close"
+        >
+          ×
+        </button>
+      </div>
+
+      <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.5 }}>
+        無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{FREE_FLAG_LIMIT}</b> 件まで。
+        <br />
+        プレミアム（月<b>380円</b>）で無制限にできます。
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button
+          onClick={() => setPaywallOpen(false)}
+          style={{
+            flex: 1,
+            padding: "12px 14px",
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "transparent",
+            color: "rgba(255,255,255,0.85)",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          閉じる
+        </button>
+
+        <button
+          onClick={() => alert("プレミアム画面は準備中（ここを購入導線にする）")}
+          style={{
+            flex: 1,
+            padding: "12px 14px",
+            borderRadius: 14,
+            border: "none",
+            background: "linear-gradient(135deg, #3b82f6, #22c55e)",
+            color: "#0b0f18",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          プレミアムにする
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     <div
       onClick={(e) => e.stopPropagation()}
       style={{
