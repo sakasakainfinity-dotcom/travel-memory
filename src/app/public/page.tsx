@@ -347,22 +347,29 @@ const t = window.setTimeout(() => setDlMsg(null), 1200);
       const already = !!target.likedByMe;
 
       // ✅ UI即時反映（楽観）
-      setPostsByPlaceKey((prev) => {
-        const arr = prev[key] ?? [];
-        return {
-          ...prev,
-          [key]: arr.map((p) =>
-            p.id !== postId
-              ? p
-              : {
-                  ...p,
-                  likedByMe: !already,
-                  likeCount: Math.max(0, (p.likeCount ?? 0) + (already ? -1 : 1)),
-                }
-          ),
-        };
-      });
+     // UI即時反映
+setPlaces((prev) =>
+  prev.map((p) => {
+    if (p.id !== placeKey) return p;
 
+    const wantCount = (p.wantCount ?? 0);
+    const visitedCount = (p.visitedCount ?? 0);
+
+    if (kind === "want") {
+      return {
+        ...p,
+        wantedByMe: !already,
+        wantCount: wantCount + (already ? -1 : 1),
+      };
+    }
+
+    return {
+      ...p,
+      visitedByMe: !already,
+      visitedCount: visitedCount + (already ? -1 : 1),
+    };
+  })
+);
       // DB
       if (already) {
         const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", uid);
