@@ -346,47 +346,7 @@ const t = window.setTimeout(() => setDlMsg(null), 1200);
 
       const already = !!target.likedByMe;
 
-      // ✅ UI即時反映（楽観）
-     // UI即時反映
-setPlaces((prev) =>
-  prev.map((p) => {
-    if (p.id !== placeKey) return p;
-
-    const wantCount = (p.wantCount ?? 0);
-    const visitedCount = (p.visitedCount ?? 0);
-
-    if (kind === "want") {
-      return {
-        ...p,
-        wantedByMe: !already,
-        wantCount: wantCount + (already ? -1 : 1),
-      };
-    }
-
-    return {
-      ...p,
-      visitedByMe: !already,
-      visitedCount: visitedCount + (already ? -1 : 1),
-    };
-  })
-);
-      // DB
-      if (already) {
-        const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", uid);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("post_likes").insert({ post_id: postId, user_id: uid });
-        if (error) throw error;
-      }
-    } catch (e) {
-      console.error(e);
-      alert("いいね更新に失敗したかも…");
-    } finally {
-      setReactBusyId(null);
-    }
-  }
-
-async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
+    async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
   const busyKey = `${placeKey}:${kind}`;
   try {
     setReactBusyId(busyKey);
@@ -401,17 +361,15 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     const marker = places.find((p) => p.id === placeKey);
     if (!marker) return;
 
-    const already =
-      kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+    const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
-    // 上限チェック（追加時のみ）
+    // 追加（まだ付いてない）ときだけ上限制限チェック
     if (!already) {
       const r = await getMyFlagCount(kind);
       if (!r.ok) {
         alert("ログインが必要じゃよ。");
         return;
       }
-
       if (r.count >= FREE_FLAG_LIMIT) {
         setPaywallKind(kind);
         setPaywallOpen(true);
@@ -419,26 +377,30 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
       }
     }
 
-    // UI即時反映
+    // UI即時反映（placeKeyはこの関数の引数なので必ず使える）
     setPlaces((prev) =>
       prev.map((p) => {
         if (p.id !== placeKey) return p;
+
+        const wantCount = p.wantCount ?? 0;
+        const visitedCount = p.visitedCount ?? 0;
+
         if (kind === "want") {
           return {
             ...p,
             wantedByMe: !already,
-            wantCount: p.wantCount + (already ? -1 : 1),
+            wantCount: wantCount + (already ? -1 : 1),
           };
         }
         return {
           ...p,
           visitedByMe: !already,
-          visitedCount: p.visitedCount + (already ? -1 : 1),
+          visitedCount: visitedCount + (already ? -1 : 1),
         };
       })
     );
 
-    // DB処理
+    // DB反映
     if (already) {
       const { error } = await supabase
         .from("place_flags")
@@ -446,7 +408,6 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
         .eq("place_key", placeKey)
         .eq("user_id", uid)
         .eq("kind", kind);
-
       if (error) throw error;
     } else {
       const { error } = await supabase.from("place_flags").insert({
@@ -454,7 +415,6 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
         user_id: uid,
         kind,
       });
-
       if (error) throw error;
     }
   } catch (e) {
