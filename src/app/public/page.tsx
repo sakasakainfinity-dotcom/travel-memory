@@ -394,112 +394,53 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 
     const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
-        // ✅ 追加（まだ付いてない）ときだけ上限制限チェック
+    // ✅ 追加（まだ付いてない）ときだけ上限制限チェック
     if (!already) {
-      // TODO: プレミアム判定があるならここで if (isPremium) でスキップ
-
       const r = await getMyFlagCount(kind);
       if (!r.ok) return alert("ログインが必要じゃよ。");
 
       if (r.count >= FREE_FLAG_LIMIT) {
-         setPaywallKind(kind);
-setPaywallOpen(true);
-return;
-
+        setPaywallKind(kind);
+        setPaywallOpen(true);
+        return; // ← これで UI 更新もDB更新も止まる
       }
-      {paywallOpen && (
-  <div
-    onClick={() => setPaywallOpen(false)}
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.55)",
-      zIndex: 9999,
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      padding: 16,
-    }}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        width: "100%",
-        maxWidth: 560,
-        borderRadius: 18,
-        background: "rgba(10,12,18,0.98)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-        padding: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>
-          🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
-        </div>
-        <button
-          onClick={() => setPaywallOpen(false)}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "rgba(255,255,255,0.75)",
-            fontSize: 18,
-            cursor: "pointer",
-          }}
-          aria-label="close"
-        >
-          ×
-        </button>
-      </div>
-
-      <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.5 }}>
-        無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{paywallLimit}</b> 件まで。
-        <br />
-        プレミアム（月<b>380円</b>）で無制限にできます。
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button
-          onClick={() => setPaywallOpen(false)}
-          style={{
-            flex: 1,
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,0.14)",
-            background: "transparent",
-            color: "rgba(255,255,255,0.85)",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          閉じる
-        </button>
-
-        <button
-          onClick={() => {
-            // TODO: プレミアム購入ページへ
-            // router.push("/premium") など
-            alert("プレミアム画面は準備中（ここを購入導線にする）");
-          }}
-          style={{
-            flex: 1,
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: "none",
-            background: "linear-gradient(135deg, #3b82f6, #22c55e)",
-            color: "#0b0f18",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-        >
-          プレミアムにする
-        </button>
-      </div>
-    </div>
-  </div>
-)}
     }
 
+    // ✅ UI即時反映（既存のまま）
+    setPlaces((prev) =>
+      prev.map((p) => {
+        if (p.id !== placeKey) return p;
+        if (kind === "want") {
+          return { ...p, wantedByMe: !already, wantCount: p.wantCount + (already ? -1 : 1) };
+        }
+        return { ...p, visitedByMe: !already, visitedCount: p.visitedCount + (already ? -1 : 1) };
+      })
+    );
+
+    // ✅ DB反映（既存のまま）
+    if (already) {
+      const { error } = await supabase
+        .from("place_flags")
+        .delete()
+        .eq("user_id", uid)
+        .eq("place_key", placeKey)
+        .eq("kind", kind);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("place_flags").insert({
+        user_id: uid,
+        place_key: placeKey,
+        kind,
+      });
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error(e);
+    alert("失敗したけぇ、もう一回やってみて。");
+  } finally {
+    setReactBusyId(null);
+  }
+}
 
     // ✅ UI即時反映
     setPlaces((prev) =>
