@@ -387,62 +387,33 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
 
     const { data: ses } = await supabase.auth.getSession();
     const uid = ses.session?.user.id;
-    if (!uid) return alert("ログインが必要じゃよ。");
+    if (!uid) {
+      alert("ログインが必要じゃよ。");
+      return;
+    }
 
     const marker = places.find((p) => p.id === placeKey);
     if (!marker) return;
 
-    const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+    const already =
+      kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
-    // ✅ 追加（まだ付いてない）ときだけ上限制限チェック
+    // 上限チェック（追加時のみ）
     if (!already) {
       const r = await getMyFlagCount(kind);
-      if (!r.ok) return alert("ログインが必要じゃよ。");
+      if (!r.ok) {
+        alert("ログインが必要じゃよ。");
+        return;
+      }
 
       if (r.count >= FREE_FLAG_LIMIT) {
         setPaywallKind(kind);
         setPaywallOpen(true);
-        return; // ← これで UI 更新もDB更新も止まる
+        return;
       }
     }
 
-    // ✅ UI即時反映（既存のまま）
-    setPlaces((prev) =>
-      prev.map((p) => {
-        if (p.id !== placeKey) return p;
-        if (kind === "want") {
-          return { ...p, wantedByMe: !already, wantCount: p.wantCount + (already ? -1 : 1) };
-        }
-        return { ...p, visitedByMe: !already, visitedCount: p.visitedCount + (already ? -1 : 1) };
-      })
-    );
-
-    // ✅ DB反映（既存のまま）
-    if (already) {
-      const { error } = await supabase
-        .from("place_flags")
-        .delete()
-        .eq("user_id", uid)
-        .eq("place_key", placeKey)
-        .eq("kind", kind);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from("place_flags").insert({
-        user_id: uid,
-        place_key: placeKey,
-        kind,
-      });
-      if (error) throw error;
-    }
-  } catch (e) {
-    console.error(e);
-    alert("失敗したけぇ、もう一回やってみて。");
-  } finally {
-    setReactBusyId(null);
-  }
-}
-
-    // ✅ UI即時反映
+    // UI即時反映
     setPlaces((prev) =>
       prev.map((p) => {
         if (p.id !== placeKey) return p;
@@ -450,18 +421,18 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
           return {
             ...p,
             wantedByMe: !already,
-            wantCount: Math.max(0, (p.wantCount ?? 0) + (already ? -1 : 1)),
+            wantCount: p.wantCount + (already ? -1 : 1),
           };
         }
         return {
           ...p,
           visitedByMe: !already,
-          visitedCount: Math.max(0, (p.visitedCount ?? 0) + (already ? -1 : 1)),
+          visitedCount: p.visitedCount + (already ? -1 : 1),
         };
       })
     );
 
-    // DB
+    // DB処理
     if (already) {
       const { error } = await supabase
         .from("place_flags")
@@ -469,11 +440,15 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
         .eq("place_key", placeKey)
         .eq("user_id", uid)
         .eq("kind", kind);
+
       if (error) throw error;
     } else {
-      const { error } = await supabase
-        .from("place_flags")
-        .insert({ place_key: placeKey, user_id: uid, kind });
+      const { error } = await supabase.from("place_flags").insert({
+        place_key: placeKey,
+        user_id: uid,
+        kind,
+      });
+
       if (error) throw error;
     }
   } catch (e) {
@@ -483,7 +458,6 @@ async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     setReactBusyId(null);
   }
 }
-
 
   return (
     <>
