@@ -831,7 +831,7 @@ const t = window.setTimeout(() => setDlMsg(null), 1200);
   </div>
 )}
 
-{/* ================= 全画面写真モーダル（returnの最後） ================= */}
+{/* ================= 全画面写真モーダル ================= */}
 {photoModalOpen && activePhotoUrl && (
   <div
     onClick={() => {
@@ -849,93 +849,6 @@ const t = window.setTimeout(() => setDlMsg(null), 1200);
       padding: 12,
     }}
   >
-    {paywallOpen && (
-  <div
-    onClick={() => setPaywallOpen(false)}
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.55)",
-      zIndex: 100000,
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      padding: 16,
-    }}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        width: "100%",
-        maxWidth: 560,
-        borderRadius: 18,
-        background: "rgba(10,12,18,0.98)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-        padding: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>
-          🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
-        </div>
-        <button
-          onClick={() => setPaywallOpen(false)}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "rgba(255,255,255,0.75)",
-            fontSize: 18,
-            cursor: "pointer",
-          }}
-          aria-label="close"
-        >
-          ×
-        </button>
-      </div>
-
-      <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13, lineHeight: 1.5 }}>
-        無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{FREE_FLAG_LIMIT}</b> 件まで。
-        <br />
-        プレミアム（月<b>380円</b>）で無制限にできます。
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button
-          onClick={() => setPaywallOpen(false)}
-          style={{
-            flex: 1,
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,0.14)",
-            background: "transparent",
-            color: "rgba(255,255,255,0.85)",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          閉じる
-        </button>
-
-        <button
-          onClick={() => alert("プレミアム画面は準備中（ここを購入導線にする）")}
-          style={{
-            flex: 1,
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: "none",
-            background: "linear-gradient(135deg, #3b82f6, #22c55e)",
-            color: "#0b0f18",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-        >
-          プレミアムにする
-        </button>
-      </div>
-    </div>
-  </div>
-)}
     <div
       onClick={(e) => e.stopPropagation()}
       style={{
@@ -985,26 +898,93 @@ const t = window.setTimeout(() => setDlMsg(null), 1200);
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <button
           onClick={async () => {
-  const r = await fetch("/api/stripe/checkout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ postId: activePostId }), // いま開いてる投稿ID
-  });
-  const j = await r.json();
-  if (!r.ok) return alert(j?.error ?? "決済の開始に失敗した…");
-
-  window.location.href = j.url;
-}}
+            const r = await fetch("/api/stripe/checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ postId: activePostId }),
+            });
+            const j = await r.json();
+            if (!r.ok) return alert(j?.error ?? "決済の開始に失敗した…");
+            window.location.href = j.url;
+          }}
         >
           高画質で保存（システム利用料 ¥100）
-          <div style={{ marginTop: 6, fontSize: 12, color: "rgba(17,24,39,0.65)", lineHeight: 1.4 }}>
-  ※ダウンロードされた写真は、投稿者へ還元される仕組みを作成中です。
-</div>
         </button>
       </div>
     </div>
   </div>
 )}
- </>
-  );
-}
+
+{/* ================= ペイウォールモーダル ================= */}
+{paywallOpen && (
+  <div
+    onClick={() => setPaywallOpen(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      zIndex: 1000000,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 560,
+        borderRadius: 18,
+        background: "rgba(10,12,18,0.98)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+        padding: 16,
+      }}
+    >
+      <div style={{ fontWeight: 900, fontSize: 16 }}>
+        🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
+      </div>
+
+      <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+        無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{FREE_FLAG_LIMIT}</b> 件まで。
+        <br />
+        プレミアム（月<b>380円</b>）で無制限にできます。
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button
+          onClick={() => setPaywallOpen(false)}
+          style={{
+            flex: 1,
+            padding: "12px 14px",
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "transparent",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          閉じる
+        </button>
+
+        <button
+          onClick={() => alert("プレミアム画面は準備中")}
+          style={{
+            flex: 1,
+            padding: "12px 14px",
+            borderRadius: 14,
+            border: "none",
+            background: "linear-gradient(135deg, #3b82f6, #22c55e)",
+            color: "#0b0f18",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          プレミアムにする
+        </button>
+      </div>
+    </div>
+  </div>
+)}
