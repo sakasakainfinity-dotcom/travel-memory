@@ -3,17 +3,38 @@ import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST() {
+function getBaseUrl(req: Request) {
+  // Vercelで安定して取れるやつを優先
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host =
+    req.headers.get("x-forwarded-host") ??
+    req.headers.get("host");
+
+  if (host) return `${proto}://${host}`;
+
+  // 最後の保険（envがあるならそれ）
+  const envBase = process.env.NEXT_PUBLIC_BASE_URL;
+  if (envBase && envBase.startsWith("http")) return envBase;
+
+  throw new Error("Base URL is missing");
+}
+
+export async function POST(req: Request) {
   try {
+    const baseUrl = getBaseUrl(req);
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: process.env.STRIPE_PREMIUM_PRICE_ID!, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/public?premium=1`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/public`,
+      success_url: `${baseUrl}/public?premium=1`,
+      cancel_url: `${baseUrl}/public`,
     });
 
     return NextResponse.json({ url: session.url });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "stripe error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "stripe error" },
+      { status: 500 }
+    );
   }
 }
