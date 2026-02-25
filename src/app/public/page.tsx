@@ -969,7 +969,16 @@ export default function PublicPage() {
               </button>
 
               <button
-                onClick={() => alert("プレミアム画面は準備中")}
+                onClick={async () => {
+  try {
+    const r = await fetch("/api/stripe/checkout-premium", { method: "POST" });
+    const j = await r.json();
+    if (!r.ok) return alert(j?.error ?? "決済開始に失敗した…");
+    window.location.href = j.url;
+  } catch (e: any) {
+    alert(e?.message ?? "通信エラー");
+  }
+}}
                 style={{
                   flex: 1,
                   padding: "12px 14px",
