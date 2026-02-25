@@ -105,10 +105,14 @@ export default function PublicPage() {
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
   const [placeIdToKey, setPlaceIdToKey] = useState<Record<string, string>>({});
 
-  // Paywall
-  const [paywallOpen, setPaywallOpen] = useState(false);
-  const [paywallKind, setPaywallKind] = useState<"want" | "visited">("want");
+ // Paywall
+const [paywallOpen, setPaywallOpen] = useState(false);
+const [paywallKind, setPaywallKind] = useState<"want" | "visited">("want");
 
+// ✅ Premium
+const [isPremium, setIsPremium] = useState(false);
+const [premiumLoaded, setPremiumLoaded] = useState(false);
+  
   // MapView view hooks
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
@@ -165,6 +169,37 @@ export default function PublicPage() {
       }
     })();
   }, []);
+
+  // ✅ Premium状態の読み込み
+useEffect(() => {
+  (async () => {
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+
+      if (!uid) {
+        setIsPremium(false);
+        setPremiumLoaded(true);
+        return;
+      }
+
+      const { data: prof, error } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", uid)
+        .single();
+
+      console.log("premium check:", uid, prof?.is_premium, error);
+
+      setIsPremium(!!prof?.is_premium);
+      setPremiumLoaded(true);
+    } catch (e) {
+      console.error("premium load failed", e);
+      setIsPremium(false);
+      setPremiumLoaded(true);
+    }
+  })();
+}, []);
 
   // ✅ 公開投稿の読み込み
   useEffect(() => {
@@ -394,16 +429,23 @@ export default function PublicPage() {
       const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
       // 追加時だけ上限チェック
-      if (!already) {
-        const r = await getMyFlagCount(kind);
-        if (!r.ok) return alert("ログインが必要じゃよ。");
+      // 追加時だけ上限チェック（★非プレミアムだけ）
+if (!already) {
+  // premium判定がまだなら、一旦待たせる（適当な挙動でOK）
+  if (!premiumLoaded) return;
 
-        if (r.count >= FREE_FLAG_LIMIT) {
-          setPaywallKind(kind);
-          setPaywallOpen(true);
-          return;
-        }
-      }
+  // ✅ プレミアムなら上限チェック不要
+  if (!isPremium) {
+    const r = await getMyFlagCount(kind);
+    if (!r.ok) return alert("ログインが必要じゃよ。");
+
+    if (r.count >= FREE_FLAG_LIMIT) {
+      setPaywallKind(kind);
+      setPaywallOpen(true);
+      return;
+    }
+  }
+}
 
       // UI先に反映
       setPlaces((prev) =>
