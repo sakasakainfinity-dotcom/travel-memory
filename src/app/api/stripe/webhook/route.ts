@@ -1,12 +1,17 @@
 // src/app/api/stripe/webhook/route.ts
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-12-15.clover", // あなたの型に合わせてるならこれでOK
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// サーバー専用（Service Role）
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
@@ -15,7 +20,6 @@ export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET" }, { status: 500 });
 
-  // ✅ 生ボディを取得（json()は絶対呼ばん）
   const rawBody = await req.text();
 
   let event: Stripe.Event;
@@ -26,9 +30,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
 
-  // ここから先は、とりあえずログだけでもOK
-  console.log("✅ stripe event:", event.type);
+  try {
+    console.log("✅ stripe event:", event.type);
 
-  return NextResponse.json({ received: true });
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      const uid = (session.metadata?.uid ?? "").trim();
+      if (!uid) {
+        console.error("❌ missing uid in session.metadata");
+        return NextResponse.json({ error: "missing uid in metadata" }, { status: 400 });
+      }
+
+      // 念のため profiles が無ければ作る（既存ユーザー救済）
+      const { error: upsertErr } = await supabaseAdmin.from("profiles").upsert(
+        {
+          id: uid,
+          is_premium: true,
+          premium_since: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+
+      if (upsertErr) {
+        console.error("❌ supabase upsert error:", upsertErr);
+        return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+      }
+
+      console.log("✅ premium updated for uid:", uid);
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (e: any) {
+    console.error("❌ webhook handler error:", e?.message);
+    return NextResponse.json({ error: e?.message ?? "webhook handler error" }, { status: 500 });
+  }
 }
-
