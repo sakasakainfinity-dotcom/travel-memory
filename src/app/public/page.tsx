@@ -970,14 +970,18 @@ export default function PublicPage() {
 
               <button
                 onClick={async () => {
-  try {
-    const r = await fetch("/api/stripe/checkout-premium", { method: "POST" });
-    const j = await r.json();
-    if (!r.ok) return alert(j?.error ?? "決済開始に失敗した…");
-    window.location.href = j.url;
-  } catch (e: any) {
-    alert(e?.message ?? "通信エラー");
-  }
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+
+  const r = await fetch("/api/stripe/checkout-premium", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ uid }),
+  });
+
+  const j = await r.json();
+  if (!r.ok) return alert(j?.error ?? "決済開始に失敗");
+  window.location.href = j.url;
 }}
                 style={{
                   flex: 1,
