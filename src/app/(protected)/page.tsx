@@ -14,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 import InstallToHomeModal from "@/components/InstallToHomeModal";
+import { parseExifFromFile } from "@/lib/exif";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -30,17 +31,34 @@ type PhotoRow = {
   storage_path: string;
 };
 
+type AutoExifDraft = {
+  files: File[];
+  chips: string[];
+  hasGps: boolean;
+  lat?: number;
+  lng?: number;
+  takenAt?: string;
+  cameraMake?: string;
+  cameraModel?: string;
+  fNumber?: number;
+  exposureTime?: string;
+  iso?: number;
+  focalLength?: number;
+};
+
 /* ================== 投稿モーダル（新規作成・カメラ重視） ================== */
 function PostModal({
   open,
   place,
   presetTitle,
+  autoDraft,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   place: { lat: number; lng: number };
   presetTitle?: string;
+  autoDraft?: AutoExifDraft | null;
   onClose: () => void;
   onSubmit: (d: {
     clientRequestId: string;
@@ -52,6 +70,14 @@ function PostModal({
     lng: number;
     photos: File[];
     visibility: "public" | "private";
+    takenAt?: string;
+    cameraMake?: string;
+    cameraModel?: string;
+    fNumber?: number;
+    exposureTime?: string;
+    iso?: number;
+    focalLength?: number;
+    hasGps: boolean;
   }) => Promise<void>;
 }) {
   const todayYmd = () => {
@@ -76,7 +102,7 @@ function PostModal({
     "" | "morning" | "noon" | "evening" | "night"
   >("");
 
-  /* ---------- 撮影データ（折りたたみ）任意 ---------- */
+    /* ---------- 撮影データ（折りたたみ）任意 ---------- */
   const [openMeta, setOpenMeta] = useState(false);
   const [cameraModel, setCameraModel] = useState("");
   const [focalLength, setFocalLength] = useState("");
@@ -84,6 +110,10 @@ function PostModal({
   const [shutterSpeed, setShutterSpeed] = useState("");
   const [iso, setIso] = useState("");
   const [shootMemo, setShootMemo] = useState("");
+  const [autoChips, setAutoChips] = useState<string[]>([]);
+  const [hasGps, setHasGps] = useState(false);
+  const [takenAt, setTakenAt] = useState<string>("");
+  const [cameraMake, setCameraMake] = useState("");
 
   /* ---------- 投稿制御 ---------- */
   const [clientRequestId, setClientRequestId] = useState<string>(() =>
@@ -107,19 +137,47 @@ function PostModal({
 
     setTimeOfDay("");
 
-    setOpenMeta(false);
+   setOpenMeta(false);
     setCameraModel("");
     setFocalLength("");
     setAperture("");
     setShutterSpeed("");
     setIso("");
     setShootMemo("");
+    setAutoChips([]);
+    setHasGps(false);
+    setTakenAt("");
+    setCameraMake("");
+
+    if (autoDraft) {
+      setFiles(autoDraft.files ?? []);
+      setAutoChips(autoDraft.chips ?? []);
+      setHasGps(autoDraft.hasGps);
+      if (typeof autoDraft.lat === "number" && typeof autoDraft.lng === "number") {
+        setLat(autoDraft.lat);
+        setLng(autoDraft.lng);
+      }
+      if (autoDraft.takenAt) {
+        setVisitedAt(autoDraft.takenAt.slice(0, 10));
+        setTakenAt(autoDraft.takenAt);
+      }
+      if (autoDraft.cameraMake) setCameraMake(autoDraft.cameraMake);
+      if (autoDraft.cameraModel) setCameraModel(autoDraft.cameraModel);
+      if (typeof autoDraft.focalLength === "number") setFocalLength(`${autoDraft.focalLength}mm`);
+      if (typeof autoDraft.fNumber === "number") setAperture(`f/${autoDraft.fNumber.toFixed(1)}`);
+      if (autoDraft.exposureTime) setShutterSpeed(autoDraft.exposureTime);
+      if (typeof autoDraft.iso === "number") setIso(String(autoDraft.iso));
+      if (autoDraft.cameraMake || autoDraft.cameraModel || autoDraft.focalLength || autoDraft.fNumber || autoDraft.exposureTime || autoDraft.iso) {
+        setOpenMeta(true);
+      }
+    }
+
 
     setClientRequestId(crypto.randomUUID());
     creatingRef.current = false;
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, place.lat, place.lng, presetTitle]);
+  }, [open, place.lat, place.lng, presetTitle, autoDraft]);
 
   // プレビュー
   const previews = useMemo(
@@ -155,7 +213,7 @@ function PostModal({
     if (hitokoto.trim()) lines.push(hitokoto.trim());
 
     const metaLines: string[] = [];
-    if (cameraModel.trim()) metaLines.push(`機種：${cameraModel.trim()}`);
+    if (cameraMake.trim() || cameraModel.trim()) metaLines.push(`機種：${[cameraMake.trim(), cameraModel.trim()].filter(Boolean).join(" ")}`);
     if (focalLength.trim() || aperture.trim())
       metaLines.push(`焦点距離：${focalLength.trim() || "-"} / F：${aperture.trim() || "-"}`);
     if (shutterSpeed.trim() || iso.trim())
@@ -179,7 +237,7 @@ function PostModal({
     creatingRef.current = true;
     setSaving(true);
 
-    try {
+     try {
       await onSubmit({
         clientRequestId,
         title: title.trim(),
@@ -190,12 +248,21 @@ function PostModal({
         lng,
         photos: files,
         visibility,
+        takenAt: takenAt || undefined,
+        cameraMake: cameraMake || undefined,
+        cameraModel: cameraModel || undefined,
+        fNumber: aperture ? Number(aperture.replace(/[^0-9.]/g, "")) || undefined : undefined,
+        exposureTime: shutterSpeed || undefined,
+        iso: iso ? Number(iso) || undefined : undefined,
+        focalLength: focalLength ? Number(focalLength.replace(/[^0-9.]/g, "")) || undefined : undefined,
+        hasGps,
       });
     } finally {
       creatingRef.current = false;
       setSaving(false);
     }
   }
+
 
   if (!open) return null;
 
@@ -245,6 +312,19 @@ function PostModal({
     ■ 新しい投稿 ■
   </div>
 </div>
+
+          {autoChips.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            {autoChips.map((chip) => (
+              <span
+                key={chip}
+                style={{ border: "1px solid #e5e7eb", borderRadius: 999, padding: "4px 10px", fontSize: 12, background: "#f9fafb" }}
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        )}
 
 
         {/* 写真（必須） */}
@@ -344,6 +424,12 @@ function PostModal({
             }}
           />
         </div>
+
+         {takenAt && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#374151" }}>
+            撮影日時: {new Date(takenAt).toLocaleString("ja-JP")}
+          </div>
+        )}
 
         {/* 時間帯（任意）チップ */}
         <div style={{ marginTop: 12 }}>
@@ -712,6 +798,11 @@ function EditModal({
   const [shutterSpeed, setShutterSpeed] = useState("");
   const [iso, setIso] = useState("");
   const [shootMemo, setShootMemo] = useState("");
+  const [autoChips, setAutoChips] = useState<string[]>([]);
+  const [hasGps, setHasGps] = useState(false);
+  const [takenAt, setTakenAt] = useState<string>("");
+  const [cameraMake, setCameraMake] = useState("");
+
 
   const [addFiles, setAddFiles] = useState<File[]>([]);
 
@@ -1260,6 +1351,14 @@ async function insertPlace({
   files,
   visibility,
   spotId,
+  takenAt,
+  cameraMake,
+  cameraModel,
+  fNumber,
+  exposureTime,
+  iso,
+  focalLength,
+  hasGps,
 }: {
   clientRequestId: string;
   lat: number;
@@ -1270,6 +1369,14 @@ async function insertPlace({
   files: File[];
   visibility: "public" | "private";
    spotId?: string | null;
+  takenAt?: string;
+  cameraMake?: string;
+  cameraModel?: string;
+  fNumber?: number;
+  exposureTime?: string;
+  iso?: number;
+  focalLength?: number;
+  hasGps?: boolean;
 }) {
   // 認証
   const { data: ses } = await supabase.auth.getSession();
@@ -1303,6 +1410,14 @@ async function insertPlace({
       created_by: uid,
       created_by_name: displayName,
       visibility,
+      taken_at: takenAt ?? null,
+      camera_make: cameraMake ?? null,
+      camera_model: cameraModel ?? null,
+      f_number: fNumber ?? null,
+      exposure_time: exposureTime ?? null,
+      iso: iso ?? null,
+      focal_length: focalLength ?? null,
+      has_gps: !!hasGps,
     },
     { onConflict: "space_id,client_request_id" }
   )
@@ -1328,30 +1443,7 @@ async function insertPlace({
 
     const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
     const { error: eUp } = await supabase.storage
-      .from("photos")
-      .upload(path, jpegBlob, {
-        upsert: false,
-        cacheControl: "3600",
-        contentType: "image/jpeg",
-      });
-    if (eUp) throw new Error(`[STORAGE] ${eUp.message}`);
-
-    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-    const publicUrl = pub.publicUrl;
-
-    const { error: ePhoto } = await supabase.from("photos").insert({
-      place_id: placeRow.id,
-      space_id: sp.id,
-      file_url: publicUrl,
-      storage_path: path,
-    });
-    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
-
-    urls.push(publicUrl);
-  }
-
-  // 呼び出し側が使う返り値
-  return {
+@@ -1355,100 +1467,129 @@ async function insertPlace({
     id: placeRow.id,
     title: placeRow.title,
     memo: placeRow.memo,
@@ -1366,7 +1458,6 @@ async function insertPlace({
 
 
 
-
 /* ================== ページ本体 ================== */
 export default function Page() {
   const [places, setPlaces] = useState<MapPlace[]>([]);
@@ -1377,6 +1468,11 @@ export default function Page() {
   const [createMode, setCreateMode] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showInstallTip, setShowInstallTip] = useState(false);
+   const [isPremium, setIsPremium] = useState(false);
+  const [premiumLoaded, setPremiumLoaded] = useState(false);
+  const [autoReading, setAutoReading] = useState(false);
+  const [autoDraft, setAutoDraft] = useState<AutoExifDraft | null>(null);
+  const autoFileRef = useRef<HTMLInputElement | null>(null);
 
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
@@ -1426,6 +1522,31 @@ const cleanPilgrimageTitle = (name?: string | null) =>
       setEnabledLayerSlugs([]);
     }
   }, []);
+
+  useEffect(() => {
+  (async () => {
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      const uid = ses.session?.user.id;
+      if (!uid) {
+        setIsPremium(false);
+        setPremiumLoaded(true);
+        return;
+      }
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", uid)
+        .single();
+      setIsPremium(!!prof?.is_premium);
+      setPremiumLoaded(true);
+    } catch {
+      setIsPremium(false);
+      setPremiumLoaded(true);
+    }
+  })();
+}, []);
+
 
 useEffect(() => {
   (async () => {
@@ -1639,12 +1760,72 @@ useEffect(() => {
 }, []);
 
   // モーダルを開く前にビューを保持
-  const openModalAt = (p: { lat: number; lng: number }) => {
+   const openModalAt = (p: {
+    lat: number;
+    lng: number;
+    mode?: "normal" | "pilgrimage";
+    slug?: string | null;
+    spotId?: string | null;
+    presetTitle?: string | null;
+  }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
+    setAutoDraft(null);
     setNewAt(p);
     setSelectedId(null);
     setTimeout(() => setViewRef.current(snap), 0);
+  };
+
+  const formatTakenAt = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
+  const onPickAutoPhoto = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
+    if (!files.length) return;
+
+    setAutoReading(true);
+    try {
+      const exif = await parseExifFromFile(files[0]);
+      const chips: string[] = [];
+      if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
+      if (typeof exif.lat === "number" && typeof exif.lng === "number") chips.push("✅ 位置情報を反映しました");
+      else chips.push("⚠️ 位置情報なし");
+      if (exif.make || exif.model || exif.fNumber || exif.exposureTime || exif.iso || exif.focalLength) {
+        chips.push("✅ カメラ情報を反映しました");
+      }
+
+      const fallbackLat = mapCenter?.lat ?? 35.68;
+      const fallbackLng = mapCenter?.lng ?? 139.76;
+      const snap = getViewRef.current();
+      setInitialView(snap);
+      setAutoDraft({
+        files,
+        chips,
+        hasGps: !!exif.hasGps,
+        lat: exif.lat,
+        lng: exif.lng,
+        takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
+        cameraMake: exif.make,
+        cameraModel: exif.model,
+        fNumber: exif.fNumber,
+        exposureTime: exif.exposureTime,
+        iso: exif.iso,
+        focalLength: exif.focalLength,
+      });
+      setNewAt({ lat: exif.lat ?? fallbackLat, lng: exif.lng ?? fallbackLng, mode: "normal" });
+      setSelectedId(null);
+      setTimeout(() => setViewRef.current(snap), 0);
+    } catch (e) {
+      console.error(e);
+      alert("EXIFの読み取りに失敗しました。手動投稿に切り替えてください。");
+    } finally {
+      setAutoReading(false);
+      if (autoFileRef.current) autoFileRef.current.value = "";
+    }
   };
 
   const selected = useMemo(
@@ -1879,14 +2060,51 @@ useEffect(() => {
   onCenterChange={(c) => setMapCenter(c)}
 />
 
+ <input
+        ref={autoFileRef}
+        type="file"
+        accept="image/*,image/heic,image/heif"
+        style={{ display: "none" }}
+        onChange={(e) => void onPickAutoPhoto(e.target.files)}
+      />
 
+      {/* 🤖 自動投稿（プレミアム） */}
+      <button
+        onClick={() => {
+          if (!premiumLoaded) return;
+          if (!isPremium) {
+            alert("自動投稿はプレミアム限定です。プラン画面へ移動します。");
+            router.push("/plans");
+            return;
+          }
+          autoFileRef.current?.click();
+        }}
+        disabled={!premiumLoaded || autoReading}
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 146,
+          zIndex: 10000,
+          background: isPremium ? "#7c3aed" : "#9ca3af",
+          color: "#fff",
+          borderRadius: 999,
+          padding: "10px 14px",
+          boxShadow: "0 8px 24px rgba(0,0,0,.25)",
+          cursor: !premiumLoaded || autoReading ? "not-allowed" : "pointer",
+          border: "none",
+          fontWeight: 700,
+          opacity: !premiumLoaded || autoReading ? 0.7 : 1,
+        }}
+      >
+        {autoReading ? "読み取り中…" : "🤖自動投稿（プレミアム）"}
+      </button>
 
 
       {/* ➕ 投稿フローティングボタン */}
       <button
         onClick={() => {
   if (!mapCenter) return;
-  openModalAt({ lat: mapCenter.lat, lng: mapCenter.lng });
+   openModalAt({ lat: mapCenter.lat, lng: mapCenter.lng, mode: "normal" });
 }}
         style={{
           position: "fixed",
@@ -2030,9 +2248,11 @@ useEffect(() => {
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
-          presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}   
+          p presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}
+          autoDraft={autoDraft}
           onClose={() => {
             setNewAt(null);
+            setAutoDraft(null);
             const snap = initialView ?? getViewRef.current();
             setTimeout(() => setViewRef.current(snap), 0);
           }}
@@ -2053,7 +2273,14 @@ useEffect(() => {
   visitedAt: d.visitedAt,
   files: d.photos,
   visibility: d.visibility,
-
+                takenAt: d.takenAt,
+  cameraMake: d.cameraMake,
+  cameraModel: d.cameraModel,
+  fNumber: d.fNumber,
+  exposureTime: d.exposureTime,
+  iso: d.iso,
+  focalLength: d.focalLength,
+  hasGps: d.hasGps,
   spotId: spotIdForSave, // ←ここが城を塗るスイッチ
 });
 
@@ -2104,6 +2331,7 @@ setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
               ]);
 
               setNewAt(null);
+              setAutoDraft(null);
               const snap = initialView ?? getViewRef.current();
               setTimeout(() => setViewRef.current(snap), 0);
             } catch (e: any) {
