@@ -1436,38 +1436,48 @@ async function insertPlace({
     if (eProg) throw new Error(`[PILGRIMAGE] ${eProg.message}`);
   }
   
- // 2) 写真（JPEG化→保存）
-const urls: string[] = [];
+   // 2) 写真（JPEG化→保存）
+  const urls: string[] = [];
 
-for (const f of files ?? []) {
-  const jpegBlob = await compress(f);
+  for (const f of files ?? []) {
+    const jpegBlob = await compress(f);
 
-  const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
+    const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
 
-  const { error: eUp } = await supabase.storage
-    .from("photos")
-    .upload(path, jpegBlob, {
-      contentType: "image/jpeg",
-      upsert: false,
+    const { error: eUp } = await supabase.storage
+      .from("photos")
+      .upload(path, jpegBlob, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+    if (eUp) throw new Error(`[UPLOAD] ${eUp.message}`);
+
+    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
+    const publicUrl = pub.publicUrl;
+
+    urls.push(publicUrl);
+
+    const { error: ePhoto } = await supabase.from("photos").insert({
+      place_id: placeRow.id,
+      file_url: publicUrl,
+      storage_path: path,
     });
+    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
+  }
 
-  if (eUp) throw new Error(`[UPLOAD] ${eUp.message}`);
-
-  const { data: pub } = supabase.storage
-    .from("photos")
-    .getPublicUrl(path);
-
-  urls.push(pub.publicUrl);
-
-  const { error: ePhoto } = await supabase.from("photos").insert({
-    place_id: placeRow.id,
-    file_url: pub.publicUrl,
-    storage_path: path,
-  });
-
-  if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
+  // ✅ ここが超重要：Page側が created.id を使うから、オブジェクトで返す
+  return {
+    id: placeRow.id,
+    title: placeRow.title,
+    memo: placeRow.memo,
+    lat: placeRow.lat,
+    lng: placeRow.lng,
+    visibility: placeRow.visibility,
+    created_by_name: placeRow.created_by_name,
+    created_at: placeRow.created_at,
+    photos: urls,
+  };
 }
-
 
 
 /* ================== ページ本体 ================== */
