@@ -2116,47 +2116,56 @@ useEffect(() => {
        {/* 🤖 自動投稿（プレミアム） */}
       <button
         onClick={async () => {
-  if (!premiumLoaded) return;
+  try {
+    alert("クリック反応OK"); // ← まずここで反応確認（あとで消してOK）
 
-  // ログイン確認
-  const { data: ses } = await supabase.auth.getSession();
-  const uid = ses.session?.user.id;
-  if (!uid) {
-    alert("ログインが必要です");
-    return;
-  }
+    if (!premiumLoaded) {
+      alert("premiumLoaded が false のままです");
+      return;
+    }
+    if (autoReading) {
+      alert("読み取り中(autoReading=true)のままです");
+      return;
+    }
 
-  // プロフィール取得（毎回DBで正を取る）
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("is_premium, auto_post_count_today, auto_post_last_used")
-    .eq("id", uid)
-    .single();
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (!uid) {
+      alert("ログインが必要です");
+      return;
+    }
 
-  if (error || !profile) {
-    alert("プロフィール取得に失敗しました");
-    return;
-  }
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid)
+      .single();
 
-  // ✅ プレミアムは無制限（今まで通り）
-  if (profile.is_premium) {
+    if (error || !profile) {
+      alert("プロフィール取得に失敗: " + (error?.message ?? "unknown"));
+      return;
+    }
+
+    if (profile.is_premium) {
+      autoFileRef.current?.click();
+      return;
+    }
+
+    const today = getTodayJST();
+    const usedToday = profile.auto_post_last_used === today;
+    const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
+
+    if (countToday >= 1) {
+      alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
+      router.push("/plans");
+      return;
+    }
+
     autoFileRef.current?.click();
-    return;
+  } catch (e: any) {
+    alert("自動投稿ボタン処理でエラー: " + (e?.message ?? String(e)));
+    console.error(e);
   }
-
-  // ✅ 無料は1日1回
-  const today = getTodayJST();
-  const usedToday = profile.auto_post_last_used === today;
-  const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
-
-  if (countToday >= 1) {
-    alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
-    router.push("/plans");
-    return;
-  }
-
-  // OKなら写真選択へ
-  autoFileRef.current?.click();
 }}
         disabled={!premiumLoaded || autoReading}
         style={{
