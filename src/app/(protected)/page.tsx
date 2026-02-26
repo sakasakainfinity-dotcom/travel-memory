@@ -1867,9 +1867,10 @@ useEffect(() => {
     }
   };
 
-  const selected = useMemo(() => {
-    return places.find((x) => x.id === selectedId) || null;
-  }, [places, selectedId]);
+  const selected = useMemo(
+  () => places.find((x) => x.id === selectedId) || null,
+  [places, selectedId]
+);
 
   return (
     <>
