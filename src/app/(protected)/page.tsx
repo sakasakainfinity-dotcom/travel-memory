@@ -2115,57 +2115,33 @@ useEffect(() => {
 
        {/* 🤖 自動投稿（プレミアム） */}
       <button
-        onClick={async () => {
-  try {
-    alert("クリック反応OK"); // ← まずここで反応確認（あとで消してOK）
+       onClick={async () => {
+  alert("① ボタン押された");
 
-    if (!premiumLoaded) {
-      alert("premiumLoaded が false のままです");
-      return;
-    }
-    if (autoReading) {
-      alert("読み取り中(autoReading=true)のままです");
-      return;
-    }
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
 
-    const { data: ses } = await supabase.auth.getSession();
-    const uid = ses.session?.user.id;
-    if (!uid) {
-      alert("ログインが必要です");
-      return;
-    }
+  alert("② uid=" + (uid ?? "null"));
 
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_premium, auto_post_count_today, auto_post_last_used")
-      .eq("id", uid)
-      .single();
-
-    if (error || !profile) {
-      alert("プロフィール取得に失敗: " + (error?.message ?? "unknown"));
-      return;
-    }
-
-    if (profile.is_premium) {
-      autoFileRef.current?.click();
-      return;
-    }
-
-    const today = getTodayJST();
-    const usedToday = profile.auto_post_last_used === today;
-    const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
-
-    if (countToday >= 1) {
-      alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
-      router.push("/plans");
-      return;
-    }
-
-    autoFileRef.current?.click();
-  } catch (e: any) {
-    alert("自動投稿ボタン処理でエラー: " + (e?.message ?? String(e)));
-    console.error(e);
+  if (!uid) {
+    alert("ログインしていません");
+    return;
   }
+
+  alert("③ profiles読みにいく");
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("is_premium, auto_post_count_today, auto_post_last_used")
+    .eq("id", uid)
+    .maybeSingle();
+
+  alert(
+    "④ profile=" +
+      JSON.stringify(profile) +
+      " / error=" +
+      (error?.message ?? "なし")
+  );
 }}
         disabled={!premiumLoaded || autoReading}
         style={{
