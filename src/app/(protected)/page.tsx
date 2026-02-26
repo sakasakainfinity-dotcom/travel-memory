@@ -1442,12 +1442,15 @@ async function insertPlace({
     const jpegBlob = await compress(f);
 
     const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
-    const { error: eUp } = await supabase.storage
-    id: placeRow.id,
-    title: placeRow.title,
-    memo: placeRow.memo,
-    lat: placeRow.lat,
-    lng: placeRow.lng,
+    const { error: ePlace } = await supabase
+  .from("places")
+  .upsert(
+    {
+      id: placeRow.id,
+      title: placeRow.title,
+      memo: placeRow.memo,
+      lat: placeRow.lat,
+      lng: placeRow.lng,
     visibility: placeRow.visibility,
     createdByName: placeRow.created_by_name,
     createdAt: placeRow.created_at,
