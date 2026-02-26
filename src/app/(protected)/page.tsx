@@ -1779,8 +1779,8 @@ useEffect(() => {
   })();
 }, []);
 
-  // モーダルを開く前にビューを保持
-   const openModalAt = (p: {
+   // モーダルを開く前にビューを保持
+  const openModalAt = (p: {
     lat: number;
     lng: number;
     mode?: "normal" | "pilgrimage";
@@ -1798,9 +1798,9 @@ useEffect(() => {
 
   const formatTakenAt = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-      d.getHours()
-    )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+      d.getDate()
+    )}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   };
 
   const onPickAutoPhoto = async (fileList: FileList | null) => {
@@ -1810,18 +1810,31 @@ useEffect(() => {
     setAutoReading(true);
     try {
       const exif = await parseExifFromFile(files[0]);
+
       const chips: string[] = [];
       if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
-      if (typeof exif.lat === "number" && typeof exif.lng === "number") chips.push("✅ 位置情報を反映しました");
-      else chips.push("⚠️ 位置情報なし");
-      if (exif.make || exif.model || exif.fNumber || exif.exposureTime || exif.iso || exif.focalLength) {
+      if (typeof exif.lat === "number" && typeof exif.lng === "number") {
+        chips.push("✅ 位置情報を反映しました");
+      } else {
+        chips.push("⚠️ 位置情報なし");
+      }
+      if (
+        exif.make ||
+        exif.model ||
+        exif.fNumber ||
+        exif.exposureTime ||
+        exif.iso ||
+        exif.focalLength
+      ) {
         chips.push("✅ カメラ情報を反映しました");
       }
 
       const fallbackLat = mapCenter?.lat ?? 35.68;
       const fallbackLng = mapCenter?.lng ?? 139.76;
+
       const snap = getViewRef.current();
       setInitialView(snap);
+
       setAutoDraft({
         files,
         chips,
@@ -1836,7 +1849,13 @@ useEffect(() => {
         iso: exif.iso,
         focalLength: exif.focalLength,
       });
-      setNewAt({ lat: exif.lat ?? fallbackLat, lng: exif.lng ?? fallbackLng, mode: "normal" });
+
+      setNewAt({
+        lat: exif.lat ?? fallbackLat,
+        lng: exif.lng ?? fallbackLng,
+        mode: "normal",
+      });
+
       setSelectedId(null);
       setTimeout(() => setViewRef.current(snap), 0);
     } catch (e) {
@@ -1848,25 +1867,24 @@ useEffect(() => {
     }
   };
 
-  const selected = useMemo(
-    () => places.find((x) => x.id === selectedId) || null,
-    [places, selectedId]
-  );
+  const selected = useMemo(() => {
+    return places.find((x) => x.id === selectedId) || null;
+  }, [places, selectedId]);
 
-   return (
+  return (
     <>
       {booting && <PhotoMapperSplash />}
 
       {showInstallTip && (
-  <InstallToHomeModal
-    open={showInstallTip}
-    onClose={() => setShowInstallTip(false)}
-    onNever={() => {
-      localStorage.setItem("pm_hide_install_tip", "1");
-      setShowInstallTip(false);
-    }}
-  />
-)}
+        <InstallToHomeModal
+          open={showInstallTip}
+          onClose={() => setShowInstallTip(false)}
+          onNever={() => {
+            localStorage.setItem("pm_hide_install_tip", "1");
+            setShowInstallTip(false);
+          }}
+        />
+      )}
       
       {/* 右上トグル（private 側） */}
       <div
