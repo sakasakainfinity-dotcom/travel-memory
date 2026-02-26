@@ -1436,26 +1436,36 @@ async function insertPlace({
     if (eProg) throw new Error(`[PILGRIMAGE] ${eProg.message}`);
   }
   
-  // 2) 写真（JPEG化→保存）
-  const urls: string[] = [];
-  for (const f of files ?? []) {
-    const jpegBlob = await compress(f);
+ // 2) 写真（JPEG化→保存）
+const urls: string[] = [];
 
-    const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
-    const { error: ePlace } = await supabase
-  .from("places")
-  .upsert(
-    {
-      id: placeRow.id,
-      title: placeRow.title,
-      memo: placeRow.memo,
-      lat: placeRow.lat,
-      lng: placeRow.lng,
-    visibility: placeRow.visibility,
-    createdByName: placeRow.created_by_name,
-    createdAt: placeRow.created_at,
-    photos: urls,
-  };
+for (const f of files ?? []) {
+  const jpegBlob = await compress(f);
+
+  const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
+
+  const { error: eUp } = await supabase.storage
+    .from("photos")
+    .upload(path, jpegBlob, {
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+
+  if (eUp) throw new Error(`[UPLOAD] ${eUp.message}`);
+
+  const { data: pub } = supabase.storage
+    .from("photos")
+    .getPublicUrl(path);
+
+  urls.push(pub.publicUrl);
+
+  const { error: ePhoto } = await supabase.from("photos").insert({
+    place_id: placeRow.id,
+    file_url: pub.publicUrl,
+    storage_path: path,
+  });
+
+  if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
 }
 
 
@@ -1751,13 +1761,9 @@ useEffect(() => {
       );
     } catch (e) {
       console.error(e);
-    } finally {{
+} finally {
   setTimeout(() => setBooting(false), 1200);
 }
-      // ★ここが「読み込み終わったら消す」
-      // return が途中にあっても、finally は必ず通るけぇ安心
-      setBooting(false);
-    }
   })();
 }, []);
 
@@ -2250,7 +2256,7 @@ useEffect(() => {
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
-          p presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}
+          presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}
           autoDraft={autoDraft}
           onClose={() => {
             setNewAt(null);
