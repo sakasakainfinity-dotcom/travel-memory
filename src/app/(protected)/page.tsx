@@ -1466,6 +1466,15 @@ async function insertPlace({
     if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
   }
 
+  // places テーブルの photos 配列を更新
+const { error: ePlacePhotos } = await supabase
+  .from("places")
+  .update({ photos: urls })
+  .eq("id", placeRow.id);
+
+if (ePlacePhotos)
+  throw new Error(`[PLACES_PHOTOS] ${ePlacePhotos.message}`);
+
   // ✅ ここが超重要：Page側が created.id を使うから、オブジェクトで返す
   return {
     id: placeRow.id,
