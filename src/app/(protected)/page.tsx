@@ -1458,6 +1458,7 @@ async function insertPlace({
     urls.push(publicUrl);
 
     const { error: ePhoto } = await supabase.from("photos").insert({
+      space_id: sp.id,
       place_id: placeRow.id,
       file_url: publicUrl,
       storage_path: path,
