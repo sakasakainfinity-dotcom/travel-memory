@@ -2277,32 +2277,48 @@ useEffect(() => {
             setTimeout(() => setViewRef.current(snap), 0);
           }}
           onSubmit={async (d) => {
+  const spotIdForSave =
+    newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
 
-            const spotIdForSave = newAt.mode === "pilgrimage" ? (newAt.spotId ?? null) : null;
+  // ★ここ追加：位置情報なしのときだけ確認
+  if (!d.hasGps) {
+    const ok = window.confirm(
+      "この写真には位置情報がありません。\n\n📍 地図上のピンを合わせましたか？\nそのまま投稿しますか？"
+    );
+    if (!ok) return; // キャンセルなら投稿しない
+  }
 
-            try {
-              const created = await insertPlace({
-  clientRequestId: d.clientRequestId,
-  lat: d.lat,
-  lng: d.lng,
+  try {
+    const created = await insertPlace({
+      clientRequestId: d.clientRequestId,
+      lat: d.lat,
+      lng: d.lng,
 
-  // タイトルが空なら preset を強制採用（これで絶対入る）
-  title: (d.title?.trim() || (newAt.presetTitle ?? "")).trim(),
+      // タイトルが空なら preset を強制採用（これで絶対入る）
+      title: (d.title?.trim() || (newAt.presetTitle ?? "")).trim(),
 
-  memo: d.memo,
-  visitedAt: d.visitedAt,
-  files: d.photos,
-  visibility: d.visibility,
-                takenAt: d.takenAt,
-  cameraMake: d.cameraMake,
-  cameraModel: d.cameraModel,
-  fNumber: d.fNumber,
-  exposureTime: d.exposureTime,
-  iso: d.iso,
-  focalLength: d.focalLength,
-  hasGps: d.hasGps,
-  spotId: spotIdForSave, // ←ここが城を塗るスイッチ
-});
+      memo: d.memo,
+      visitedAt: d.visitedAt,
+      files: d.photos,
+      visibility: d.visibility,
+
+      takenAt: d.takenAt,
+      cameraMake: d.cameraMake,
+      cameraModel: d.cameraModel,
+      fNumber: d.fNumber,
+      exposureTime: d.exposureTime,
+      iso: d.iso,
+      focalLength: d.focalLength,
+      hasGps: d.hasGps,
+
+      spotId: spotIdForSave, // ←ここが城を塗るスイッチ
+    });
+
+    // ...（この下の既存処理はそのまま）
+  } catch (e) {
+    // ...（既存のエラー処理そのまま）
+  }
+}}
 
               // ✅ 投稿をローカルstateに追加（これが無いと “見えない” になる）
 setPlaces((prev) => [
