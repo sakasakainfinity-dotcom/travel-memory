@@ -1498,6 +1498,12 @@ export default function Page() {
   const [autoDraft, setAutoDraft] = useState<AutoExifDraft | null>(null);
   const autoFileRef = useRef<HTMLInputElement | null>(null);
 
+  const getTodayJST = () => {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10); // "YYYY-MM-DD"
+};
+
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
   const LS_LAYER_TOGGLE_VISIBLE = "tm_layer_toggle_visible";
@@ -2109,15 +2115,49 @@ useEffect(() => {
 
        {/* 🤖 自動投稿（プレミアム） */}
       <button
-        onClick={() => {
-          if (!premiumLoaded) return;
-          if (!isPremium) {
-            alert("自動投稿はプレミアム限定です。プラン画面へ移動します。");
-            router.push("/plans");
-            return;
-          }
-          autoFileRef.current?.click();
-        }}
+        onClick={async () => {
+  if (!premiumLoaded) return;
+
+  // ログイン確認
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) {
+    alert("ログインが必要です");
+    return;
+  }
+
+  // プロフィール取得（毎回DBで正を取る）
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("is_premium, auto_post_count_today, auto_post_last_used")
+    .eq("id", uid)
+    .single();
+
+  if (error || !profile) {
+    alert("プロフィール取得に失敗しました");
+    return;
+  }
+
+  // ✅ プレミアムは無制限（今まで通り）
+  if (profile.is_premium) {
+    autoFileRef.current?.click();
+    return;
+  }
+
+  // ✅ 無料は1日1回
+  const today = getTodayJST();
+  const usedToday = profile.auto_post_last_used === today;
+  const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
+
+  if (countToday >= 1) {
+    alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
+    router.push("/plans");
+    return;
+  }
+
+  // OKなら写真選択へ
+  autoFileRef.current?.click();
+}}
         disabled={!premiumLoaded || autoReading}
         style={{
           position: "fixed",
@@ -2325,6 +2365,42 @@ useEffect(() => {
                 hasGps: d.hasGps,
                 spotId: spotIdForSave,
               });
+
+              // ✅ 自動投稿の“無料1回”カウント（プレミアムは無視）
+try {
+  const { data: ses2 } = await supabase.auth.getSession();
+  const uid2 = ses2.session?.user.id;
+
+  if (uid2 && autoDraft) {
+    // autoDraft がある＝自動投稿経由
+    const { data: profile2 } = await supabase
+      .from("profiles")
+      .select("is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid2)
+      .single();
+
+    if (profile2 && !profile2.is_premium) {
+      const today = getTodayJST();
+      const usedToday = profile2.auto_post_last_used === today;
+      const countToday = usedToday ? (profile2.auto_post_count_today ?? 0) : 0;
+
+      if (usedToday) {
+        await supabase
+          .from("profiles")
+          .update({ auto_post_count_today: countToday + 1 })
+          .eq("id", uid2);
+      } else {
+        await supabase
+          .from("profiles")
+          .update({ auto_post_count_today: 1, auto_post_last_used: today })
+          .eq("id", uid2);
+      }
+    }
+  }
+} catch (e) {
+  // カウント失敗しても投稿自体は成功させたいので握りつぶす
+  console.warn("auto post count update failed", e);
+}
 
               // ローカル状態の更新
               setPlaces((prev) => [
