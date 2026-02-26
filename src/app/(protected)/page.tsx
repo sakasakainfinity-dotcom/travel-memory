@@ -1443,7 +1443,6 @@ async function insertPlace({
 
     const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
     const { error: eUp } = await supabase.storage
-@@ -1355,100 +1467,129 @@ async function insertPlace({
     id: placeRow.id,
     title: placeRow.title,
     memo: placeRow.memo,
