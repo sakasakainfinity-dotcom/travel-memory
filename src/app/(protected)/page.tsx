@@ -2106,7 +2106,7 @@ useEffect(() => {
         onChange={(e) => void onPickAutoPhoto(e.target.files)}
       />
 
-      {/* 🤖 自動投稿（プレミアム） */}
+       {/* 🤖 自動投稿（プレミアム） */}
       <button
         onClick={() => {
           if (!premiumLoaded) return;
