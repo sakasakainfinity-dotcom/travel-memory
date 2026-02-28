@@ -1,43 +1,113 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function PlansPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const [uid, setUid] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
 
   const price = useMemo(() => ({ amount: 380, unit: "円", period: "月額" }), []);
+
+  // ✅ 追加：ログイン & premium 判定（profiles.is_premium を見る）
+  useEffect(() => {
+    (async () => {
+      try {
+        setChecking(true);
+        const { data: ses } = await supabase.auth.getSession();
+        const id = ses.session?.user?.id ?? null;
+        setUid(id);
+
+        if (!id) {
+          setIsPremium(false);
+          return;
+        }
+
+        const { data: prof, error } = await supabase
+          .from("profiles")
+          .select("is_premium")
+          .eq("id", id)
+          .single();
+
+        if (error) {
+          console.warn("profiles fetch error:", error);
+          setIsPremium(false);
+          return;
+        }
+        setIsPremium(!!prof?.is_premium);
+      } finally {
+        setChecking(false);
+      }
+    })();
+  }, []);
 
   const goCheckout = async () => {
     if (loading) return;
     setLoading(true);
     try {
       const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
+      const id = ses.session?.user?.id;
 
-      // ログインしてなくても見れるけど、決済はログイン推奨（後で premium を紐づけるため）
-      if (!uid) {
+      if (!id) {
         alert("プレミアム加入にはログインが必要です。ログイン画面へ移動します。");
         router.push("/(public)/login");
         return;
       }
 
+      // ✅ すでにプレミアムなら checkout させない
+      if (isPremium) return;
+
       const res = await fetch("/api/stripe/checkout-premium", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid }),
+        body: JSON.stringify({ uid: id }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "checkout failed");
 
-      // Stripe Checkoutへ
       window.location.href = json.url;
     } catch (e: any) {
       console.error(e);
       alert("決済ページの作成に失敗しました: " + (e?.message ?? "unknown"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ 追加：解約（管理）ボタン = Stripe Customer Portalへ飛ばす
+  const goManageBilling = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      const id = ses.session?.user?.id;
+
+      if (!id) {
+        alert("解約にはログインが必要です。ログイン画面へ移動します。");
+        router.push("/(public)/login");
+        return;
+      }
+
+      const res = await fetch("/api/stripe/customer-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: id }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "portal failed");
+
+      window.location.href = json.url; // Stripeの管理画面（解約もここ）
+    } catch (e: any) {
+      console.error(e);
+      alert("管理画面への移動に失敗しました: " + (e?.message ?? "unknown"));
     } finally {
       setLoading(false);
     }
@@ -83,7 +153,6 @@ export default function PlansPage() {
           line-height: 1.5;
         }
 
-        /* ゴールド価格（あなたの案を整理） */
         .priceBox { text-align: right; }
         .premiumPrice {
           position: relative;
@@ -127,11 +196,8 @@ export default function PlansPage() {
 
         .body { padding: 18px; display: grid; gap: 14px; }
 
-        .ctaRow {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 10px;
-        }
+        .ctaRow { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
         .ctaBtn {
           width: 100%;
           padding: 12px 14px;
@@ -148,13 +214,37 @@ export default function PlansPage() {
         .ctaBtn:hover { transform: translateY(-1px); filter: brightness(1.05); }
         .ctaBtn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        .fine {
-          color: rgba(226,232,240,0.70);
-          font-size: 12px;
-          line-height: 1.55;
+        /* ✅ 追加：加入済みボタン風（押せない） */
+        .ctaDone {
+          width: 100%;
+          padding: 12px 14px;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.10);
+          color: rgba(226,232,240,0.92);
+          font-weight: 900;
+          letter-spacing: -0.01em;
+          cursor: default;
         }
 
-        /* 比較テーブル（スマホでも崩れにくい） */
+        /* ✅ 追加：解約ボタン（赤系、でも上品） */
+        .dangerBtn {
+          width: 100%;
+          padding: 12px 14px;
+          border-radius: 14px;
+          border: 1px solid rgba(248,113,113,0.55);
+          background: rgba(248,113,113,0.14);
+          color: rgba(254,226,226,0.95);
+          font-weight: 900;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+        }
+        .dangerBtn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .dangerBtn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .fine { color: rgba(226,232,240,0.70); font-size: 12px; line-height: 1.55; }
+
         .tableWrap { overflow: hidden; border-radius: 16px; border: 1px solid rgba(255,255,255,0.10); }
         table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.04); }
         th, td { padding: 14px 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
@@ -174,13 +264,7 @@ export default function PlansPage() {
           display: inline-block;
           filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25));
         }
-        .no {
-          color: #fb7185;
-          font-size: 34px;
-          font-weight: 900;
-          line-height: 1;
-          display: inline-block;
-        }
+        .no { color: #fb7185; font-size: 34px; font-weight: 900; line-height: 1; display: inline-block; }
 
         .notice {
           padding: 12px 12px;
@@ -284,9 +368,27 @@ export default function PlansPage() {
             </div>
 
             <div className="ctaRow">
-              <button className="ctaBtn" onClick={goCheckout} disabled={loading}>
-                {loading ? "決済ページへ移動中…" : "プレミアムに加入する"}
-              </button>
+              {/* ✅ 出し分け：加入済みなら押せない表示 */}
+              {checking ? (
+                <div className="ctaDone">状態を確認中…</div>
+              ) : isPremium ? (
+                <>
+                  <div className="ctaDone">✅ プレミアムプラン加入済み</div>
+                  <button className="dangerBtn" onClick={goManageBilling} disabled={loading}>
+                    {loading ? "管理画面へ移動中…" : "解約 / お支払い管理"}
+                  </button>
+                </>
+              ) : (
+                <button className="ctaBtn" onClick={goCheckout} disabled={loading}>
+                  {loading ? "決済ページへ移動中…" : "プレミアムに加入する"}
+                </button>
+              )}
+
+              {!uid && !checking && (
+                <div className="notice">
+                  ※ ログインしてないと加入/解約はできんよ。先にログインしてね。
+                </div>
+              )}
 
               <div className="notice">
                 ※ 無料は「自動投稿 1日1回」。2回目以降はプラン画面へ案内されます。<br />
