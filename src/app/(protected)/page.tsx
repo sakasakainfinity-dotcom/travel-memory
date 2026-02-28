@@ -2116,32 +2116,80 @@ useEffect(() => {
        {/* 🤖 自動投稿（プレミアム） */}
       <button
        onClick={async () => {
-  alert("① ボタン押された");
+  if (autoReading) return;
 
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
-
-  alert("② uid=" + (uid ?? "null"));
-
   if (!uid) {
-    alert("ログインしていません");
+    alert("ログインが必要です");
     return;
   }
 
-  alert("③ profiles読みにいく");
-
-  const { data: profile, error } = await supabase
+  // profiles を取る（無ければ作る）
+  const { data: profile0, error: e0 } = await supabase
     .from("profiles")
-    .select("is_premium, auto_post_count_today, auto_post_last_used")
+    .select("id, is_premium, auto_post_count_today, auto_post_last_used")
     .eq("id", uid)
     .maybeSingle();
 
-  alert(
-    "④ profile=" +
-      JSON.stringify(profile) +
-      " / error=" +
-      (error?.message ?? "なし")
-  );
+  let profile = profile0;
+
+  if (!profile && !e0) {
+    // 行が無い時だけ作成
+    const { error: eIns } = await supabase.from("profiles").insert({
+      id: uid,
+      is_premium: false,
+      auto_post_count_today: 0,
+      auto_post_last_used: null,
+    });
+    if (eIns) {
+      alert("プロフィール作成に失敗しました: " + eIns.message);
+      return;
+    }
+
+    const { data: profile1, error: e1 } = await supabase
+      .from("profiles")
+      .select("id, is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid)
+      .single();
+
+    if (e1 || !profile1) {
+      alert("プロフィール取得に失敗しました: " + (e1?.message ?? "unknown"));
+      return;
+    }
+    profile = profile1;
+  }
+
+  if (e0) {
+    alert("プロフィール取得に失敗しました: " + e0.message);
+    return;
+  }
+  if (!profile) {
+    alert("プロフィールが取得できませんでした");
+    return;
+  }
+
+  // ✅ プレミアム：無制限
+  if (profile.is_premium) {
+    autoFileRef.current?.click();
+    return;
+  }
+
+  // ✅ 無料：1日1回（JST）
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const today = jst.toISOString().slice(0, 10);
+
+  const usedToday = profile.auto_post_last_used === today;
+  const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
+
+  if (countToday >= 1) {
+    alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
+    router.push("/plans");
+    return;
+  }
+
+  autoFileRef.current?.click();
 }}
         disabled={!premiumLoaded || autoReading}
         style={{
@@ -2352,22 +2400,25 @@ useEffect(() => {
               });
 
               // ✅ 自動投稿の“無料1回”カウント（プレミアムは無視）
+// 自動投稿経由（autoDraftがある）かつ無料会員だけ、今日の回数を+1
 try {
   const { data: ses2 } = await supabase.auth.getSession();
   const uid2 = ses2.session?.user.id;
 
   if (uid2 && autoDraft) {
-    // autoDraft がある＝自動投稿経由
-    const { data: profile2 } = await supabase
+    const { data: p, error: pe } = await supabase
       .from("profiles")
       .select("is_premium, auto_post_count_today, auto_post_last_used")
       .eq("id", uid2)
       .single();
 
-    if (profile2 && !profile2.is_premium) {
-      const today = getTodayJST();
-      const usedToday = profile2.auto_post_last_used === today;
-      const countToday = usedToday ? (profile2.auto_post_count_today ?? 0) : 0;
+    if (!pe && p && !p.is_premium) {
+      const now = new Date();
+      const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      const today = jst.toISOString().slice(0, 10);
+
+      const usedToday = p.auto_post_last_used === today;
+      const countToday = usedToday ? (p.auto_post_count_today ?? 0) : 0;
 
       if (usedToday) {
         await supabase
@@ -2383,8 +2434,7 @@ try {
     }
   }
 } catch (e) {
-  // カウント失敗しても投稿自体は成功させたいので握りつぶす
-  console.warn("auto post count update failed", e);
+  console.warn("auto-post count update failed", e);
 }
 
               // ローカル状態の更新
