@@ -38,9 +38,24 @@ export async function POST(req: Request) {
     console.log("✅ stripe event:", event.type);
 
     // ✅ 1) Checkout完了 → まず is_premium=true（最速反映）
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
+   if (event.type === "checkout.session.completed") {
+  const session = event.data.object as any;
 
+  const uid = session.metadata?.uid;
+  const customerId = session.customer;
+  const subscriptionId = session.subscription;
+
+  if (uid && customerId) {
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        is_premium: true,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+      })
+      .eq("id", uid);
+  }
+}
       const uid = getUidFromAny(session);
       if (!uid) return NextResponse.json({ error: "missing uid" }, { status: 400 });
 
