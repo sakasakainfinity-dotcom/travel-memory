@@ -2115,9 +2115,10 @@ useEffect(() => {
 
        {/* 🤖 自動投稿（プレミアム） */}
       <button
-       onClick={async () => {
+      onClick={async () => {
   if (autoReading) return;
 
+  // 1) ログイン確認
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
   if (!uid) {
@@ -2125,17 +2126,20 @@ useEffect(() => {
     return;
   }
 
-  // profiles を取る（無ければ作る）
-  const { data: profile0, error: e0 } = await supabase
-    .from("profiles")
-    .select("id, is_premium, auto_post_count_today, auto_post_last_used")
-    .eq("id", uid)
-    .maybeSingle();
+  // 2) profiles 取得（無ければ作成して取り直す）
+  const fetchProfile = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  };
 
-  let profile = profile0;
+  let profile = await fetchProfile();
 
-  if (!profile && !e0) {
-    // 行が無い時だけ作成
+  if (!profile) {
     const { error: eIns } = await supabase.from("profiles").insert({
       id: uid,
       is_premium: false,
@@ -2146,41 +2150,28 @@ useEffect(() => {
       alert("プロフィール作成に失敗しました: " + eIns.message);
       return;
     }
-
-    const { data: profile1, error: e1 } = await supabase
-      .from("profiles")
-      .select("id, is_premium, auto_post_count_today, auto_post_last_used")
-      .eq("id", uid)
-      .single();
-
-    if (e1 || !profile1) {
-      alert("プロフィール取得に失敗しました: " + (e1?.message ?? "unknown"));
-      return;
-    }
-    profile = profile1;
+    profile = await fetchProfile();
   }
 
-  if (e0) {
-    alert("プロフィール取得に失敗しました: " + e0.message);
-    return;
-  }
   if (!profile) {
     alert("プロフィールが取得できませんでした");
     return;
   }
 
-  // ✅ プレミアム：無制限
+  // 3) プレミアムは無制限
   if (profile.is_premium) {
     autoFileRef.current?.click();
     return;
   }
 
-  // ✅ 無料：1日1回（JST）
-  const now = new Date();
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const today = jst.toISOString().slice(0, 10);
+  // 4) 無料は1日1回（JSTで統一）
+  const today = getTodayJST();
 
-  const usedToday = profile.auto_post_last_used === today;
+  // DBがdate型のとき、文字列比較でOK（"YYYY-MM-DD"）
+  const last = profile.auto_post_last_used ?? null;
+  const usedToday = last === today;
+
+  // 今日じゃなければ0扱い（＝無料枠残ってる）
   const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
 
   if (countToday >= 1) {
@@ -2189,6 +2180,7 @@ useEffect(() => {
     return;
   }
 
+  // 5) OKならファイル選択を開く
   autoFileRef.current?.click();
 }}
         disabled={!premiumLoaded || autoReading}
