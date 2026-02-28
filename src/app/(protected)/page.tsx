@@ -1809,69 +1809,101 @@ useEffect(() => {
     )}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   };
 
-  const onPickAutoPhoto = async (fileList: FileList | null) => {
-    const files = Array.from(fileList ?? []);
-    if (!files.length) return;
+ const onPickAutoPhoto = async (fileList: FileList | null) => {
+  const files = Array.from(fileList ?? []);
+  if (!files.length) return;
 
-    setAutoReading(true);
-    try {
-      const exif = await parseExifFromFile(files[0]);
+  // ✅ ここで利用制限チェック（ファイル選択後なのでiOSでもOK）
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) {
+    alert("ログインが必要です");
+    return;
+  }
 
-      const chips: string[] = [];
-      if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
-      if (typeof exif.lat === "number" && typeof exif.lng === "number") {
-        chips.push("✅ 位置情報を反映しました");
-      } else {
-        chips.push("⚠️ 位置情報なし");
-      }
-      if (
-        exif.make ||
-        exif.model ||
-        exif.fNumber ||
-        exif.exposureTime ||
-        exif.iso ||
-        exif.focalLength
-      ) {
-        chips.push("✅ カメラ情報を反映しました");
-      }
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("is_premium, auto_post_count_today, auto_post_last_used")
+    .eq("id", uid)
+    .single();
 
-      const fallbackLat = mapCenter?.lat ?? 35.68;
-      const fallbackLng = mapCenter?.lng ?? 139.76;
+  if (error || !profile) {
+    alert("プロフィール取得に失敗しました");
+    return;
+  }
 
-      const snap = getViewRef.current();
-      setInitialView(snap);
+  if (!profile.is_premium) {
+    const today = getTodayJST();
+    const usedToday = profile.auto_post_last_used === today;
+    const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
 
-      setAutoDraft({
-        files,
-        chips,
-        hasGps: !!exif.hasGps,
-        lat: exif.lat,
-        lng: exif.lng,
-        takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
-        cameraMake: exif.make,
-        cameraModel: exif.model,
-        fNumber: exif.fNumber,
-        exposureTime: exif.exposureTime,
-        iso: exif.iso,
-        focalLength: exif.focalLength,
-      });
-
-      setNewAt({
-        lat: exif.lat ?? fallbackLat,
-        lng: exif.lng ?? fallbackLng,
-        mode: "normal",
-      });
-
-      setSelectedId(null);
-      setTimeout(() => setViewRef.current(snap), 0);
-    } catch (e) {
-      console.error(e);
-      alert("EXIFの読み取りに失敗しました。手動投稿に切り替えてください。");
-    } finally {
-      setAutoReading(false);
-      if (autoFileRef.current) autoFileRef.current.value = "";
+    if (countToday >= 1) {
+      alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
+      router.push("/plans");
+      return;
     }
-  };
+  }
+
+  // ---- ここから下は、あなたの既存のEXIF処理（元のまま） ----
+  setAutoReading(true);
+  try {
+    const exif = await parseExifFromFile(files[0]);
+
+    const chips: string[] = [];
+    if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
+    if (typeof exif.lat === "number" && typeof exif.lng === "number") {
+      chips.push("✅ 位置情報を反映しました");
+    } else {
+      chips.push("⚠️ 位置情報なし");
+    }
+    if (
+      exif.make ||
+      exif.model ||
+      exif.fNumber ||
+      exif.exposureTime ||
+      exif.iso ||
+      exif.focalLength
+    ) {
+      chips.push("✅ カメラ情報を反映しました");
+    }
+
+    const fallbackLat = mapCenter?.lat ?? 35.68;
+    const fallbackLng = mapCenter?.lng ?? 139.76;
+
+    const snap = getViewRef.current();
+    setInitialView(snap);
+
+    setAutoDraft({
+      files,
+      chips,
+      hasGps: !!exif.hasGps,
+      lat: exif.lat,
+      lng: exif.lng,
+      takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
+      cameraMake: exif.make,
+      cameraModel: exif.model,
+      fNumber: exif.fNumber,
+      exposureTime: exif.exposureTime,
+      iso: exif.iso,
+      focalLength: exif.focalLength,
+    });
+
+    setNewAt({
+      lat: exif.lat ?? fallbackLat,
+      lng: exif.lng ?? fallbackLng,
+      mode: "normal",
+    });
+
+    setSelectedId(null);
+    setTimeout(() => setViewRef.current(snap), 0);
+  } catch (e) {
+    console.error(e);
+    alert("EXIFの読み取りに失敗しました。手動投稿に切り替えてください。");
+  } finally {
+    setAutoReading(false);
+    if (autoFileRef.current) autoFileRef.current.value = "";
+  }
+};
 
   const selected = useMemo(
   () => places.find((x) => x.id === selectedId) || null,
@@ -2115,74 +2147,13 @@ useEffect(() => {
 
        {/* 🤖 自動投稿（プレミアム） */}
       <button
-      onClick={async () => {
+      onClick={() => {
   if (autoReading) return;
-
-  // 1) ログイン確認
-  const { data: ses } = await supabase.auth.getSession();
-  const uid = ses.session?.user.id;
-  if (!uid) {
-    alert("ログインが必要です");
-    return;
-  }
-
-  // 2) profiles 取得（無ければ作成して取り直す）
-  const fetchProfile = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, is_premium, auto_post_count_today, auto_post_last_used")
-      .eq("id", uid)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
-  };
-
-  let profile = await fetchProfile();
-
-  if (!profile) {
-    const { error: eIns } = await supabase.from("profiles").insert({
-      id: uid,
-      is_premium: false,
-      auto_post_count_today: 0,
-      auto_post_last_used: null,
-    });
-    if (eIns) {
-      alert("プロフィール作成に失敗しました: " + eIns.message);
-      return;
-    }
-    profile = await fetchProfile();
-  }
-
-  if (!profile) {
-    alert("プロフィールが取得できませんでした");
-    return;
-  }
-
-  // 3) プレミアムは無制限
-  if (profile.is_premium) {
-    autoFileRef.current?.click();
-    return;
-  }
-
-  // 4) 無料は1日1回（JSTで統一）
-  const today = getTodayJST();
-
-  // DBがdate型のとき、文字列比較でOK（"YYYY-MM-DD"）
-  const last = profile.auto_post_last_used ?? null;
-  const usedToday = last === today;
-
-  // 今日じゃなければ0扱い（＝無料枠残ってる）
-  const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
-
-  if (countToday >= 1) {
-    alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
-    router.push("/plans");
-    return;
-  }
-
-  // 5) OKならファイル選択を開く
+  // ✅ iOS対策：まず同期で開く（await禁止）
   autoFileRef.current?.click();
 }}
+
+
         disabled={!premiumLoaded || autoReading}
         style={{
           position: "fixed",
