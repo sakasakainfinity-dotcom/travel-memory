@@ -38,49 +38,34 @@ export async function POST(req: Request) {
     console.log("✅ stripe event:", event.type);
 
     // ✅ 1) Checkout完了 → まず is_premium=true（最速反映）
-   if (event.type === "checkout.session.completed") {
-  const session = event.data.object as any;
+  // ✅ 1) Checkout完了 → premium反映 + customer/subscription保存
+if (event.type === "checkout.session.completed") {
+  const session = event.data.object as any; // Stripe.Checkout.Session でもOK
 
-  const uid = session.metadata?.uid;
-  const customerId = session.customer;
-  const subscriptionId = session.subscription;
+  const uid = getUidFromAny(session);
+  if (!uid) return NextResponse.json({ error: "missing uid" }, { status: 400 });
 
-  if (uid && customerId) {
-    await supabaseAdmin
-      .from("profiles")
-      .update({
-        is_premium: true,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-      })
-      .eq("id", uid);
+  const subId = typeof session.subscription === "string" ? session.subscription : null;
+  const customerId = typeof session.customer === "string" ? session.customer : null;
+
+  const { error } = await supabaseAdmin.from("profiles").upsert(
+    {
+      id: uid,
+      is_premium: true,
+      premium_since: new Date().toISOString(),
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subId,
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("❌ supabase upsert error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  console.log("✅ premium updated for uid:", uid, "customer:", customerId, "sub:", subId);
 }
-      const uid = getUidFromAny(session);
-      if (!uid) return NextResponse.json({ error: "missing uid" }, { status: 400 });
-
-      // subscription id を保存（後で追跡）
-      const subId = typeof session.subscription === "string" ? session.subscription : null;
-      const customerId = typeof session.customer === "string" ? session.customer : null;
-
-      const { error } = await supabaseAdmin.from("profiles").upsert(
-        {
-          id: uid,
-          is_premium: true,
-          premium_since: new Date().toISOString(),
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subId,
-        },
-        { onConflict: "id" }
-      );
-
-      if (error) {
-        console.error("❌ supabase upsert error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      console.log("✅ premium updated for uid:", uid);
-    }
 
     // ✅ 2) サブスク更新 → statusに応じて premium を調整
     if (event.type === "customer.subscription.updated") {
