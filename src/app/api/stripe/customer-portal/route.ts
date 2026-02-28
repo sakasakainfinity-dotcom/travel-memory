@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
-
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 function must(name: string) {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env: ${name}`);
