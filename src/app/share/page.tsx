@@ -233,6 +233,22 @@ function MyMapShareCard() {
     })();
   }, []);
 
+  async function safeCopy(text: string) {
+  try {
+    // iOSやアプリ内ブラウザだと clipboard が無い/拒否されることがある
+    if (typeof navigator === "undefined") return false;
+    if (!("clipboard" in navigator)) return false;
+    // 一部環境で secureContext じゃないと拒否される
+    if (typeof window !== "undefined" && !window.isSecureContext) return false;
+
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    console.warn("clipboard denied:", e);
+    return false;
+  }
+}
+
   async function createShareLink() {
     if (!selectedSpaceId) {
       setErr("共有するマップ（space）を選んでね");
@@ -263,7 +279,6 @@ function MyMapShareCard() {
 
       const url = `${window.location.origin}/share/${token}`;
       setShareUrl(url);
-      await navigator.clipboard.writeText(url);
     } catch (e: any) {
       setErr(e?.message ?? "create share error");
     } finally {
