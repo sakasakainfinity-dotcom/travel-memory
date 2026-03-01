@@ -115,90 +115,139 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
         )}
       </div>
 
-      {/* マップ本体（relative必須：下の詳細カードを重ねるため） */}
-      <div style={{ height: "calc(100svh - 86px)", position: "relative" }}>
-        <MapView
-          places={places as any}
-          onRequestNew={() => alert("この共有マップでは投稿できんよ。自分のマップ（Private）で投稿してね。")}
-          onSelect={(p: any) => setSelectedId(p.id)}
-          selectedId={selectedId}
-          flyTo={flyTo}
-          bindGetView={(fn: any) => {
-            getViewRef.current = fn;
+{/* マップ本体（relative必須：下の詳細カード＆写真モーダルを重ねるため） */}
+<div style={{ height: "calc(100svh - 86px)", position: "relative" }}>
+  <MapView
+    places={places as any}
+    onRequestNew={() => alert("この共有マップでは投稿できんよ。自分のマップ（Private）で投稿してね。")}
+    onSelect={(p: any) => setSelectedId(p.id)}
+    selectedId={selectedId}
+    flyTo={flyTo}
+    bindGetView={(fn: any) => {
+      getViewRef.current = fn;
+    }}
+    bindSetView={(fn: any) => {
+      setViewRef.current = fn;
+    }}
+    initialView={initialView as any}
+    mode="public"
+  />
+
+  {/* ✅ 選択した投稿の詳細 */}
+  {selected && (
+    <div
+      style={{
+        position: "absolute",
+        left: 12,
+        right: 12,
+        bottom: 12,
+        background: "rgba(2,6,23,0.92)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        borderRadius: 16,
+        padding: 12,
+        backdropFilter: "blur(10px)",
+        zIndex: 20,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+        <div style={{ fontWeight: 900 }}>
+          {(selected as any).title ?? (selected as any).name ?? "（タイトルなし）"}
+        </div>
+        <button
+          onClick={() => setSelectedId(null)}
+          style={{
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)",
+            color: "rgba(226,232,240,0.9)",
+            padding: "6px 10px",
+            borderRadius: 999,
+            cursor: "pointer",
+            fontWeight: 800,
+            fontSize: 12,
           }}
-          bindSetView={(fn: any) => {
-            setViewRef.current = fn;
-          }}
-          initialView={initialView as any}
-          mode="public"
-        />
-
-        {/* ✅ 選択した投稿の詳細（ここに置く） */}
-        {selected && (
-          <div
-            style={{
-              position: "absolute",
-              left: 12,
-              right: 12,
-              bottom: 12,
-              background: "rgba(2,6,23,0.92)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 16,
-              padding: 12,
-              backdropFilter: "blur(10px)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-              <div style={{ fontWeight: 900 }}>{selected.title ?? "（タイトルなし）"}</div>
-              <button
-                onClick={() => setSelectedId(null)}
-                style={{
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "rgba(226,232,240,0.9)",
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  fontWeight: 800,
-                  fontSize: 12,
-                }}
-              >
-                閉じる
-              </button>
-            </div>
-
-            {selected.memo && (
-              <div style={{ marginTop: 8, color: "rgba(226,232,240,0.9)", lineHeight: 1.6 }}>
-                {selected.memo}
-              </div>
-            )}
-
-            {selected.photos?.length ? (
-              <div style={{ marginTop: 10, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-                {selected.photos.map((url, i) => (
-                  <img
-                    key={url + i}
-                    src={url}
-                    alt=""
-                    style={{
-                      width: 110,
-                      height: 90,
-                      objectFit: "cover",
-                      borderRadius: 10,
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      flex: "0 0 auto",
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.65)" }}>
-                写真がありません
-              </div>
-            )}
-          </div>
-        )}
+        >
+          閉じる
+        </button>
       </div>
+
+      {selected.memo && (
+        <div style={{ marginTop: 8, color: "rgba(226,232,240,0.9)", lineHeight: 1.6 }}>
+          {selected.memo}
+        </div>
+      )}
+
+      {selected.photos?.length ? (
+        <div style={{ marginTop: 10, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          {selected.photos.map((url, i) => (
+            <img
+              key={url + i}
+              src={url}
+              alt=""
+              onClick={() => setOpenPhoto(url)}
+              style={{
+                width: 110,
+                height: 90,
+                objectFit: "cover",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.10)",
+                flex: "0 0 auto",
+                cursor: "pointer",
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.65)" }}>写真がありません</div>
+      )}
+    </div>
+  )}
+
+  {/* ✅ 写真 全画面モーダル（relativeの中に置くのが正解） */}
+  {openPhoto && (
+    <div
+      onClick={() => setOpenPhoto(null)}
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: "rgba(0,0,0,0.85)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        zIndex: 50,
+      }}
+    >
+      <img
+        src={openPhoto}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: "100%",
+          maxHeight: "100%",
+          borderRadius: 14,
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
+      />
+      <button
+        onClick={() => setOpenPhoto(null)}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          padding: "8px 10px",
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.12)",
+          background: "rgba(255,255,255,0.06)",
+          color: "rgba(226,232,240,0.95)",
+          fontWeight: 900,
+          cursor: "pointer",
+        }}
+      >
+        閉じる
+      </button>
+    </div>
+  )}
+</div>
     </div>
   );
 }
