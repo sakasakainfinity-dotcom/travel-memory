@@ -32,6 +32,7 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
 
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
+  const [openPhoto, setOpenPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
