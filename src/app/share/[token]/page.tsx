@@ -128,6 +128,69 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
           initialView={initialView as any}
           mode="public"
         />
+
+        // MapViewの下に追加（returnの中）
+
+const selected = places.find((p) => p.id === selectedId);
+
+{selected && (
+  <div style={{
+    position: "absolute",
+    left: 12, right: 12, bottom: 12,
+    background: "rgba(2,6,23,0.92)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 16,
+    padding: 12,
+    backdropFilter: "blur(10px)",
+  }}>
+    <div style={{ display:"flex", justifyContent:"space-between", gap: 10, alignItems:"center" }}>
+      <div style={{ fontWeight: 900 }}>
+        {selected.name ?? "（タイトルなし）"}
+      </div>
+      <button
+        onClick={() => setSelectedId(null)}
+        style={{
+          border: "1px solid rgba(255,255,255,0.12)",
+          background: "rgba(255,255,255,0.04)",
+          color: "rgba(226,232,240,0.9)",
+          padding: "6px 10px",
+          borderRadius: 999,
+          cursor: "pointer",
+          fontWeight: 800,
+          fontSize: 12,
+        }}
+      >
+        閉じる
+      </button>
+    </div>
+
+    {selected.memo && (
+      <div style={{ marginTop: 8, color:"rgba(226,232,240,0.9)", lineHeight: 1.6 }}>
+        {selected.memo}
+      </div>
+    )}
+
+    {selected.photos?.length > 0 && (
+      <div style={{ marginTop: 10, display:"flex", gap: 8, overflowX:"auto", paddingBottom: 2 }}>
+        {selected.photos.map((url: string, i: number) => (
+          <img
+            key={url + i}
+            src={url}
+            alt=""
+            style={{
+              width: 110,
+              height: 90,
+              objectFit: "cover",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.10)",
+              flex: "0 0 auto",
+            }}
+          />
+        ))}
+      </div>
+    )}
+  </div>
+)}
       </div>
     </div>
   );
