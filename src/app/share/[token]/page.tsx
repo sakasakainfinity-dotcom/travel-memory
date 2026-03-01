@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-
-// ★ここだけあなたのMapViewの実際のパスに合わせて直す
 import MapView from "@/components/MapView";
 
 type Place = {
@@ -53,7 +51,6 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
         const ps: Place[] = json?.places ?? [];
         setPlaces(ps);
 
-        // 初期表示：投稿があるならそこに寄せる（適当）
         if (ps.length > 0) {
           setInitialView({ lat: ps[0].lat, lng: ps[0].lng, zoom: 5 });
         } else {
@@ -66,6 +63,9 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
       }
     })();
   }, [token]);
+
+  // ✅ ここが正しい置き場所（returnの外）
+  const selected = selectedId ? places.find((p) => p.id === selectedId) : null;
 
   return (
     <div
@@ -102,8 +102,12 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
           </button>
         </div>
 
-        {loading && <div style={{ marginTop: 10, fontSize: 12, color: "rgba(226,232,240,0.75)" }}>読み込み中…</div>}
-        {err && <div style={{ marginTop: 10, fontSize: 12, color: "#fb7185", fontWeight: 900 }}>エラー: {err}</div>}
+        {loading && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(226,232,240,0.75)" }}>読み込み中…</div>
+        )}
+        {err && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#fb7185", fontWeight: 900 }}>エラー: {err}</div>
+        )}
         {!loading && !err && (
           <div style={{ marginTop: 10, fontSize: 12, color: "rgba(226,232,240,0.7)" }}>
             投稿数: {places.length}
@@ -111,8 +115,8 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
         )}
       </div>
 
-      {/* マップ本体 */}
-      <div style={{ height: "calc(100svh - 86px)" }}>
+      {/* マップ本体（relative必須：下の詳細カードを重ねるため） */}
+      <div style={{ height: "calc(100svh - 86px)", position: "relative" }}>
         <MapView
           places={places as any}
           onRequestNew={() => alert("この共有マップでは投稿できんよ。自分のマップ（Private）で投稿してね。")}
@@ -129,68 +133,71 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
           mode="public"
         />
 
-        // MapViewの下に追加（returnの中）
-
-const selected = places.find((p) => p.id === selectedId);
-
-{selected && (
-  <div style={{
-    position: "absolute",
-    left: 12, right: 12, bottom: 12,
-    background: "rgba(2,6,23,0.92)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 16,
-    padding: 12,
-    backdropFilter: "blur(10px)",
-  }}>
-    <div style={{ display:"flex", justifyContent:"space-between", gap: 10, alignItems:"center" }}>
-      <div style={{ fontWeight: 900 }}>
-        {selected.name ?? "（タイトルなし）"}
-      </div>
-      <button
-        onClick={() => setSelectedId(null)}
-        style={{
-          border: "1px solid rgba(255,255,255,0.12)",
-          background: "rgba(255,255,255,0.04)",
-          color: "rgba(226,232,240,0.9)",
-          padding: "6px 10px",
-          borderRadius: 999,
-          cursor: "pointer",
-          fontWeight: 800,
-          fontSize: 12,
-        }}
-      >
-        閉じる
-      </button>
-    </div>
-
-    {selected.memo && (
-      <div style={{ marginTop: 8, color:"rgba(226,232,240,0.9)", lineHeight: 1.6 }}>
-        {selected.memo}
-      </div>
-    )}
-
-    {selected.photos?.length > 0 && (
-      <div style={{ marginTop: 10, display:"flex", gap: 8, overflowX:"auto", paddingBottom: 2 }}>
-        {selected.photos.map((url: string, i: number) => (
-          <img
-            key={url + i}
-            src={url}
-            alt=""
+        {/* ✅ 選択した投稿の詳細（ここに置く） */}
+        {selected && (
+          <div
             style={{
-              width: 110,
-              height: 90,
-              objectFit: "cover",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.10)",
-              flex: "0 0 auto",
+              position: "absolute",
+              left: 12,
+              right: 12,
+              bottom: 12,
+              background: "rgba(2,6,23,0.92)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 16,
+              padding: 12,
+              backdropFilter: "blur(10px)",
             }}
-          />
-        ))}
-      </div>
-    )}
-  </div>
-)}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+              <div style={{ fontWeight: 900 }}>{selected.title ?? "（タイトルなし）"}</div>
+              <button
+                onClick={() => setSelectedId(null)}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "rgba(226,232,240,0.9)",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 12,
+                }}
+              >
+                閉じる
+              </button>
+            </div>
+
+            {selected.memo && (
+              <div style={{ marginTop: 8, color: "rgba(226,232,240,0.9)", lineHeight: 1.6 }}>
+                {selected.memo}
+              </div>
+            )}
+
+            {selected.photos?.length ? (
+              <div style={{ marginTop: 10, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+                {selected.photos.map((url, i) => (
+                  <img
+                    key={url + i}
+                    src={url}
+                    alt=""
+                    style={{
+                      width: 110,
+                      height: 90,
+                      objectFit: "cover",
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      flex: "0 0 auto",
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.65)" }}>
+                写真がありません
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
