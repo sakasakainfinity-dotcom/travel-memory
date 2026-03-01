@@ -56,7 +56,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
     const places = (ps ?? []).map((p: any) => ({
       id: p.id,
-      name: p.title,          // MapViewは name を使うことが多いので合わせる
+      name: p.title, 
+      title: p.title ?? null, // MapViewは name を使うことが多いので合わせる
       memo: p.memo ?? null,
       lat: p.lat,
       lng: p.lng,
