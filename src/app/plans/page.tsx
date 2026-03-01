@@ -357,10 +357,10 @@ export default function PlansPage() {
                   <tr>
                     <td className="feature">マイマップシェア</td>
                     <td>
-                      <span className="no">×</span>
+                      <span className="no">今なら無料</span>
                     </td>
                     <td>
-                      <span className="yes">○</span>
+                      <span className="yes">無料</span>
                     </td>
                   </tr>
                 </tbody>
