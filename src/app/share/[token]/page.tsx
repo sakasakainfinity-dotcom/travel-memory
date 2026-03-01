@@ -30,7 +30,8 @@ export default function ShareMapPage({ params }: { params: { token: string } }) 
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [openPhoto, setOpenPhoto] = useState<string | null>(null);
-
+  const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
+const setViewRef = useRef<(v: View) => void>(() => {});
   // 👇 CTA表示制御
   const [showCTA, setShowCTA] = useState(false);
 
