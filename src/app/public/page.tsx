@@ -117,15 +117,26 @@ const [premiumLoaded, setPremiumLoaded] = useState(false);
   open: boolean
   title: string
   message: string
+      secondaryLabel: string
 } | null>(null)
 
-  function askLogin(title: string, message: string) {
+    function askLogin(title: string, message: string, secondaryLabel: string) {
   setLoginPrompt({
     open: true,
     title,
     message,
+    secondaryLabel,
   })
 }
+  
+ async function ensureSignedInOrPrompt(title: string, message: string, secondaryLabel: string) {
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user.id;
+    if (uid) return uid;
+    askLogin(title, message, secondaryLabel);
+    return null;
+  }
+  
   
   // MapView view hooks
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
@@ -383,9 +394,12 @@ useEffect(() => {
     try {
       setReactBusyId(busyKey);
 
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return alert("ログインが必要じゃよ。");
+      const uid = await ensureSignedInOrPrompt(
+        "保存するにはログインが必要です",
+        "ログインすると「行きたい/行った」を保存できます。",
+        "このまま見る"
+      );
+      if (!uid) return;
 
       const key = placeIdToKey[postId];
       if (!key) return;
@@ -433,10 +447,12 @@ useEffect(() => {
     try {
       setReactBusyId(busyKey);
 
-      const { data: ses } = await supabase.auth.getSession();
-      const uid = ses.session?.user.id;
-      if (!uid) return alert("ログインが必要じゃよ。");
-
+       const uid = await ensureSignedInOrPrompt(
+        "保存するにはログインが必要です",
+        "ログインすると「行きたい/行った」を保存できます。",
+        "このまま見る"
+      );
+      if (!uid) return;
       const marker = places.find((p) => p.id === placeKey);
       if (!marker) return;
 
@@ -451,7 +467,14 @@ if (!already) {
   // ✅ プレミアムなら上限チェック不要
   if (!isPremium) {
     const r = await getMyFlagCount(kind);
-    if (!r.ok) return alert("ログインが必要じゃよ。");
+      if (!r.ok) {
+      askLogin(
+        "保存するにはログインが必要です",
+        "ログインすると「行きたい/行った」を保存できます。",
+        "このまま見る"
+      );
+      return;
+    }
 
     if (r.count >= FREE_FLAG_LIMIT) {
       setPaywallKind(kind);
@@ -544,7 +567,15 @@ if (!already) {
         >
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={async () => {
+              const uid = await ensureSignedInOrPrompt(
+                "プライベートはログイン後に使えます",
+                "自分だけの地図を作るにはログインが必要です。",
+                "キャンセル"
+              );
+              if (!uid) return;
+              router.push("/");
+            }}
             style={{
               padding: "6px 14px",
               background: "#ffffff",
@@ -1121,7 +1152,7 @@ if (!already) {
                 cursor: "pointer",
               }}
             >
-              このまま見る
+               {loginPrompt.secondaryLabel}
             </button>
           </div>
         </div>
