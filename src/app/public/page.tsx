@@ -112,6 +112,20 @@ const [paywallKind, setPaywallKind] = useState<"want" | "visited">("want");
 // ✅ Premium
 const [isPremium, setIsPremium] = useState(false);
 const [premiumLoaded, setPremiumLoaded] = useState(false);
+
+  const [loginPrompt, setLoginPrompt] = useState<{
+  open: boolean
+  title: string
+  message: string
+} | null>(null)
+
+  function askLogin(title: string, message: string) {
+  setLoginPrompt({
+    open: true,
+    title,
+    message,
+  })
+}
   
   // MapView view hooks
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
@@ -1040,8 +1054,68 @@ if (!already) {
               </button>
             </div>
           </div>
-        </div>
-      )}
+
+          {loginPrompt?.open && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.35)",
+      display: "grid",
+      placeItems: "center",
+      zIndex: 9999,
+    }}
+  >
+    <div
+      style={{
+        width: 320,
+        borderRadius: 14,
+        background: "#111827",
+        color: "#fff",
+        padding: 16,
+      }}
+    >
+      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+        {loginPrompt.title}
+      </div>
+
+      <div style={{ fontSize: 13, opacity: 0.8 }}>
+        {loginPrompt.message}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button
+          onClick={() => {
+            location.href = "/login"
+          }}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "#2563eb",
+            color: "#fff",
+            border: "none",
+          }}
+        >
+          ログイン画面へ
+        </button>
+
+        <button
+          onClick={() => setLoginPrompt(null)}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "#fff",
+          }}
+        >
+          このまま見る
+        </button>
+      </div>
+    </div>
+  </div>
+)}      
     </>
   );
 }
