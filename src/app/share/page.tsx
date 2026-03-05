@@ -302,7 +302,8 @@ function MyMapShareCard() {
           マイマップを共有（公開投稿のみ）
         </div>
         <p style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          ログインすると、このマップをシェアできます。
+         ログインすると、このマップをシェアできます。
+        </p>
         <button
           type="button"
           onClick={() => router.push("/login")}
