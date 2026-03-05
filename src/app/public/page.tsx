@@ -997,12 +997,68 @@ if (!already) {
             padding: 16,
           }}
         >
-          {/* …paywall内容… */}
+          <div style={{ fontWeight: 900, fontSize: 16 }}>
+            🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
+          </div>
+
+          <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+            無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{FREE_FLAG_LIMIT}</b> 件まで。
+            <br />
+            プレミアム（月<b>380円</b>）で無制限にできます。
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <button
+              onClick={() => setPaywallOpen(false)}
+              style={{
+                flex: 1,
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "transparent",
+                color: "#fff",
+                cursor: "pointer",
+                fontWeight: 800,
+              }}
+            >
+              閉じる
+            </button>
+
+            <button
+              onClick={async () => {
+                const { data: u } = await supabase.auth.getUser();
+                const uid = u.user?.id;
+
+                const r = await fetch("/api/stripe/checkout-premium", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ uid }),
+                });
+
+                const j = await r.json();
+                if (!r.ok) return alert(j?.error ?? "決済開始に失敗");
+
+                window.location.href = j.url;
+              }}
+              style={{
+                flex: 1,
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "none",
+                background: "linear-gradient(135deg, #3b82f6, #22c55e)",
+                color: "#0b0f18",
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              プレミアムにする
+            </button>
+          </div>
         </div>
       </div>
     )}
 
-    {/* ✅ ログイン案内モーダル（paywallの外に出す！） */}
+    {/* ログイン案内モーダル */}
     {loginPrompt?.open && (
       <div
         onClick={() => setLoginPrompt(null)}
@@ -1012,14 +1068,14 @@ if (!already) {
           background: "rgba(0,0,0,0.35)",
           display: "grid",
           placeItems: "center",
-          zIndex: 1000001, // paywallより上に出したいなら大きく
+          zIndex: 1000001,
           padding: 16,
         }}
       >
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: "min(92vw, 360px)",
+            width: 320,
             borderRadius: 14,
             background: "#111827",
             color: "#fff",
