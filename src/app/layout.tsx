@@ -68,7 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* ← ここが未クローズだった。`/>` で閉じる */}
         <Script
           defer
-          data-domain="travel-memory-1rem-hses9teyi-kisimoto-kazukis-projects.vercel.app"
+          data-domain="photomappaer.com"
           src="https://plausible.io/js/script.js"
         />
       </body>
