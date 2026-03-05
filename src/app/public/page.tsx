@@ -970,152 +970,107 @@ if (!already) {
         </div>
       )}
 
-      {/* ペイウォールモーダル */}
-      {paywallOpen && (
+       {/* ペイウォールモーダル */}
+    {paywallOpen && (
+      <div
+        onClick={() => setPaywallOpen(false)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.55)",
+          zIndex: 1000000,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          padding: 16,
+        }}
+      >
         <div
-          onClick={() => setPaywallOpen(false)}
+          onClick={(e) => e.stopPropagation()}
           style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 1000000,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
+            width: "100%",
+            maxWidth: 560,
+            borderRadius: 18,
+            background: "rgba(10,12,18,0.98)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
             padding: 16,
           }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 560,
-              borderRadius: 18,
-              background: "rgba(10,12,18,0.98)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-              padding: 16,
-            }}
-          >
-            <div style={{ fontWeight: 900, fontSize: 16 }}>
-              🔒 {paywallKind === "want" ? "行きたい" : "行った"} の上限に達しました
-            </div>
+          {/* …paywall内容… */}
+        </div>
+      </div>
+    )}
 
-            <div style={{ marginTop: 10, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-              無料は「{paywallKind === "want" ? "行きたい" : "行った"}」が <b>{FREE_FLAG_LIMIT}</b> 件まで。
-              <br />
-              プレミアム（月<b>380円</b>）で無制限にできます。
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button
-                onClick={() => setPaywallOpen(false)}
-                style={{
-                  flex: 1,
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 800,
-                }}
-              >
-                閉じる
-              </button>
-
-              <button
-                onClick={async () => {
-  const { data: u } = await supabase.auth.getUser();
-  const uid = u.user?.id;
-
-  const r = await fetch("/api/stripe/checkout-premium", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ uid }),
-  });
-
-  const j = await r.json();
-  if (!r.ok) return alert(j?.error ?? "決済開始に失敗");
-  window.location.href = j.url;
-}}
-                style={{
-                  flex: 1,
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  border: "none",
-                  background: "linear-gradient(135deg, #3b82f6, #22c55e)",
-                  color: "#0b0f18",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
-                プレミアムにする
-              </button>
-            </div>
+    {/* ✅ ログイン案内モーダル（paywallの外に出す！） */}
+    {loginPrompt?.open && (
+      <div
+        onClick={() => setLoginPrompt(null)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.35)",
+          display: "grid",
+          placeItems: "center",
+          zIndex: 1000001, // paywallより上に出したいなら大きく
+          padding: 16,
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(92vw, 360px)",
+            borderRadius: 14,
+            background: "#111827",
+            color: "#fff",
+            padding: 16,
+          }}
+        >
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>
+            {loginPrompt.title}
           </div>
 
-          {loginPrompt?.open && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.35)",
-      display: "grid",
-      placeItems: "center",
-      zIndex: 9999,
-    }}
-  >
-    <div
-      style={{
-        width: 320,
-        borderRadius: 14,
-        background: "#111827",
-        color: "#fff",
-        padding: 16,
-      }}
-    >
-      <div style={{ fontWeight: 900, marginBottom: 6 }}>
-        {loginPrompt.title}
-      </div>
+          <div style={{ fontSize: 13, opacity: 0.8 }}>
+            {loginPrompt.message}
+          </div>
 
-      <div style={{ fontSize: 13, opacity: 0.8 }}>
-        {loginPrompt.message}
-      </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <button
+              onClick={() => {
+                location.href = "/login";
+              }}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              ログイン画面へ
+            </button>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button
-          onClick={() => {
-            location.href = "/login"
-          }}
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            borderRadius: 10,
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-          }}
-        >
-          ログイン画面へ
-        </button>
-
-        <button
-          onClick={() => setLoginPrompt(null)}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            background: "transparent",
-            border: "1px solid rgba(255,255,255,0.2)",
-            color: "#fff",
-          }}
-        >
-          このまま見る
-        </button>
+            <button
+              onClick={() => setLoginPrompt(null)}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "transparent",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "#fff",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              このまま見る
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-)}      
-    </>
-  );
+    )}
+  </>
+);
 }
