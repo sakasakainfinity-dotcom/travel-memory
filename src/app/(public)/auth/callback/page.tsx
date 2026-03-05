@@ -22,7 +22,7 @@ export default function AuthCallbackPage() {
             if (data.session?.user) return location.replace("/");
             await new Promise(r => setTimeout(r, 100));
           }
-          return location.replace("/login?reason=no-session");
+          return location.replace("/public?reason=no-session");
         }
 
         // Google（PKCE）
@@ -31,8 +31,8 @@ export default function AuthCallbackPage() {
         if (!code) return location.replace(`/login?reason=no-code&src=${src}`);
 
         const { error } = await (supabase.auth as any).exchangeCodeForSession(location.href);
-        if (error) return location.replace(`/login?reason=exchange&src=${src}`);
-
+        if (!code) return location.replace(`/public?reason=no-code&src=${src}`);
+        
         // セッション待ち
         for (let i = 0; i < 30; i++) {
           const { data } = await supabase.auth.getSession();
