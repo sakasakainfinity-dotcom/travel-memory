@@ -190,6 +190,7 @@ export default function SharePage() {
 }
 
 function MyMapShareCard() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [uid, setUid] = useState<string | null>(null);
 
@@ -301,12 +302,28 @@ function MyMapShareCard() {
           マイマップを共有（公開投稿のみ）
         </div>
         <p style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          ログインすると、あなたのマップの「public投稿」だけを見せる共有リンクを作れます。
-        </p>
+          ログインすると、このマップをシェアできます。
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "none",
+            background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+            color: "#fff",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          ログインしてシェアする
+        </button>
+        <div style={{ marginTop: 6, fontSize: 11, color: "#94a3b8" }}>あとで</div>
       </div>
     );
   }
-
   return (
     <div
       style={{
