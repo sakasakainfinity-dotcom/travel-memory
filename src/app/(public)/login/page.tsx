@@ -171,34 +171,6 @@ export default function LoginPage() {
         </p>
       </div>
 
-      publicBox: {
-  marginTop: 12,
-  padding: 12,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.06)",
-},
-publicTitle: {
-  fontSize: 13,
-  fontWeight: 900,
-  marginBottom: 4,
-},
-publicText: {
-  fontSize: 12,
-  color: "rgba(230,238,252,0.68)",
-  lineHeight: 1.5,
-},
-publicBtn: {
-  display: "inline-block",
-  marginTop: 10,
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(0,0,0,0.22)",
-  color: "#eaf2ff",
-  textDecoration: "none",
-  fontWeight: 900,
-},
 
       {/* ちょいアニメのCSS */}
       <style jsx>{`
@@ -332,4 +304,33 @@ const styles: Record<string, React.CSSProperties> = {
   dividerLine: { height: 1, background: "rgba(255,255,255,0.16)" },
   dividerText: { fontSize: 12, color: "rgba(230,238,252,0.6)" },
   note: { marginTop: 10, fontSize: 12, color: "rgba(230,238,252,0.55)" },
+
+        publicBox: {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.06)",
+},
+publicTitle: {
+  fontSize: 13,
+  fontWeight: 900,
+  marginBottom: 4,
+},
+publicText: {
+  fontSize: 12,
+  color: "rgba(230,238,252,0.68)",
+  lineHeight: 1.5,
+},
+publicBtn: {
+  display: "inline-block",
+  marginTop: 10,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(0,0,0,0.22)",
+  color: "#eaf2ff",
+  textDecoration: "none",
+  fontWeight: 900,
+},
 };
