@@ -25,7 +25,7 @@ export default function AccountPage() {
         const session = ses.session;
         if (!session) {
           // 未ログインならログインページへ
-          router.push("/login");
+          router.replace("/public");
           return;
         }
 
