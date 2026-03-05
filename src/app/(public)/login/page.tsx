@@ -103,19 +103,30 @@ export default function LoginPage() {
         </p>
 
         <button
-          onClick={loginWithGoogle}
-          disabled={busy}
-          style={{ ...styles.btn, ...styles.btnPrimary }}
-        >
-          {busy ? "処理中…" : "Googleでサインイン"}
-        </button>
+  onClick={loginWithGoogle}
+  disabled={busy}
+  style={{ ...styles.btn, ...styles.btnPrimary }}
+>
+  {busy ? "処理中…" : "Googleでサインイン"}
+</button>
 
-        <div style={styles.divider}>
-          <span style={styles.dividerLine} />
-          <span style={styles.dividerText}>または</span>
-          <span style={styles.dividerLine} />
-        </div>
+{/* ✅ 追加：ログイン無しで見れる導線 */}
+<div style={styles.publicBox}>
+  <div style={styles.publicTitle}>ログインなしでも見られるよ</div>
+  <div style={styles.publicText}>
+    みんなの旅の投稿（Public）だけ先に覗けます。
+  </div>
+  <a href="/public" style={styles.publicBtn}>
+    🌍 みんなの投稿を見る
+  </a>
+</div>
 
+<div style={styles.divider}>
+  <span style={styles.dividerLine} />
+  <span style={styles.dividerText}>または</span>
+  <span style={styles.dividerLine} />
+</div>
+        
         {/* メール＋OTP フォーム */}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
           <input
@@ -159,6 +170,35 @@ export default function LoginPage() {
           メールに届いた6桁コードを入力するとサインインできるよ。
         </p>
       </div>
+
+      publicBox: {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.06)",
+},
+publicTitle: {
+  fontSize: 13,
+  fontWeight: 900,
+  marginBottom: 4,
+},
+publicText: {
+  fontSize: 12,
+  color: "rgba(230,238,252,0.68)",
+  lineHeight: 1.5,
+},
+publicBtn: {
+  display: "inline-block",
+  marginTop: 10,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(0,0,0,0.22)",
+  color: "#eaf2ff",
+  textDecoration: "none",
+  fontWeight: 900,
+},
 
       {/* ちょいアニメのCSS */}
       <style jsx>{`
