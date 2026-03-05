@@ -273,7 +273,7 @@ export default function PilgrimagePage() {
       {/* ✅ 右下：地図へ戻る（env()なしで安全） */}
       <button
         type="button"
-        onClick={() => router.push("/")}
+        onClick={() => router.push("/public")}
         style={{
           position: "fixed",
           right: 14,
