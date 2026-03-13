@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { AUTO_POST_FREE_DAILY_LIMIT, isAutoPostFreeForAll } from "@/lib/autoPostPolicy";
 
 export default function PlansPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function PlansPage() {
   const [isPremium, setIsPremium] = useState(false);
 
   const price = useMemo(() => ({ amount: 380, unit: "円", period: "月額" }), []);
+  const autoPostFreeForAll = isAutoPostFreeForAll();
 
   // ✅ 追加：ログイン & premium 判定（profiles.is_premium を見る）
   useEffect(() => {
@@ -347,10 +349,10 @@ export default function PlansPage() {
                   <tr>
                     <td className="feature">自動投稿機能</td>
                     <td style={{ fontSize: 13, color: "rgba(226,232,240,0.8)", fontWeight: 800 }}>
-                      <span className="yes">無料</span>
+                      {autoPostFreeForAll ? <span className="yes">無料（今だけ）</span> : `${AUTO_POST_FREE_DAILY_LIMIT}日1回無料`}
                     </td>
                     <td>
-                      <span className="highlightText">いまなら無料プランでも利用可能</span>
+                      {autoPostFreeForAll ? <span className="highlightText">無料プランでも利用可能</span> : <span className="highlightText">EXIF自動投稿 無制限</span>}
                     </td>
                   </tr>
 
@@ -391,7 +393,10 @@ export default function PlansPage() {
               )}
 
               <div className="notice">
-                ※ 自動投稿機能は無料プランでも利用できます。<br />
+               {autoPostFreeForAll
+                  ? "※ 自動投稿機能は今だけ無料プランでも利用できます。"
+                  : `※ 無料は「自動投稿 ${AUTO_POST_FREE_DAILY_LIMIT}日1回」。2回目以降はプラン画面へ案内されます。`}
+                <br />
                 ※ 位置情報が無い写真でも、日時・機種などは自動で入ります（ピンは手動でOK）。
               </div>
 
