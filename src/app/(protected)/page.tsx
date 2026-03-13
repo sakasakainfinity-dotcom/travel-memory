@@ -15,6 +15,7 @@ import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 import InstallToHomeModal from "@/components/InstallToHomeModal";
 import { parseExifFromFile } from "@/lib/exif";
+import { AUTO_POST_FREE_DAILY_LIMIT, isAutoPostFreeForAll } from "@/lib/autoPostPolicy";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -1492,17 +1493,18 @@ export default function Page() {
   const [createMode, setCreateMode] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showInstallTip, setShowInstallTip] = useState(false);
-   const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [premiumLoaded, setPremiumLoaded] = useState(false);
   const [autoReading, setAutoReading] = useState(false);
   const [autoDraft, setAutoDraft] = useState<AutoExifDraft | null>(null);
   const autoFileRef = useRef<HTMLInputElement | null>(null);
+  const autoPostFreeForAll = isAutoPostFreeForAll();
 
   const getTodayJST = () => {
   const now = new Date();
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return jst.toISOString().slice(0, 10); // "YYYY-MM-DD"
-};
+    const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    return jst.toISOString().slice(0, 10);
+  };
 
 
     // ===== 巡礼レイヤー（将来対応・汎用） =====
@@ -1553,7 +1555,7 @@ const cleanPilgrimageTitle = (name?: string | null) =>
     }
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
   (async () => {
     try {
       const { data: ses } = await supabase.auth.getSession();
@@ -1576,7 +1578,6 @@ const cleanPilgrimageTitle = (name?: string | null) =>
     }
   })();
 }, []);
-
 
 useEffect(() => {
   (async () => {
@@ -1813,7 +1814,7 @@ useEffect(() => {
   const files = Array.from(fileList ?? []);
   if (!files.length) return;
 
-  // ✅ ここで利用制限チェック（ファイル選択後なのでiOSでもOK）
+  // ✅ ログイン必須チェック（ファイル選択後なのでiOSでもOK）
   const { data: ses } = await supabase.auth.getSession();
   const uid = ses.session?.user.id;
   if (!uid) {
@@ -1821,26 +1822,28 @@ useEffect(() => {
     return;
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("is_premium, auto_post_count_today, auto_post_last_used")
-    .eq("id", uid)
-    .single();
+ if (!autoPostFreeForAll) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid)
+      .single();
 
-  if (error || !profile) {
-    alert("プロフィール取得に失敗しました");
-    return;
-  }
-
-  if (!profile.is_premium) {
-    const today = getTodayJST();
-    const usedToday = profile.auto_post_last_used === today;
-    const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
-
-    if (countToday >= 1) {
-      alert("本日の無料自動投稿は1回までです。プレミアムをご利用ください。");
-      router.push("/plans");
+   if (error || !profile) {
+      alert("プロフィール取得に失敗しました");
       return;
+    }
+
+   if (!profile.is_premium) {
+      const today = getTodayJST();
+      const usedToday = profile.auto_post_last_used === today;
+      const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
+
+         if (countToday >= AUTO_POST_FREE_DAILY_LIMIT) {
+        alert(`本日の無料自動投稿は${AUTO_POST_FREE_DAILY_LIMIT}回までです。プレミアムをご利用ください。`);
+        router.push("/plans");
+        return;
+      }
     }
   }
 
@@ -2145,7 +2148,7 @@ useEffect(() => {
         onChange={(e) => void onPickAutoPhoto(e.target.files)}
       />
 
-       {/* 🤖 自動投稿（プレミアム） */}
+       {/* 🤖 自動投稿 */}
       <button
       onClick={() => {
   if (autoReading) return;
@@ -2154,24 +2157,24 @@ useEffect(() => {
 }}
 
 
-        disabled={!premiumLoaded || autoReading}
+        disabled={(!autoPostFreeForAll && !premiumLoaded) || autoReading}
         style={{
           position: "fixed",
           right: 20,
           bottom: 146,
           zIndex: 10000,
-          background: isPremium ? "#7c3aed" : "#9ca3af",
+           background: autoPostFreeForAll || isPremium ? "#7c3aed" : "#9ca3af",
           color: "#fff",
           borderRadius: 999,
           padding: "10px 14px",
           boxShadow: "0 8px 24px rgba(0,0,0,.25)",
-          cursor: !premiumLoaded || autoReading ? "not-allowed" : "pointer",
+          cursor: (!autoPostFreeForAll && !premiumLoaded) || autoReading ? "not-allowed" : "pointer",
           border: "none",
           fontWeight: 700,
-          opacity: !premiumLoaded || autoReading ? 0.7 : 1,
+           opacity: (!autoPostFreeForAll && !premiumLoaded) || autoReading ? 0.7 : 1,
         }}
       >
-        {autoReading ? "読み取り中…" : "🤖自動投稿（プレミアム）"}
+        {autoReading ? "読み取り中…" : autoPostFreeForAll ? "🤖自動投稿（今だけ無料）" : "🤖自動投稿（プレミアム）"}
       </button>
 
 
@@ -2362,43 +2365,40 @@ useEffect(() => {
                 spotId: spotIdForSave,
               });
 
-              // ✅ 自動投稿の“無料1回”カウント（プレミアムは無視）
-// 自動投稿経由（autoDraftがある）かつ無料会員だけ、今日の回数を+1
-try {
-  const { data: ses2 } = await supabase.auth.getSession();
-  const uid2 = ses2.session?.user.id;
+   if (!autoPostFreeForAll) {
+                try {
+                  const { data: ses2 } = await supabase.auth.getSession();
+                  const uid2 = ses2.session?.user.id;
 
-  if (uid2 && autoDraft) {
-    const { data: p, error: pe } = await supabase
-      .from("profiles")
-      .select("is_premium, auto_post_count_today, auto_post_last_used")
-      .eq("id", uid2)
-      .single();
+                  if (uid2 && autoDraft) {
+                    const { data: p, error: pe } = await supabase
+                      .from("profiles")
+                      .select("is_premium, auto_post_count_today, auto_post_last_used")
+                      .eq("id", uid2)
+                      .single();
 
-    if (!pe && p && !p.is_premium) {
-      const now = new Date();
-      const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-      const today = jst.toISOString().slice(0, 10);
+                    if (!pe && p && !p.is_premium) {
+                      const today = getTodayJST();
+                      const usedToday = p.auto_post_last_used === today;
+                      const countToday = usedToday ? (p.auto_post_count_today ?? 0) : 0;
 
-      const usedToday = p.auto_post_last_used === today;
-      const countToday = usedToday ? (p.auto_post_count_today ?? 0) : 0;
-
-      if (usedToday) {
-        await supabase
-          .from("profiles")
-          .update({ auto_post_count_today: countToday + 1 })
-          .eq("id", uid2);
-      } else {
-        await supabase
-          .from("profiles")
-          .update({ auto_post_count_today: 1, auto_post_last_used: today })
-          .eq("id", uid2);
-      }
-    }
-  }
-} catch (e) {
-  console.warn("auto-post count update failed", e);
-}
+                      if (usedToday) {
+                        await supabase
+                          .from("profiles")
+                          .update({ auto_post_count_today: countToday + 1 })
+                          .eq("id", uid2);
+                      } else {
+                        await supabase
+                          .from("profiles")
+                          .update({ auto_post_count_today: 1, auto_post_last_used: today })
+                          .eq("id", uid2);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn("auto-post count update failed", e);
+                }
+              }
 
               // ローカル状態の更新
               setPlaces((prev) => [
