@@ -347,10 +347,10 @@ export default function PlansPage() {
                   <tr>
                     <td className="feature">自動投稿機能</td>
                     <td style={{ fontSize: 13, color: "rgba(226,232,240,0.8)", fontWeight: 800 }}>
-                      1日1回無料
+                      <span className="yes">無料</span>
                     </td>
                     <td>
-                      <span className="highlightText">EXIF自動投稿 無制限</span>
+                      <span className="highlightText">いまなら無料プランでも利用可能</span>
                     </td>
                   </tr>
 
@@ -391,7 +391,7 @@ export default function PlansPage() {
               )}
 
               <div className="notice">
-                ※ 無料は「自動投稿 1日1回」。2回目以降はプラン画面へ案内されます。<br />
+                ※ 自動投稿機能は無料プランでも利用できます。<br />
                 ※ 位置情報が無い写真でも、日時・機種などは自動で入ります（ピンは手動でOK）。
               </div>
 
