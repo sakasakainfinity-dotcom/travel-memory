@@ -349,17 +349,17 @@ export default function PlansPage() {
                   <tr>
                     <td className="feature">自動投稿機能</td>
                     <td style={{ fontSize: 13, color: "rgba(226,232,240,0.8)", fontWeight: 800 }}>
-                      {autoPostFreeForAll ? <span className="yes">無料（今だけ）</span> : `${AUTO_POST_FREE_DAILY_LIMIT}日1回無料`}
+                      {autoPostFreeForAll ? <span className="yes">無料</span> : `${AUTO_POST_FREE_DAILY_LIMIT}日1回無料`}
                     </td>
                     <td>
-                      {autoPostFreeForAll ? <span className="highlightText">無料プランでも利用可能</span> : <span className="highlightText">EXIF自動投稿 無制限</span>}
+                      {autoPostFreeForAll ? <span className="highlightText">無料</span> : <span className="highlightText">EXIF自動投稿 無制限</span>}
                     </td>
                   </tr>
 
                   <tr>
                     <td className="feature">マイマップシェア</td>
                     <td>
-                      <span className="no">今なら無料</span>
+                      <span className="no">無料</span>
                     </td>
                     <td>
                       <span className="yes">無料</span>
