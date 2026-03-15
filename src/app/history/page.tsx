@@ -30,12 +30,7 @@ function makePlaceKey(title: string | null, lat: number, lng: number) {
   return `${normTitle}|${r(lat)}|${r(lng)}`;
 }
 
-
-
-export default function HistoryPage() {
-  const router = useRouter();
-  const [items, setItems] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);function shortText(t?: string | null) {
+function shortText(t?: string | null) {
   if (!t) return "";
   return t.length > 70 ? `${t.slice(0, 70)}…` : t;
 }
@@ -151,13 +146,13 @@ export default function HistoryPage() {
     }
   }
 
-useEffect(() => {
+  useEffect(() => {
     (async () => {
       try {
         const { data: ses } = await supabase.auth.getSession();
         const userId = ses.session?.user?.id ?? null;
         setUid(userId);
-        
+
         const sp = await ensureMySpace();
         if (!sp?.id) {
           setItems([]);
@@ -177,12 +172,11 @@ useEffect(() => {
           return;
         }
 
-        // --- 重複まとめ（タイトル＋座標丸め） ---
         const seen = new Set<string>();
         const uniq: any[] = [];
         for (const p of ps) {
           const key = makePlaceKey(p.title, p.lat, p.lng);
-          if (seen.has(key)) continue; 
+          if (seen.has(key)) continue;
           seen.add(key);
           uniq.push(p);
         }
@@ -194,7 +188,7 @@ useEffect(() => {
             .from("photos")
             .select("place_id, file_url, created_at")
             .in("place_id", ids)
-            .order("created_at", { ascending: true }); 
+            .order("created_at", { ascending: true });
 
           for (const ph of (phs ?? []) as { place_id: string; file_url: string }[]) {
             if (!thumbBy[ph.place_id]) thumbBy[ph.place_id] = ph.file_url;
@@ -212,8 +206,7 @@ useEffect(() => {
           }))
         );
 
-        
- if (userId) {
+        if (userId) {
           const { data: pubs, error: pubErr } = await supabase
             .from("places")
             .select("id, title, memo, lat, lng, created_at")
@@ -382,7 +375,7 @@ useEffect(() => {
   if (loading) return <div style={{ padding: 16 }}>読み込み中…</div>;
 
   return (
-       <main style={{ padding: 16, position: "relative", minHeight: "100vh" }}>
+    <main style={{ padding: 16, position: "relative", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <h1 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>投稿履歴</h1>
         <button
@@ -451,7 +444,8 @@ useEffect(() => {
         </section>
       )}
 
-          <section style={{ marginBottom: 16 }}>
+    
+      <section style={{ marginBottom: 16 }}>
         <h2 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>あなたのスポットまとめ</h2>
         {collectionLoading ? (
           <div style={{ color: "#6b7280" }}>読み込み中…</div>
@@ -487,18 +481,15 @@ useEffect(() => {
 
       {items.length === 0 && <div style={{ color: "#6b7280" }}>まだ投稿がありません</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 12 }}>
-         
-      
         {items.map((it) => (
-            <article key={it.id} style={{ border: "1px solid #eee", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+          <article key={it.id} style={{ border: "1px solid #eee", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
             {it.thumbnail ? (
-               <img src={it.thumbnail} alt="" loading="lazy" style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+              <img src={it.thumbnail} alt="" loading="lazy" style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
             ) : (
               <div style={{ height: 160, background: "#f3f4f6", display: "grid", placeItems: "center", color: "#9ca3af" }}>No photo</div>
             )}
-
             <div style={{ padding: 10 }}>
-               <div style={{ fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={it.title || "無題"}>{it.title || "無題"}</div>
+              <div style={{ fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={it.title || "無題"}>{it.title || "無題"}</div>
               <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280", height: 40, overflow: "hidden" }}>{it.memo || "（メモなし）"}</div>
               <Link href={`/?focus=${it.id}&open=1&lat=${it.lat}&lng=${it.lng}`} aria-label="地図で見る" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontWeight: 800, textDecoration: "none", padding: "8px 12px", borderRadius: 999, border: "1px solid rgba(0,0,0,.08)", background: "rgba(255,255,255,0.85)", boxShadow: "0 6px 20px rgba(0,0,0,.08)", backdropFilter: "saturate(120%) blur(6px)" }}>
                 地図で見る →
@@ -508,8 +499,6 @@ useEffect(() => {
         ))}
       </div>
 
-
-      {/* 右下フローティング「マップに戻る」ボタン */}
       <button
         type="button"
         onClick={() => router.push("/")}
