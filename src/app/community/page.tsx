@@ -188,7 +188,7 @@ export default function CommunityPage() {
         {/* Top */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/")}
             style={{
               border: "1px solid rgba(148,163,184,0.25)",
               background: "rgba(2,6,23,0.35)",
