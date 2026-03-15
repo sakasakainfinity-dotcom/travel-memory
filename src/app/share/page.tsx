@@ -468,14 +468,20 @@ function MyMapShareCard() {
 }
 
 function SpotCollectionShareCard() {
-  const searchParams = useSearchParams();
-  const presetSpot = searchParams.get("spot");
+  const [presetSpot, setPresetSpot] = useState<string | null>(null);
   const router = useRouter();
   const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<{ id: string; title: string; share_slug: string; count: number }[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      setPresetSpot(sp.get("spot"));
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
