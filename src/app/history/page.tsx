@@ -454,7 +454,7 @@ export default function HistoryPage() {
                     <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{c.items.length}件</div>
                     <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                        <button type="button" onClick={() => router.push("/share")} style={{ border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>マイマップ共有に追加（まとめスポット）</button>
-                      <a href={`/spot/${c.share_slug}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#1d4ed8", alignSelf: "center", textDecoration: "none" }}>公開ページを見る</a><button type="button" onClick={() => router.push("/share")} style={{ border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>マイマップ共有に追加（まとめスポット）</button>
+                      <a href={`/spot/${c.share_slug}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#1d4ed8", alignSelf: "center", textDecoration: "none" }}>公開ページを見る</a>
                     </div>
                   </div>
                 </article>
