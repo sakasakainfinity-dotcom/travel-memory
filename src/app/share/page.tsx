@@ -81,33 +81,22 @@ export default function SharePage() {
       }}
     >
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
-        {/* ← 戻るボタン */}
-        <button
-          type="button"
-          onClick={() => router.back()}
-          style={{
-            marginBottom: 12,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid #475569",
-            background: "rgba(15,23,42,0.9)",
-            color: "#e2e8f0",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          ← マップに戻る
-        </button>
+        
 
         {/* ----------------------
             ① アプリ紹介シェア
         ---------------------- */}
-        <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
-          アプリをシェアしよう！
+        <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>
+          シェアページ
         </h1>
-        <p style={{ color: "#cbd5e1", fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
-          TripMemory を友だちやパートナーに紹介して、いっしょに旅マップを作ろう！
+         <p style={{ color: "#cbd5e1", fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
+          マイマップを共有しよう。
         </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+          <div style={{ background: "#1d4ed8", borderRadius: 10, padding: "8px 6px", textAlign: "center", fontSize: 12, fontWeight: 800 }}>① URL作成</div>
+          <div style={{ background: "#059669", borderRadius: 10, padding: "8px 6px", textAlign: "center", fontSize: 12, fontWeight: 800 }}>② まとめ選択</div>
+          <div style={{ background: "#d97706", borderRadius: 10, padding: "8px 6px", textAlign: "center", fontSize: 12, fontWeight: 800 }}>③ SNS共有</div>
+        </div>
 
         {/* 共有URL + コピー */}
         <div
@@ -148,7 +137,7 @@ export default function SharePage() {
               fontSize: 13,
             }}
           >
-            URLと紹介文をコピーする
+            URLをコピー
           </button>
         </div>
 
@@ -161,15 +150,13 @@ export default function SharePage() {
             marginBottom: 14,
           }}
         >
-          <ShareBtn label="X" emoji="✖️" sub="投稿する" onClick={() => handleShare("x")} />
-          <ShareBtn label="LINE" emoji="💬" sub="友だちに送る" onClick={() => handleShare("line")} />
-          <ShareBtn label="Instagram" emoji="📸" sub="貼り付けでシェア" onClick={() => handleShare("instagram")} />
-          <ShareBtn label="Threads" emoji="🧵" sub="貼り付けでシェア" onClick={() => handleShare("threads")} />
+          <ShareBtn label="X" emoji="✖️" color="#0f172a" onClick={() => handleShare("x")} />
+          <ShareBtn label="LINE" emoji="💬" color="#065f46" onClick={() => handleShare("line")} />
+          <ShareBtn label="Instagram" emoji="📸" color="#9d174d" onClick={() => handleShare("instagram")} />
+          <ShareBtn label="Threads" emoji="🧵" color="#7c2d12" onClick={() => handleShare("threads")} />
         </div>
-
         <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.5, marginBottom: 22 }}>
-          Instagram / Threads は公式の共有リンクがないため、
-          「コピー → アプリに貼り付け」方式になります。
+          Instagram / Threads は「コピー→貼り付け」で共有します。
         </p>
 
         {/* 区切り */}
@@ -188,6 +175,27 @@ export default function SharePage() {
     
         
       </div>
+      <button
+        type="button"
+        onClick={() => router.push("/")}
+        style={{
+          position: "fixed",
+          right: 16,
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          zIndex: 80,
+          padding: "12px 16px",
+          borderRadius: 999,
+          border: "none",
+          background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 900,
+          cursor: "pointer",
+          boxShadow: "0 10px 24px rgba(15,23,42,0.35)",
+        }}
+      >
+        ← マップに戻る
+      </button>
     </div>
   );
 }
@@ -234,7 +242,6 @@ function MyMapShareCard() {
         setSpaces(list);
         if (list.length > 0) setSelectedSpaceId(list[0].id);
 
-      
         const { data: cols, error: cErr } = await supabase
           .from("spot_collections")
           .select("id, title, share_slug")
@@ -558,33 +565,30 @@ function MyMapShareCard() {
 function ShareBtn({
   label,
   emoji,
-  sub,
+  color,
   onClick,
 }: {
   label: string;
   emoji: string;
-  sub: string;
+  color: string;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       style={{
-        padding: "10px 12px",
-        borderRadius: 12,
-        background: "#1e293b",
-        border: "1px solid #475569",
-        color: "#f1f5f9",
+         padding: "12px",
+        borderRadius: 14,
+        background: color,
+        border: "1px solid rgba(255,255,255,0.2)",
+        color: "#f8fafc",
         cursor: "pointer",
-        textAlign: "left",
+        textAlign: "center",
+        boxShadow: "0 6px 16px rgba(2,6,23,0.25)",
       }}
     >
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>
-        {emoji} {label}
-      </div>
-      <div style={{ fontSize: 11, color: "#cbd5e1" }}>{sub}</div>
+      <div style={{ fontSize: 22, marginBottom: 4 }}>{emoji}</div>
+      <div style={{ fontSize: 12, fontWeight: 800 }}>{label}</div>
     </button>
   );
 }
-
-
