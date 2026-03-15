@@ -184,23 +184,7 @@ export default function CommunityPage() {
         padding: 16,
       }}
     >
-      <div style={{ maxWidth: 920, margin: "0 auto" }}>
-        {/* Top */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <button
-            onClick={() => router.push("/")}
-            style={{
-              border: "1px solid rgba(148,163,184,0.25)",
-              background: "rgba(2,6,23,0.35)",
-              color: "#e2e8f0",
-              padding: "8px 10px",
-              borderRadius: 10,
-              cursor: "pointer",
-              fontWeight: 800,
-            }}
-          >
-            ← 戻る
-          </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>Community</div>
         </div>
 
@@ -493,6 +477,26 @@ export default function CommunityPage() {
           </div>
         )}
       </div>
+     <button
+        onClick={() => router.push("/")}
+        style={{
+          position: "fixed",
+          right: 16,
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          zIndex: 70,
+          border: "none",
+          background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+          color: "#fff",
+          padding: "12px 16px",
+          borderRadius: 999,
+          cursor: "pointer",
+          fontWeight: 900,
+          boxShadow: "0 10px 24px rgba(15,23,42,0.35)",
+        }}
+      >
+        ← マップに戻る
+      </button>
+          
     </div>
   );
 }
