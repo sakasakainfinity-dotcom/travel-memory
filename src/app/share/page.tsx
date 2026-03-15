@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -184,6 +185,13 @@ export default function SharePage() {
             ② マイマップ共有（ログイン時だけ表示）
         ---------------------- */}
         <MyMapShareCard />
+    
+        <div style={{ height: 12 }} />
+
+        {/* ----------------------
+            ③ スポットまとめ共有
+        ---------------------- */}
+        <SpotCollectionShareCard />
       </div>
     </div>
   );
@@ -458,6 +466,143 @@ function MyMapShareCard() {
     </div>
   );
 }
+
+function SpotCollectionShareCard() {
+  const searchParams = useSearchParams();
+  const presetSpot = searchParams.get("spot");
+  const router = useRouter();
+  const [uid, setUid] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [collections, setCollections] = useState<{ id: string; title: string; share_slug: string; count: number }[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const { data: ses } = await supabase.auth.getSession();
+        const userId = ses.session?.user?.id ?? null;
+        setUid(userId);
+        if (!userId) return;
+
+        const { data: cols, error: cErr } = await supabase
+          .from("spot_collections")
+          .select("id, title, share_slug")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+        if (cErr) throw cErr;
+
+        const rows = (cols ?? []) as { id: string; title: string; share_slug: string }[];
+        const ids = rows.map((r) => r.id);
+        const counts: Record<string, number> = {};
+        if (ids.length > 0) {
+          const { data: itemRows, error: iErr } = await supabase
+            .from("spot_collection_items")
+            .select("collection_id")
+            .in("collection_id", ids);
+          if (iErr) throw iErr;
+          for (const it of (itemRows ?? []) as { collection_id: string }[]) {
+            counts[it.collection_id] = (counts[it.collection_id] ?? 0) + 1;
+          }
+        }
+
+        const list = rows.map((r) => ({ ...r, count: counts[r.id] ?? 0 }));
+        setCollections(list);
+
+        const defaultId = presetSpot && list.some((x) => x.id === presetSpot) ? presetSpot : list[0]?.id ?? "";
+        setSelectedId(defaultId);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [presetSpot]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setShareUrl(null);
+      return;
+    }
+    const target = collections.find((c) => c.id === selectedId);
+    if (!target || typeof window === "undefined") return;
+    setShareUrl(`${window.location.origin}/spot/${target.share_slug}`);
+  }, [selectedId, collections]);
+
+  if (!uid) {
+    return (
+      <div style={{ background: "#0f172a", padding: "14px", borderRadius: 12, border: "1px solid #334155" }}>
+        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>スポットまとめをシェア</div>
+        <p style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+          ログインすると「スポットまとめ」のURLを作って共有できます。
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          style={{ marginTop: 10, width: "100%", padding: "10px 12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #3b82f6, #2563eb)", color: "#fff", fontWeight: 900, cursor: "pointer" }}
+        >
+          ログインしてシェアする
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#0f172a", padding: "14px", borderRadius: 12, border: "1px solid #334155" }}>
+      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>スポットまとめをシェア</div>
+      <p style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.6, marginTop: 0 }}>
+        このスポットまとめをシェア：URLを知っている人はログイン不要で閲覧できます。
+      </p>
+
+      {loading ? (
+        <div style={{ marginTop: 10, color: "#cbd5e1" }}>読み込み中…</div>
+      ) : collections.length === 0 ? (
+        <div style={{ marginTop: 10, color: "#cbd5e1", fontSize: 13 }}>
+          共有できるスポットまとめがありません。まずは投稿履歴から「＋ まとめをつくる」を使って作成してください。
+        </div>
+      ) : (
+        <>
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #475569", background: "#020617", color: "#e2e8f0", fontSize: 13 }}
+          >
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}（{c.count}件）
+              </option>
+            ))}
+          </select>
+
+          {shareUrl && (
+            <div style={{ marginTop: 12, background: "#020617", border: "1px solid #334155", padding: "10px", borderRadius: 10, wordBreak: "break-all" }}>
+              <div style={{ fontSize: 11, marginBottom: 6, color: "#94a3b8" }}>スポットまとめURL</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0" }}>{shareUrl}</div>
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => navigator.clipboard.writeText(shareUrl)}
+                  style={{ padding: "8px 12px", borderRadius: 8, background: "#1e293b", border: "1px solid #475569", color: "#e2e8f0", cursor: "pointer", width: "100%", fontSize: 13 }}
+                >
+                  URLをコピー
+                </button>
+                <a
+                  href={shareUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ padding: "8px 12px", borderRadius: 8, background: "#1e293b", border: "1px solid #475569", color: "#e2e8f0", textAlign: "center", textDecoration: "none", width: "100%", fontSize: 13, fontWeight: 800 }}
+                >
+                  公開ページを開く
+                </a>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 
 function ShareBtn({
   label,
