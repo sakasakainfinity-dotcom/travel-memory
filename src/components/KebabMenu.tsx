@@ -50,7 +50,6 @@ export default function KebabMenu() {
         >
           <MenuItem href="/history" onClick={() => setOpen(false)}>投稿履歴</MenuItem>
           <MenuItem href="/plans" onClick={() => setOpen(false)}>有料プラン申し込み</MenuItem>
-          <MenuItem href="/ai-trip" onClick={() => setOpen(false)}>AI旅行計画</MenuItem>
           <MenuItem href="/pilgrimage" onClick={() => setOpen(false)}>巡礼マップ一覧</MenuItem>
           <MenuItem href="/pair" onClick={() => setOpen(false)}>ペア連携</MenuItem>
           <MenuItem href="/share" onClick={() => setOpen(false)}>シェア</MenuItem>
