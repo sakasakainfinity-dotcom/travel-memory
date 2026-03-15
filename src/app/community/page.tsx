@@ -170,7 +170,7 @@ export default function CommunityPage() {
     }
   }
 
-  const headerSub = useMemo(() => {
+   const headerSub = useMemo(() => {
     if (!dq.trim()) return "最新の公開投稿";
     return `「${dq.trim()}」で検索中`;
   }, [dq]);
@@ -184,6 +184,8 @@ export default function CommunityPage() {
         padding: 16,
       }}
     >
+      <div style={{ maxWidth: 920, margin: "0 auto" }}>
+        {/* Top */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <div style={{ fontSize: 12, color: "rgba(226,232,240,0.55)" }}>Community</div>
         </div>
