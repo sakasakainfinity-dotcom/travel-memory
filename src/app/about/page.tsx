@@ -238,7 +238,7 @@ export default function AboutPage() {
         {sent ? (
           <div style={{ color: "#4ade80", fontSize: 14 }}>
             送信ありがとう！  
-            しっかり目を通して、改善に活かすけぇね！
+            しっかり目を通して、改善に活かします！
           </div>
         ) : (
           <>
