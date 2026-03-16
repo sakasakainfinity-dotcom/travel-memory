@@ -47,10 +47,10 @@ export default function PlaceDetailPage() {
     })();
   }, [placeId]);
 
-  if (!placeId) return <div>id が無いけぇ読めんよ。</div>;
+  if (!placeId) return <div>id が無いため読めません。</div>;
   if (loading) return <div>Loading…</div>;
   if (err) return <div style={{ color: "red" }}>{err}</div>;
-  if (!place) return <div>この投稿は消されとるよ。</div>;
+  if (!place) return <div>この投稿は消されています。</div>;
 
   return (
     <main style={{ padding: 16 }}>
