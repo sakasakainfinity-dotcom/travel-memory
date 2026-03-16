@@ -91,7 +91,6 @@ export default function PublicPage() {
   // 写真モーダル
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
-  const [activePostId, setActivePostId] = useState<string | null>(null);
 
   // データ
   const [places, setPlaces] = useState<PublicMarkerPlace[]>([]);
@@ -99,7 +98,6 @@ export default function PublicPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // UI
-  const [dlMsg, setDlMsg] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [initialView, setInitialView] = useState<View | undefined>(undefined);
   const [reactBusyId, setReactBusyId] = useState<string | null>(null);
@@ -142,58 +140,6 @@ const [premiumLoaded, setPremiumLoaded] = useState(false);
   const getViewRef = useRef<() => View>(() => ({ lat: 35.68, lng: 139.76, zoom: 4 }));
   const setViewRef = useRef<(v: View) => void>(() => {});
 
-  // ✅ 決済後DL（paid=1で戻ってきたとき）
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const paid = sp.get("paid");
-    const sessionId = sp.get("session_id");
-    const placeId = sp.get("placeId");
-
-    if (paid !== "1" || !sessionId || !placeId) return;
-
-    (async () => {
-      try {
-        setDlMsg("決済確認中…");
-
-        const res = await fetch("/api/stripe/finalize-download", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, placeId }),
-        });
-
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`finalize-download ${res.status}: ${t || "empty body"}`);
-        }
-
-        const j = await res.json();
-        const downloadUrl = j?.downloadUrl as string | undefined;
-        if (!downloadUrl) throw new Error("downloadUrl missing");
-
-        setDlMsg("ダウンロード開始…");
-
-        const r = await fetch(downloadUrl);
-        if (!r.ok) throw new Error(`download fetch failed: ${r.status}`);
-        const blob = await r.blob();
-
-        const a = document.createElement("a");
-        const objUrl = URL.createObjectURL(blob);
-        a.href = objUrl;
-        a.download = `travel-memory-${placeId}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(objUrl);
-
-        setDlMsg("ダウンロード完了 📸");
-        window.setTimeout(() => setDlMsg(null), 1200);
-      } catch (e) {
-        console.error(e);
-        const msg = e instanceof Error ? e.message : String(e);
-        setDlMsg(`エラー: ${msg}`);
-      }
-    })();
-  }, []);
 
   // ✅ Premium状態の読み込み
 useEffect(() => {
@@ -522,25 +468,7 @@ if (!already) {
 
   return (
     <>
-      {/* DLメッセージ */}
-      {dlMsg && (
-        <div
-          style={{
-            position: "fixed",
-            top: 12,
-            left: 12,
-            zIndex: 10002,
-            padding: "10px 12px",
-            background: "rgba(0,0,0,0.7)",
-            color: "#fff",
-            borderRadius: 10,
-            fontSize: 12,
-          }}
-        >
-          {dlMsg}
-        </div>
-      )}
-
+     
       {/* 右上：トグル + ☰ */}
       <div
         style={{
@@ -841,7 +769,6 @@ if (!already) {
                       loading="lazy"
                       onClick={() => {
                         setActivePhotoUrl(u);
-                        setActivePostId(post.id);
                         setPhotoModalOpen(true);
                       }}
                       style={{
@@ -923,7 +850,6 @@ if (!already) {
           onClick={() => {
             setPhotoModalOpen(false);
             setActivePhotoUrl(null);
-            setActivePostId(null);
           }}
           style={{
             position: "fixed",
@@ -962,7 +888,6 @@ if (!already) {
                 onClick={() => {
                   setPhotoModalOpen(false);
                   setActivePhotoUrl(null);
-                  setActivePostId(null);
                 }}
                 style={{
                   position: "absolute",
@@ -978,23 +903,6 @@ if (!already) {
                 }}
               >
                 ×
-              </button>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button
-                onClick={async () => {
-                  const r = await fetch("/api/stripe/checkout", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ postId: activePostId }),
-                  });
-                  const j = await r.json();
-                  if (!r.ok) return alert(j?.error ?? "決済の開始に失敗した…");
-                  window.location.href = j.url;
-                }}
-              >
-                高画質で保存（システム利用料 ¥100）
               </button>
             </div>
           </div>
