@@ -128,14 +128,8 @@ export default function PhotoGrid({ photos }: Props) {
                   fontSize: 12,
                 }}
               >
-                <strong>この形式はプレビュー非対応</strong>
-                <a
-                  href={s.original}
-                  download
-                  style={{ color: "#2563eb", textDecoration: "underline" }}
-                >
-                  原本をダウンロード
-                </a>
+                <strong>この形式はプレビュー非対応です</strong>
+                <span>このファイル形式のダウンロード機能は提供を終了しました。</span>
               </div>
             ) : (
               <div
