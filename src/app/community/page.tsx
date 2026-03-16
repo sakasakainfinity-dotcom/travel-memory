@@ -114,7 +114,7 @@ export default function CommunityPage() {
   }, [dq]);
 
   async function toggleLike(postId: string) {
-    if (!uid) return alert("いいねはログインが必要じゃよ。");
+    if (!uid) return alert("いいねはログインが必要です。");
 
     const key = `${postId}:like`;
     if (busyRef.current.has(key)) return;
@@ -458,23 +458,7 @@ export default function CommunityPage() {
                 </button>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button
-                  onClick={() => alert("高画質保存（システム利用料¥100）はPublic投稿のみ対応です")}
-                  style={{
-                    width: "fit-content",
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
-                    color: "#fff",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  高画質で保存（システム利用料 ¥100）
-                </button>
-              </div>
+              
             </div>
           </div>
         )}
