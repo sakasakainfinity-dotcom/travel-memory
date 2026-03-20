@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-function must(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
-const supabaseAdmin = createClient(
-  must("NEXT_PUBLIC_SUPABASE_URL"),
-  must("SUPABASE_SERVICE_ROLE_KEY")
-);
+import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
+import { getAppUrlEnv } from "@/lib/server/env";
+import { getStripeServer } from "@/lib/server/stripe";
 
 export async function POST(req: Request) {
   try {
@@ -23,6 +12,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "uid required" }, { status: 400 });
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
+    const stripe = getStripeServer();
     const { data: prof, error } = await supabaseAdmin
       .from("profiles")
       .select("stripe_customer_id")
@@ -45,10 +36,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const origin =
-      req.headers.get("origin") ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://your-domain.com";
+    const { appUrl, baseUrl, siteUrl } = getAppUrlEnv();
+    const origin = req.headers.get("origin") || appUrl || baseUrl || siteUrl || "https://your-domain.com";
 
     const session = await stripe.billingPortal.sessions.create({
       customer,

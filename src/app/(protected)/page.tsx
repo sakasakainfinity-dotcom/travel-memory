@@ -8,7 +8,7 @@ import SearchBox from "@/components/SearchBox";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { useRouter } from "next/navigation";
-import { compress } from "@/lib/image";
+import { uploadPlacePhotos, replacePlacePhotos, deletePlaceWithPhotos } from "@/lib/placePhotoManager";
 import KebabMenu from "@/components/KebabMenu";
 import { useSearchParams } from "next/navigation";
 import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
@@ -25,12 +25,6 @@ const LS_ENABLED_LAYER_SLUGS = "tm_enabled_layer_slugs";
 
 type View = { lat: number; lng: number; zoom: number };
 
-type PhotoRow = {
-  id: string;
-  place_id: string;
-  file_url: string;
-  storage_path: string;
-};
 
 type AutoExifDraft = {
   files: File[];
@@ -346,7 +340,7 @@ function PostModal({
                   fontWeight: 800,
                 }}
               >
-                写真を追加
+                写真を選択
               </span>
               <input
                 type="file"
@@ -783,9 +777,10 @@ function EditModal({
   open: boolean;
   place: { id: string; title: string; memo: string };
   onClose: () => void;
-  onSaved: (d: { title?: string; memo?: string; addPhotos?: File[] }) => void;
-  onDeleted: () => void;
+  onSaved: (d: { title?: string; memo?: string; addPhotos?: File[] }) => Promise<void>;
+  onDeleted: () => Promise<void>;
 }) {
+  const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState(place.title ?? "");
   const [hitokoto, setHitokoto] = useState(""); // ひとこと
   const [timeOfDay, setTimeOfDay] = useState<
@@ -1233,7 +1228,7 @@ function EditModal({
         {/* 写真追加（編集なので「追加」だけ） */}
         <div style={{ marginTop: 14 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
-            写真を追加（任意）
+            写真を上書き（任意）
           </label>
           <div style={{ marginTop: 6 }}>
             <label style={{ display: "inline-block" }}>
@@ -1248,7 +1243,7 @@ function EditModal({
                   fontWeight: 800,
                 }}
               >
-                写真を追加
+                写真を選択
               </span>
               <input
                 type="file"
@@ -1290,7 +1285,17 @@ function EditModal({
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button
-            onClick={onDeleted}
+            onClick={async () => {
+              try {
+                setSaving(true);
+                await onDeleted();
+              } catch (error) {
+                console.error(error);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
             style={{
               padding: "8px 12px",
               border: "1px solid #ef4444",
@@ -1298,40 +1303,52 @@ function EditModal({
               background: "#fff",
               color: "#ef4444",
               fontWeight: 800,
-              cursor: "pointer",
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.6 : 1,
             }}
           >
-            削除
+            {saving ? "処理中…" : "削除"}
           </button>
 
           <button
             onClick={onClose}
+            disabled={saving}
             style={{
               padding: "8px 12px",
               border: "1px solid #ddd",
               borderRadius: 8,
               background: "#fff",
-              cursor: "pointer",
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.6 : 1,
             }}
           >
             閉じる
           </button>
 
           <button
-            onClick={() => onSaved({ title: title.trim(), memo: buildMemo(), addPhotos: addFiles })}
-            disabled={title.trim().length === 0}
+            onClick={async () => {
+              try {
+                setSaving(true);
+                await onSaved({ title: title.trim(), memo: buildMemo(), addPhotos: addFiles });
+              } catch (error) {
+                console.error(error);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving || title.trim().length === 0}
             style={{
               padding: "10px 14px",
               borderRadius: 10,
               background: "#000",
               color: "#fff",
               fontWeight: 800,
-              opacity: title.trim().length === 0 ? 0.6 : 1,
-              cursor: title.trim().length === 0 ? "not-allowed" : "pointer",
+              opacity: saving || title.trim().length === 0 ? 0.6 : 1,
+              cursor: saving || title.trim().length === 0 ? "not-allowed" : "pointer",
             }}
             title={title.trim().length === 0 ? "タイトルは必須です" : ""}
           >
-            保存
+            {saving ? "保存中…" : "保存"}
           </button>
         </div>
       </div>
@@ -1437,35 +1454,12 @@ async function insertPlace({
     if (eProg) throw new Error(`[PILGRIMAGE] ${eProg.message}`);
   }
   
-   // 2) 写真（JPEG化→保存）
-  const urls: string[] = [];
-
-  for (const f of files ?? []) {
-    const jpegBlob = await compress(f);
-
-    const path = `${placeRow.id}/${crypto.randomUUID()}.jpg`;
-
-    const { error: eUp } = await supabase.storage
-      .from("photos")
-      .upload(path, jpegBlob, {
-        contentType: "image/jpeg",
-        upsert: false,
-      });
-    if (eUp) throw new Error(`[UPLOAD] ${eUp.message}`);
-
-    const { data: pub } = supabase.storage.from("photos").getPublicUrl(path);
-    const publicUrl = pub.publicUrl;
-
-    urls.push(publicUrl);
-
-    const { error: ePhoto } = await supabase.from("photos").insert({
-      space_id: sp.id,
-      place_id: placeRow.id,
-      file_url: publicUrl,
-      storage_path: path,
-    });
-    if (ePhoto) throw new Error(`[PHOTOS] ${ePhoto.message}`);
-  }
+   // 2) 写真（圧縮して保存）
+  const urls = await uploadPlacePhotos({
+    placeId: placeRow.id,
+    spaceId: sp.id,
+    files: files ?? [],
+  });
 
 
   // ✅ ここが超重要：Page側が created.id を使うから、オブジェクトで返す
@@ -2445,22 +2439,71 @@ useEffect(() => {
           open={editOpen}
           place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
           onClose={() => setEditOpen(false)}
-          onSaved={({ title, memo, addPhotos }) => {
-            setPlaces((prev) =>
-              prev.map((p) =>
-                p.id === selected.id
-                  ? {
-                      ...p,
-                      name: title ?? p.name,
-                      memo: memo ?? p.memo,
-                    }
-                  : p
-              )
-            );
+          onSaved={async ({ title, memo, addPhotos }) => {
+            try {
+              const { data: placeRow, error: placeFetchError } = await supabase
+                .from("places")
+                .select("id, space_id")
+                .eq("id", selected.id)
+                .single();
+
+              if (placeFetchError) throw placeFetchError;
+
+              const { error: updateError } = await supabase
+                .from("places")
+                .update({
+                  title: title ?? selected.name ?? null,
+                  memo: memo ?? selected.memo ?? null,
+                })
+                .eq("id", selected.id);
+
+              if (updateError) throw updateError;
+
+              let newPhotos = selected.photos ?? [];
+
+              if ((addPhotos?.length ?? 0) > 0) {
+                newPhotos = await replacePlacePhotos({
+                  placeId: selected.id,
+                  spaceId: placeRow.space_id,
+                  files: addPhotos ?? [],
+                });
+              }
+
+              setPlaces((prev) =>
+                prev.map((p) =>
+                  p.id === selected.id
+                    ? {
+                        ...p,
+                        name: title ?? p.name,
+                        memo: memo ?? p.memo,
+                        photos: newPhotos,
+                      }
+                    : p
+                )
+              );
+
+              setEditOpen(false);
+            } catch (e: any) {
+              console.error(e);
+              alert(`更新に失敗しました: ${e?.message ?? e}`);
+              throw e;
+            }
           }}
-          onDeleted={() => {
-            setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
-            setSelectedId(null);
+          onDeleted={async () => {
+            const ok = window.confirm(`この投稿を削除しますか？
+画像もストレージから削除されます。`);
+            if (!ok) return;
+
+            try {
+              await deletePlaceWithPhotos(selected.id);
+              setPlaces((prev) => prev.filter((p) => p.id !== selected.id));
+              setSelectedId(null);
+              setEditOpen(false);
+            } catch (e: any) {
+              console.error(e);
+              alert(`削除に失敗しました: ${e?.message ?? e}`);
+              throw e;
+            }
           }}
         />
       )}
