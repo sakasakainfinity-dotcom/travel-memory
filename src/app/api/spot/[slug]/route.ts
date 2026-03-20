@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
 
 export const runtime = "nodejs";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
   try {
     const slug = (params.slug ?? "").trim();
     if (!slug) return NextResponse.json({ error: "missing slug" }, { status: 400 });
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: c, error: cErr } = await supabaseAdmin
       .from("spot_collections")
       .select("id, title, description, share_slug")
@@ -41,7 +37,11 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
     if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
 
     const { data: photos, error: phErr } = placeIds.length
-      ? await supabaseAdmin.from("photos").select("place_id, file_url, created_at").in("place_id", placeIds).order("created_at", { ascending: true })
+      ? await supabaseAdmin
+          .from("photos")
+          .select("place_id, file_url, created_at")
+          .in("place_id", placeIds)
+          .order("created_at", { ascending: true })
       : { data: [], error: null as any };
 
     if (phErr) return NextResponse.json({ error: phErr.message }, { status: 500 });

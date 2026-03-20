@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
 
 export const runtime = "nodejs";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 function token64() {
   return crypto.randomBytes(32).toString("hex"); // 64文字
@@ -18,6 +13,7 @@ export async function POST(req: Request) {
     const { space_id } = await req.json();
     if (!space_id) return NextResponse.json({ error: "space_id required" }, { status: 400 });
 
+    const supabaseAdmin = getSupabaseAdmin();
     const share_token = token64();
 
     const { error } = await supabaseAdmin.from("space_shares").upsert(
@@ -25,7 +21,7 @@ export async function POST(req: Request) {
         space_id,
         share_token,
         enabled: true,
-        include_private: false, // 今はpublicだけ
+        include_private: false,
       },
       { onConflict: "space_id" }
     );

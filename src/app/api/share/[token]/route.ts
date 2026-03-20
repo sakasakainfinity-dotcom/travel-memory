@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
 
 export const runtime = "nodejs";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(_req: Request, { params }: { params: { token: string } }) {
   try {
     const token = (params.token ?? "").trim();
     if (!token) return NextResponse.json({ error: "missing token" }, { status: 400 });
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: share, error: sErr } = await supabaseAdmin
       .from("space_shares")
       .select("space_id, enabled, include_private")
@@ -22,7 +18,6 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     if (sErr || !share) return NextResponse.json({ error: "invalid token" }, { status: 404 });
     if (!share.enabled) return NextResponse.json({ error: "share disabled" }, { status: 403 });
 
-    // 今は public のみ
     const vis = share.include_private ? ["public", "private", "pair"] : ["public"];
 
     const { data: ps, error: pErr } = await supabaseAdmin
@@ -37,8 +32,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
     const placeIds = (ps ?? []).map((p: any) => p.id);
 
-    // photos を place_id でまとめる
-    let photosBy: Record<string, string[]> = {};
+    const photosBy: Record<string, string[]> = {};
     if (placeIds.length > 0) {
       const { data: phs, error: ePh } = await supabaseAdmin
         .from("photos")
@@ -56,8 +50,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
     const places = (ps ?? []).map((p: any) => ({
       id: p.id,
-      name: p.title, 
-      title: p.title ?? null, // MapViewは name を使うことが多いので合わせる
+      name: p.title,
+      title: p.title ?? null,
       memo: p.memo ?? null,
       lat: p.lat,
       lng: p.lng,

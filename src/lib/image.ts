@@ -1,44 +1,81 @@
-// src/lib/image.ts
-import { createClient } from "@supabase/supabase-js";
-import { decideContentType } from "./mime";
+import { convertToUploadableImage } from "./convertToUploadableImage";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export type CompressOptions = {
+  maxSide?: number;
+  quality?: number;
+};
 
-export async function uploadOriginal(raw: File) {
-  const contentType = await decideContentType(raw);
-  const safeName = raw.name || "upload";
-  const path = `photos/${crypto.randomUUID()}-${safeName}`;
-  const { data, error } = await supabase.storage.from("memories").upload(path, raw, {
-    contentType, upsert: false,
-  });
-  if (error) throw error;
-  return { path, contentType, data };
-}
+const DEFAULT_MAX_SIDE = 1600;
+const DEFAULT_QUALITY = 0.8;
 
-export async function uploadThumbnail(thumb: File, originalPath: string) {
-  const dot = originalPath.lastIndexOf(".");
-  const base = dot > -1 ? originalPath.slice(0, dot) : originalPath;
-  const thumbPath = `${base}-thumb.jpg`;
-  const { data, error } = await supabase.storage.from("memories").upload(thumbPath, thumb, {
-    contentType: "image/jpeg", upsert: false,
-  });
-  if (error) throw error;
-  return { path: thumbPath, data };
-}
+export async function compressImage(file: File, opts: CompressOptions = {}): Promise<Blob> {
+  const { maxSide = DEFAULT_MAX_SIDE, quality = DEFAULT_QUALITY } = opts;
+  const normalized = await convertToUploadableImage(file);
 
-export async function uploadWithOptionalThumb(raw: File, thumb: File | null) {
-  const orig = await uploadOriginal(raw);
-  let th: { path: string } | null = null;
-  if (thumb) {
-    try { const t = await uploadThumbnail(thumb, orig.path); th = { path: t.path }; } catch { th = null; }
+  let bitmap: ImageBitmap | null = null;
+  let objectUrl: string | null = null;
+
+  try {
+    try {
+      bitmap = await createImageBitmap(normalized);
+    } catch {
+      objectUrl = URL.createObjectURL(normalized);
+      const img = await loadImage(objectUrl);
+      bitmap = await createImageBitmap(img);
+    }
+
+    const [width, height] = fitWithin(bitmap.width, bitmap.height, maxSide);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas context unavailable");
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    try {
+      return await canvasToBlob(canvas, "image/webp", quality);
+    } catch {
+      return await canvasToBlob(canvas, "image/jpeg", quality);
+    }
+  } finally {
+    bitmap?.close();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
-  return { original: orig, thumbnail: th };
 }
 
-/* 互換ダミー（古い import { compress } を殺さないため） */
-export type CompressOptions = { maxSide?: number; quality?: number };
-export async function compress(file: File, _opts?: CompressOptions) { return file; }
+export async function compress(file: File, opts?: CompressOptions) {
+  return compressImage(file, opts);
+}
 
+function fitWithin(width: number, height: number, maxSide: number): [number, number] {
+  if (!width || !height) return [maxSide, maxSide];
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
+}
 
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error(`toBlob failed for ${type}`));
+      },
+      type,
+      quality
+    );
+  });
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("image load failed"));
+    image.src = src;
+  });
+}
