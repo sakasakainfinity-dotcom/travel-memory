@@ -1,5 +1,6 @@
 // src/app/api/place-search/route.ts
 import { NextResponse } from "next/server";
+import { getYahooAppId } from "@/lib/server/env";
 
 type SearchResult = {
   name: string;
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: [] });
   }
 
-  const appid = process.env.NEXT_PUBLIC_YAHOO_APPID;
+  const appid = getYahooAppId();
   if (!appid) {
     console.error("YAHOO_APP_ID が env に設定されてないよ");
     return NextResponse.json(
@@ -82,7 +83,6 @@ export async function GET(req: Request) {
     console.error("geocoder error", e);
   }
 
-  // geocoder がダメでも、パラメータで中心が来てたら使う
   if (baseLat == null && paramLat && paramLon) {
     baseLat = Number(paramLat);
     baseLon = Number(paramLon);
@@ -92,7 +92,6 @@ export async function GET(req: Request) {
     }
   }
 
-  // ---------- Step2: ローカルサーチ ----------
   try {
     const lsParams: Record<string, string> = {
       appid,
@@ -146,7 +145,6 @@ export async function GET(req: Request) {
     console.error("localSearch error", e);
   }
 
-  // ---------- Step3: 場所情報API ----------
   try {
     if (baseLat != null && baseLon != null) {
       const placeUrl =
@@ -181,10 +179,8 @@ export async function GET(req: Request) {
     console.error("placeinfo error", e);
   }
 
-  // ---------- 重複除去 ----------
   const seen = new Set<string>();
   const uniq = items.filter((it) => {
-    // 座標なければ捨てる
     if (
       typeof it.lat !== "number" ||
       typeof it.lon !== "number" ||

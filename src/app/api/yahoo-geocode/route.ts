@@ -1,5 +1,6 @@
 // src/app/api/yahoo-geocode/route.ts
 import { NextResponse } from "next/server";
+import { getYahooAppId } from "@/lib/server/env";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "q is required" }, { status: 400 });
   }
 
-  const appid = process.env.NEXT_PUBLIC_YAHOO_APPID;
+  const appid = getYahooAppId();
   if (!appid) {
     return NextResponse.json({ error: "NO_APPID" }, { status: 500 });
   }
@@ -21,12 +22,10 @@ export async function GET(req: Request) {
   const res = await fetch(url);
   const json = await res.json();
 
-  // 結果0件の時
   if (!json.Feature || json.Feature.length === 0) {
     return NextResponse.json({ results: [] });
   }
 
-  // 先頭だけ返す
   const f = json.Feature[0];
   const [lon, lat] = f.Geometry.Coordinates.split(",").map(Number);
 

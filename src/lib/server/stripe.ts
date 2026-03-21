@@ -1,9 +1,8 @@
 import "server-only";
 
 import Stripe from "stripe";
-import { getStripeEnv } from "./env";
+import { getRequiredStripeSecretKey } from "./env";
 
 export function getStripeServer() {
-  const { secretKey } = getStripeEnv();
-  return new Stripe(secretKey);
+  return new Stripe(getRequiredStripeSecretKey());
 }

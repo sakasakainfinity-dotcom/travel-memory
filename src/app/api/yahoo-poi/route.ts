@@ -1,18 +1,19 @@
 // src/app/api/yahoo-poi/route.ts
 import { NextResponse } from "next/server";
+import { getYahooAppId } from "@/lib/server/env";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const query = searchParams.get("q") ?? "";
-  const dist = searchParams.get("dist") ?? "2"; // 2km以内
+  const dist = searchParams.get("dist") ?? "2";
 
   if (!lat || !lon) {
     return NextResponse.json({ error: "lat/lon required" }, { status: 400 });
   }
 
-  const appid = process.env.NEXT_PUBLIC_YAHOO_APPID;
+  const appid = getYahooAppId();
   if (!appid) {
     return NextResponse.json({ error: "NO_APPID" }, { status: 500 });
   }
