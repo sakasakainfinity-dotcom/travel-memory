@@ -26,15 +26,38 @@ export async function ensureMySpace(): Promise<{ id: string } | null> {
       return { id: myMembers[0].space_id as string };
     }
 
-    // 2-2) スペースを新規作成
+   // 2-2) owner_id ベースの既存 Space も拾う（member 行が欠けている既存ユーザー救済）
+    const { data: ownedSpaces, error: eOwned } = await supabase
+      .from("spaces")
+      .select("id")
+      .eq("owner_id", uid)
+      .limit(1);
+    if (eOwned) throw eOwned;
+    if (ownedSpaces && ownedSpaces.length > 0) {
+      const ownedSpaceId = ownedSpaces[0].id as string;
+
+      const { error: eMember } = await supabase
+        .from("space_members")
+        .insert({ space_id: ownedSpaceId, user_id: uid, role: "owner" });
+      if (eMember && eMember.code !== "23505") throw eMember;
+
+      return { id: ownedSpaceId };
+    }
+
+    // 2-3) スペースを新規作成
+    const newSpace = {
+      name: "My Space",
+      type: "solo",
+      owner_id: uid,
+    };
     const { data: insertedSpace, error: e1 } = await supabase
       .from("spaces")
-      .insert({ name: "My Space", type: "solo", owner_id: uid })
+      .insert(newSpace)
       .select("id")
       .single();
     if (e1) throw e1;
 
-    // 2-3) 自分をメンバー追加
+    // 2-4) 自分をメンバー追加
     const { error: e2 } = await supabase
       .from("space_members")
       .insert({ space_id: insertedSpace.id, user_id: uid, role: "owner" });
