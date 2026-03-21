@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { compressImage } from "@/lib/image";
+import { createBrowserSafeId } from "@/lib/browserSafeId";
 
 export type PhotoRow = {
   id: string;
@@ -22,7 +23,7 @@ export async function uploadPlacePhotos({
   for (const file of files) {
     const compressed = await compressImage(file, { maxSide: 1600, quality: 0.8 });
     const extension = getExtensionFromType(compressed.type);
-    const path = `${placeId}/${crypto.randomUUID()}.${extension}`;
+    const path = `${placeId}/${createBrowserSafeId()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage.from("photos").upload(path, compressed, {
       contentType: compressed.type || getContentTypeFromExtension(extension),

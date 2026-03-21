@@ -16,6 +16,7 @@ import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 import InstallToHomeModal from "@/components/InstallToHomeModal";
 import { parseExifFromFile } from "@/lib/exif";
 import { AUTO_POST_FREE_DAILY_LIMIT, isAutoPostFreeForAll } from "@/lib/autoPostPolicy";
+import { createBrowserSafeId } from "@/lib/browserSafeId";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -112,7 +113,7 @@ function PostModal({
 
   /* ---------- 投稿制御 ---------- */
   const [clientRequestId, setClientRequestId] = useState<string>(() =>
-    crypto.randomUUID()
+    createBrowserSafeId()
   );
   const creatingRef = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -168,7 +169,7 @@ function PostModal({
     }
 
 
-    setClientRequestId(crypto.randomUUID());
+    setClientRequestId(createBrowserSafeId());
     creatingRef.current = false;
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
