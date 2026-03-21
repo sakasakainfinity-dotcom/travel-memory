@@ -14,9 +14,9 @@ export default function LoginPage() {
     setBusy(true);
     try {
       await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${location.origin}/` },
-      });
+  provider: "google",
+  options: { redirectTo: `${location.origin}/auth/callback` },
+});
     } finally {
       setBusy(false);
     }
