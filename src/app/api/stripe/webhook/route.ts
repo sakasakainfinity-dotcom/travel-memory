@@ -14,22 +14,30 @@ export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
   if (!sig) return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
 
-  const stripe = getStripeServer();
-  const supabaseAdmin = getSupabaseAdmin();
-  const { webhookSecret } = getStripeEnv();
-  if (!webhookSecret) return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET" }, { status: 500 });
-
   const rawBody = await req.text();
 
   let event: Stripe.Event;
   try {
+    const stripe = getStripeServer();
+    const { webhookSecret } = getStripeEnv();
+
+    if (!webhookSecret) {
+      return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET" }, { status: 500 });
+    }
+
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err: any) {
     console.error("❌ Webhook signature verification failed:", err?.message);
-    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
+    return NextResponse.json(
+      { error: err?.message ?? "Webhook signature verification failed" },
+      { status: 400 }
+    );
   }
 
   try {
+    const stripe = getStripeServer();
+    const supabaseAdmin = getSupabaseAdmin();
+
     console.log("✅ stripe event:", event.type);
 
     if (event.type === "checkout.session.completed") {

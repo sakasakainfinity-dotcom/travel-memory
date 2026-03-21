@@ -5,5 +5,15 @@ import { getSupabaseServerEnv } from "./env";
 
 export function getSupabaseAdmin() {
   const { url, serviceRoleKey } = getSupabaseServerEnv();
-  return createClient(url, serviceRoleKey);
+
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
