@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { useRouter } from "next/navigation";
+import { createBrowserSafeId } from "@/lib/browserSafeId";
 
 type Row = {
   id: string;
@@ -330,7 +331,7 @@ export default function HistoryPage() {
           .eq("user_id", uid);
         if (error) throw error;
       } else {
-        const shareSlug = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+        const shareSlug = createBrowserSafeId().replace(/-/g, "").slice(0, 12);
         const { data, error } = await supabase
           .from("spot_collections")
           .insert({

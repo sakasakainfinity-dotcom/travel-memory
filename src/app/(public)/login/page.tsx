@@ -1,7 +1,7 @@
 // src/app/(public)/login/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -9,14 +9,33 @@ export default function LoginPage() {
   const [code, setCode] = useState("");        // 6桁コード
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"request" | "verify">("request"); // ステップ管理
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const loginReason = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("reason");
+  }, []);
 
   async function loginWithGoogle() {
     setBusy(true);
+    setOauthError(null);
     try {
-      await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${location.origin}/` },
+        options: {
+          redirectTo: `${location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
       });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("google login failed:", err);
+      setOauthError(
+        err?.message ??
+          "Googleログインを開始できませんでした。Google / Supabase のリダイレクト設定を確認してください。"
+      );
     } finally {
       setBusy(false);
     }
@@ -101,6 +120,19 @@ export default function LoginPage() {
         <p style={styles.subtitle}>
           ログインすると、地図と投稿機能が使えるようになるよ。
         </p>
+
+        {(oauthError || loginReason) && (
+          <div style={styles.errorBox}>
+            {oauthError ??
+              (loginReason === "no-session"
+                ? "Googleログイン後のセッション確立に失敗しました。もう一度お試しください。"
+                : loginReason === "no-code"
+                ? "Googleから認証コードを受け取れませんでした。"
+                : loginReason === "fatal"
+                ? "Googleログイン中にエラーが発生しました。"
+                : "ログインに失敗しました。")}
+          </div>
+        )}
 
         <button
   onClick={loginWithGoogle}
@@ -266,6 +298,16 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 0 16px",
     lineHeight: 1.6,
     fontSize: 14,
+  },
+  errorBox: {
+    marginBottom: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(248,113,113,0.45)",
+    background: "rgba(127,29,29,0.22)",
+    color: "#fecaca",
+    fontSize: 13,
+    lineHeight: 1.6,
   },
   btn: {
     width: "100%",

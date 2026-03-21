@@ -3,6 +3,7 @@
 
 import { supabase } from "./supabaseClient";
 import { ensureMySpace } from "./ensureMySpace";
+import { createBrowserSafeId } from "./browserSafeId";
 
 export type NewPlaceInput = {
   title?: string;
@@ -61,7 +62,7 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
   const urls: string[] = [];
   for (const f of input.files ?? []) {
     const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
-    const fileName = `${placeRow.id}/${crypto.randomUUID()}.${ext}`;
+    const fileName = `${placeRow.id}/${createBrowserSafeId()}.${ext}`;
     const { error: eUp } = await supabase.storage.from("photos").upload(fileName, f, {
       upsert: false,
       cacheControl: "3600",
