@@ -6,8 +6,8 @@ export type CompressOptions = {
   targetMaxBytes?: number;
 };
 
-const DEFAULT_MAX_SIDE = 1600;
-const DEFAULT_QUALITY = 0.8;
+const DEFAULT_MAX_SIDE = 1280;
+const DEFAULT_QUALITY = 0.68;
 const DEFAULT_TARGET_MAX_BYTES = 350 * 1024;
 const MIN_QUALITY = 0.4;
 const MIN_MAX_SIDE = 720;
@@ -126,6 +126,7 @@ function buildSideCandidates(maxSide: number) {
 function buildQualityCandidates(quality: number) {
   return uniqueDescending([
     quality,
+    quality - 0.03,
     quality - 0.12,
     quality - 0.2,
     quality - 0.28,

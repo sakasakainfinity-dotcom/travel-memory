@@ -1,12 +1,25 @@
 import { supabase } from "@/lib/supabaseClient";
 import { compressImage } from "@/lib/image";
 import { createBrowserSafeId } from "@/lib/browserSafeId";
+import { parseExifFromFile, type ParsedExif } from "@/lib/exif";
 
 export type PhotoRow = {
   id: string;
   place_id: string;
   file_url: string;
   storage_path: string;
+  camera_make?: string | null;
+  camera_model?: string | null;
+  lens_model?: string | null;
+  f_number?: number | null;
+  exposure_time?: string | null;
+  iso?: number | null;
+  focal_length?: number | null;
+  taken_at?: string | null;
+  orientation?: number | null;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
+  has_gps?: boolean | null;
 };
 
 export async function uploadPlacePhotos({
@@ -21,9 +34,14 @@ export async function uploadPlacePhotos({
   const uploadedUrls: string[] = [];
 
   for (const file of files) {
+    const extractedExif: ParsedExif = await parseExifFromFile(file).catch((error) => {
+      console.warn("写真EXIFの抽出に失敗しました", error);
+      return { hasGps: false };
+    });
+
     const compressed = await compressImage(file, {
-      maxSide: 1600,
-      quality: 0.8,
+      maxSide: 1280,
+      quality: 0.68,
       targetMaxBytes: Math.min(350 * 1024, Math.max(120 * 1024, Math.floor(file.size * 0.1))),
     });
     const extension = getExtensionFromType(compressed.type);
@@ -46,6 +64,18 @@ export async function uploadPlacePhotos({
       place_id: placeId,
       file_url: publicUrl,
       storage_path: path,
+      camera_make: extractedExif.make ?? null,
+      camera_model: extractedExif.model ?? null,
+      lens_model: extractedExif.lensModel ?? null,
+      f_number: extractedExif.fNumber ?? null,
+      exposure_time: extractedExif.exposureTime ?? null,
+      iso: extractedExif.iso ?? null,
+      focal_length: extractedExif.focalLength ?? null,
+      taken_at: extractedExif.takenAt?.toISOString() ?? null,
+      orientation: extractedExif.orientation ?? null,
+      gps_lat: extractedExif.lat ?? null,
+      gps_lng: extractedExif.lng ?? null,
+      has_gps: !!extractedExif.hasGps,
     });
     if (insertError) {
       console.error("photos insert 失敗:", insertError);
@@ -120,7 +150,7 @@ export async function deletePlaceWithPhotos(placeId: string) {
 export async function fetchPlacePhotos(placeId: string): Promise<PhotoRow[]> {
   const { data, error } = await supabase
     .from("photos")
-    .select("id, place_id, file_url, storage_path")
+    .select("id, place_id, file_url, storage_path, camera_make, camera_model, lens_model, f_number, exposure_time, iso, focal_length, taken_at, orientation, gps_lat, gps_lng, has_gps")
     .eq("place_id", placeId)
     .order("created_at", { ascending: true });
 
