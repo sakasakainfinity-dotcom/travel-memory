@@ -18,7 +18,7 @@ export async function convertToUploadableImage(file: File): Promise<File> {
 
   try {
     const heic2any = (await import("heic2any")).default as any;
-    const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.82 });
     return new File([blob as BlobPart], name.replace(/\.\w+$/, "") + ".jpg", {
       type: "image/jpeg",
       lastModified: Date.now(),

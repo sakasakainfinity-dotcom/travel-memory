@@ -164,9 +164,12 @@ export async function fetchPlacePhotos(placeId: string): Promise<PhotoRow[]> {
 
 function getExtensionFromType(type: string) {
   if (type === "image/webp") return "webp";
+  if (type === "image/png") return "png";
   return "jpg";
 }
 
 function getContentTypeFromExtension(extension: string) {
-  return extension === "webp" ? "image/webp" : "image/jpeg";
+  if (extension === "webp") return "image/webp";
+  if (extension === "png") return "image/png";
+  return "image/jpeg";
 }
