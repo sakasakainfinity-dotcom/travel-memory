@@ -30,6 +30,41 @@ async function signFromMemories(path?: string | null, expiresSec = 3600) {
  * - 新スキーマ: original_url / thumb_url / content_type / storage_path系
  * - 旧スキーマ: file_url / url / storage_path
  */
+function formatTakenAt(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ja-JP");
+}
+
+function buildPhotoMetaLines(photo: DBPhoto) {
+  const lines: string[] = [];
+  const camera = [photo.camera_make, photo.camera_model].filter(Boolean).join(" ").trim();
+  if (camera) lines.push(`機材: ${camera}`);
+  if (photo.lens_model) lines.push(`レンズ: ${photo.lens_model}`);
+
+  const exposureBits = [
+    typeof photo.focal_length === "number" ? `${photo.focal_length}mm` : null,
+    typeof photo.f_number === "number" ? `F${photo.f_number}` : null,
+    photo.exposure_time ? `${photo.exposure_time}s` : null,
+    typeof photo.iso === "number" ? `ISO ${photo.iso}` : null,
+  ].filter(Boolean);
+  if (exposureBits.length > 0) lines.push(exposureBits.join(" / "));
+
+  const takenAt = formatTakenAt(photo.taken_at);
+  if (takenAt) lines.push(`撮影日時: ${takenAt}`);
+
+  if (typeof photo.gps_lat === "number" && typeof photo.gps_lng === "number") {
+    lines.push(`位置情報: ${photo.gps_lat.toFixed(6)}, ${photo.gps_lng.toFixed(6)}`);
+  }
+
+  if (typeof photo.orientation === "number") {
+    lines.push(`Orientation: ${photo.orientation}`);
+  }
+
+  return lines;
+}
+
 function resolvePaths(p: any) {
   // 原本パス（優先度: storage_path or original_url or file_url or url）
   const original =
@@ -98,48 +133,72 @@ export default function PhotoGrid({ photos }: Props) {
         const previewUrl =
           s.thumb ||
           (s.original && s.contentType && canPreviewInImg(s.contentType) ? s.original : undefined);
+        const metaLines = buildPhotoMetaLines(p);
 
         return (
-          <div key={p.id} style={{ position: "relative", width: "100%", paddingBottom: "66%" }}>
-            {previewUrl ? (
-              <Image
-                src={previewUrl}
-                alt=""
-                fill
-                sizes="(max-width: 768px) 50vw, 20vw"
-                style={{ objectFit: "cover", borderRadius: 8 }}
-              />
-            ) : s.original ? (
-              // プレビューできない形式（例: HEIC, RAW）。DL導線だけ出す
+          <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ position: "relative", width: "100%", paddingBottom: "66%" }}>
+              {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 50vw, 20vw"
+                  style={{ objectFit: "cover", borderRadius: 8 }}
+                />
+              ) : s.original ? (
+                // プレビューできない形式（例: HEIC, RAW）。DL導線だけ出す
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 8,
+                    background: "#f3f4f6",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "column",
+                    gap: 6,
+                    padding: 8,
+                    textAlign: "center",
+                    color: "#374151",
+                    fontSize: 12,
+                  }}
+                >
+                  <strong>この形式はプレビュー非対応です</strong>
+                  <span>このファイル形式のダウンロード機能は提供を終了しました。</span>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "#eee",
+                    borderRadius: 8,
+                  }}
+                />
+              )}
+            </div>
+
+            {metaLines.length > 0 && (
               <div
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  borderRadius: 8,
-                  background: "#f3f4f6",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
                   flexDirection: "column",
-                  gap: 6,
-                  padding: 8,
-                  textAlign: "center",
-                  color: "#374151",
+                  gap: 4,
+                  padding: "8px 10px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  background: "#fff",
                   fontSize: 12,
+                  color: "#374151",
+                  lineHeight: 1.45,
                 }}
               >
-                <strong>この形式はプレビュー非対応です</strong>
-                <span>このファイル形式のダウンロード機能は提供を終了しました。</span>
+                {metaLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
               </div>
-            ) : (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "#eee",
-                  borderRadius: 8,
-                }}
-              />
             )}
           </div>
         );

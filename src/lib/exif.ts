@@ -5,10 +5,12 @@ export type ParsedExif = {
   hasGps: boolean;
   make?: string;
   model?: string;
+  lensModel?: string;
   fNumber?: number;
   exposureTime?: string;
   iso?: number;
   focalLength?: number;
+  orientation?: number;
 };
 
 const EXIF_MARKER = 0xffe1;
@@ -18,10 +20,12 @@ const TAG_MAKE = 0x010f;
 const TAG_MODEL = 0x0110;
 const TAG_DATETIME_ORIGINAL = 0x9003;
 const TAG_DATETIME = 0x0132;
+const TAG_ORIENTATION = 0x0112;
 const TAG_FNUMBER = 0x829d;
 const TAG_EXPOSURE_TIME = 0x829a;
 const TAG_ISO = 0x8827;
 const TAG_FOCAL_LENGTH = 0x920a;
+const TAG_LENS_MODEL = 0xa434;
 const TAG_GPS_LAT_REF = 0x0001;
 const TAG_GPS_LAT = 0x0002;
 const TAG_GPS_LNG_REF = 0x0003;
@@ -135,6 +139,8 @@ export async function parseExifFromFile(file: File): Promise<ParsedExif> {
         hasGps: typeof lat === "number" && typeof lng === "number",
         make: (ifd0.get(TAG_MAKE) as string | undefined) || undefined,
         model: (ifd0.get(TAG_MODEL) as string | undefined) || undefined,
+        lensModel: (exifIfd.get(TAG_LENS_MODEL) as string | undefined) || undefined,
+        orientation: Number(ifd0.get(TAG_ORIENTATION) ?? 0) || undefined,
         fNumber: (() => {
           const f = exifIfd.get(TAG_FNUMBER);
           if (Array.isArray(f)) return Number((f as [number, number])[0] / Math.max((f as [number, number])[1], 1));

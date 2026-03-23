@@ -44,6 +44,55 @@ type AutoExifDraft = {
   focalLength?: number;
 };
 
+function formatTakenAt(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
+  )}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function buildExifChips(exif: Awaited<ReturnType<typeof parseExifFromFile>>) {
+  const chips: string[] = [];
+
+  if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
+  if (typeof exif.lat === "number" && typeof exif.lng === "number") {
+    chips.push("✅ 位置情報を反映しました");
+  } else {
+    chips.push("⚠️ 位置情報なし");
+  }
+  if (
+    exif.make ||
+    exif.model ||
+    exif.fNumber ||
+    exif.exposureTime ||
+    exif.iso ||
+    exif.focalLength
+  ) {
+    chips.push("✅ カメラ情報を反映しました");
+  }
+
+  return chips;
+}
+
+function exifToAutoDraft(file: File, exif: Awaited<ReturnType<typeof parseExifFromFile>>): AutoExifDraft {
+  return {
+    files: [file],
+    chips: buildExifChips(exif),
+    hasGps: !!exif.hasGps,
+    lat: exif.lat,
+    lng: exif.lng,
+    sourceName: file.name,
+    suggestedTitle: file.name.replace(/\.[^.]+$/, "").trim(),
+    takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
+    cameraMake: exif.make,
+    cameraModel: exif.model,
+    fNumber: exif.fNumber,
+    exposureTime: exif.exposureTime,
+    iso: exif.iso,
+    focalLength: exif.focalLength,
+  };
+}
+
 /* ================== 投稿モーダル（新規作成・カメラ重視） ================== */
 function PostModal({
   open,
@@ -146,30 +195,12 @@ function PostModal({
     setShootMemo("");
     setAutoChips([]);
     setHasGps(false);
+    setVisitedAt(todayYmd());
     setTakenAt("");
     setCameraMake("");
 
     if (autoDraft) {
-      setFiles(autoDraft.files ?? []);
-      setAutoChips(autoDraft.chips ?? []);
-      setHasGps(autoDraft.hasGps);
-      if (typeof autoDraft.lat === "number" && typeof autoDraft.lng === "number") {
-        setLat(autoDraft.lat);
-        setLng(autoDraft.lng);
-      }
-      if (autoDraft.takenAt) {
-        setVisitedAt(autoDraft.takenAt.slice(0, 10));
-        setTakenAt(autoDraft.takenAt);
-      }
-      if (autoDraft.cameraMake) setCameraMake(autoDraft.cameraMake);
-      if (autoDraft.cameraModel) setCameraModel(autoDraft.cameraModel);
-      if (typeof autoDraft.focalLength === "number") setFocalLength(`${autoDraft.focalLength}mm`);
-      if (typeof autoDraft.fNumber === "number") setAperture(`f/${autoDraft.fNumber.toFixed(1)}`);
-      if (autoDraft.exposureTime) setShutterSpeed(autoDraft.exposureTime);
-      if (typeof autoDraft.iso === "number") setIso(String(autoDraft.iso));
-      if (autoDraft.cameraMake || autoDraft.cameraModel || autoDraft.focalLength || autoDraft.fNumber || autoDraft.exposureTime || autoDraft.iso) {
-        setOpenMeta(true);
-      }
+      applyDraftToForm(autoDraft);
     }
 
 
@@ -187,6 +218,65 @@ function PostModal({
   useEffect(() => {
     return () => previews.forEach((p) => URL.revokeObjectURL(p.url));
   }, [previews]);
+
+  const applyDraftToForm = (draft: AutoExifDraft, nextFiles?: File[]) => {
+    setFiles(nextFiles ?? draft.files ?? []);
+    setAutoChips(draft.chips ?? []);
+    setHasGps(draft.hasGps);
+    if (typeof draft.lat === "number" && typeof draft.lng === "number") {
+      setLat(draft.lat);
+      setLng(draft.lng);
+    }
+    if (draft.takenAt) {
+      setVisitedAt(draft.takenAt.slice(0, 10));
+      setTakenAt(draft.takenAt);
+    }
+    if (draft.cameraMake) setCameraMake(draft.cameraMake);
+    if (draft.cameraModel) setCameraModel(draft.cameraModel);
+    if (typeof draft.focalLength === "number") setFocalLength(`${draft.focalLength}mm`);
+    if (typeof draft.fNumber === "number") setAperture(`f/${draft.fNumber.toFixed(1)}`);
+    if (draft.exposureTime) setShutterSpeed(draft.exposureTime);
+    if (typeof draft.iso === "number") setIso(String(draft.iso));
+    if (
+      draft.cameraMake ||
+      draft.cameraModel ||
+      draft.focalLength ||
+      draft.fNumber ||
+      draft.exposureTime ||
+      draft.iso
+    ) {
+      setOpenMeta(true);
+    }
+    if (!title.trim() && draft.suggestedTitle) {
+      setTitle(draft.suggestedTitle);
+    }
+  };
+
+  const handleFilesChange = async (fileList: FileList | null) => {
+    const nextFiles = Array.from(fileList ?? []);
+    setFiles(nextFiles);
+    setAutoChips([]);
+    setHasGps(false);
+    setVisitedAt(todayYmd());
+    setTakenAt("");
+    setCameraMake("");
+    setCameraModel("");
+    setFocalLength("");
+    setAperture("");
+    setShutterSpeed("");
+    setIso("");
+
+    const firstFile = nextFiles[0];
+    if (!firstFile) return;
+
+    try {
+      const exif = await parseExifFromFile(firstFile);
+      const draft = exifToAutoDraft(firstFile, exif);
+      applyDraftToForm(draft, nextFiles);
+    } catch (error) {
+      console.warn("EXIF自動入力に失敗しました", error);
+    }
+  };
 
   const canSave = title.trim().length > 0 && files.length > 0;
 
@@ -356,7 +446,7 @@ function PostModal({
                 type="file"
                 accept="image/*,image/heic,image/heif"
                 multiple
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                onChange={(e) => void handleFilesChange(e.target.files)}
                 style={{ display: "none" }}
               />
             </label>
@@ -1813,13 +1903,6 @@ useEffect(() => {
     setTimeout(() => setViewRef.current(snap), 0);
   };
 
-  const formatTakenAt = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-      d.getDate()
-    )}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  };
-
   const resetAutoBatch = () => {
     setAutoDraft(null);
     setAutoDraftQueue([]);
@@ -1849,41 +1932,7 @@ useEffect(() => {
 
   const createAutoDraftFromFile = async (file: File): Promise<AutoExifDraft> => {
     const exif = await parseExifFromFile(file);
-    const chips: string[] = [];
-
-    if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
-    if (typeof exif.lat === "number" && typeof exif.lng === "number") {
-      chips.push("✅ 位置情報を反映しました");
-    } else {
-      chips.push("⚠️ 位置情報なし");
-    }
-    if (
-      exif.make ||
-      exif.model ||
-      exif.fNumber ||
-      exif.exposureTime ||
-      exif.iso ||
-      exif.focalLength
-    ) {
-      chips.push("✅ カメラ情報を反映しました");
-    }
-
-    return {
-      files: [file],
-      chips,
-      hasGps: !!exif.hasGps,
-      lat: exif.lat,
-      lng: exif.lng,
-      sourceName: file.name,
-      suggestedTitle: file.name.replace(/\.[^.]+$/, "").trim(),
-      takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
-      cameraMake: exif.make,
-      cameraModel: exif.model,
-      fNumber: exif.fNumber,
-      exposureTime: exif.exposureTime,
-      iso: exif.iso,
-      focalLength: exif.focalLength,
-    };
+    return exifToAutoDraft(file, exif);
   };
 
  const onPickAutoPhoto = async (fileList: FileList | null) => {

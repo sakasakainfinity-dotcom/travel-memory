@@ -15,9 +15,22 @@ export type Place = {
 export type Photo = {
   id: string;
   place_id: string;
-  url: string;
+  url?: string | null;
+  file_url?: string | null;
   storage_path: string | null;
   created_at: string;
+  camera_make?: string | null;
+  camera_model?: string | null;
+  lens_model?: string | null;
+  f_number?: number | null;
+  exposure_time?: string | null;
+  iso?: number | null;
+  focal_length?: number | null;
+  taken_at?: string | null;
+  orientation?: number | null;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
+  has_gps?: boolean | null;
 };
 
 export type SpotCollection = {
