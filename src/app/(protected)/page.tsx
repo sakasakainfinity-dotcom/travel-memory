@@ -980,9 +980,14 @@ function EditModal({
       if (tod === "夕") setTimeOfDay("evening");
       if (tod === "夜") setTimeOfDay("night");
 
-      // [撮影データ] の前をひとこと扱い（雑だけど実用的）
-      const parts = m.split("\n[撮影データ]\n");
-      const before = parts[0] ?? "";
+       const metaMarker = "[撮影データ]";
+      const metaMarkerIndex = m.indexOf(metaMarker);
+      const before = metaMarkerIndex >= 0 ? m.slice(0, metaMarkerIndex) : m;
+      const meta =
+        metaMarkerIndex >= 0
+          ? m.slice(metaMarkerIndex + metaMarker.length).replace(/^\s+/, "")
+          : "";
+
       // 「時間帯：」行を除いた残りをひとことへ
       const hk = before
         .split("\n")
@@ -991,7 +996,6 @@ function EditModal({
         .trim();
       if (hk) setHitokoto(hk);
 
-      const meta = parts[1];
       if (meta) {
         const cam = meta.match(/機種：([^\n]+)/)?.[1]?.trim();
         if (cam) setCameraModel(cam);
