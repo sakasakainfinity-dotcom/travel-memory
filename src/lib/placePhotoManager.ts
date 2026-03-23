@@ -21,7 +21,11 @@ export async function uploadPlacePhotos({
   const uploadedUrls: string[] = [];
 
   for (const file of files) {
-    const compressed = await compressImage(file, { maxSide: 1600, quality: 0.8 });
+    const compressed = await compressImage(file, {
+      maxSide: 1600,
+      quality: 0.8,
+      targetMaxBytes: Math.min(350 * 1024, Math.max(120 * 1024, Math.floor(file.size * 0.1))),
+    });
     const extension = getExtensionFromType(compressed.type);
     const path = `${placeId}/${createBrowserSafeId()}.${extension}`;
 

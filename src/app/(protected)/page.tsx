@@ -33,6 +33,8 @@ type AutoExifDraft = {
   hasGps: boolean;
   lat?: number;
   lng?: number;
+  sourceName?: string;
+  suggestedTitle?: string;
   takenAt?: string;
   cameraMake?: string;
   cameraModel?: string;
@@ -48,6 +50,7 @@ function PostModal({
   place,
   presetTitle,
   autoDraft,
+  batchLabel,
   onClose,
   onSubmit,
 }: {
@@ -55,6 +58,7 @@ function PostModal({
   place: { lat: number; lng: number };
   presetTitle?: string;
   autoDraft?: AutoExifDraft | null;
+  batchLabel?: string | null;
   onClose: () => void;
   onSubmit: (d: {
     clientRequestId: string;
@@ -122,7 +126,7 @@ function PostModal({
   useEffect(() => {
     if (!open) return;
 
-    setTitle((presetTitle ?? "").trim());
+    setTitle((autoDraft?.suggestedTitle ?? presetTitle ?? "").trim());
     setHitokoto("");
     setVisitedAt(todayYmd());
     setFiles([]);
@@ -307,6 +311,11 @@ function PostModal({
   >
     ■ 新しい投稿 ■
   </div>
+  {batchLabel && (
+    <div style={{ marginTop: 6, textAlign: "center", fontSize: 12, color: "#4b5563", fontWeight: 700 }}>
+      {batchLabel}
+    </div>
+  )}
 </div>
 
           {autoChips.length > 0 && (
@@ -1492,6 +1501,8 @@ export default function Page() {
   const [premiumLoaded, setPremiumLoaded] = useState(false);
   const [autoReading, setAutoReading] = useState(false);
   const [autoDraft, setAutoDraft] = useState<AutoExifDraft | null>(null);
+  const [autoDraftQueue, setAutoDraftQueue] = useState<AutoExifDraft[]>([]);
+  const [autoBatchTotal, setAutoBatchTotal] = useState(0);
   const autoFileRef = useRef<HTMLInputElement | null>(null);
   const autoPostFreeForAll = isAutoPostFreeForAll();
 
@@ -1523,6 +1534,8 @@ export default function Page() {
   spotId?: string | null;
   presetTitle?: string | null;
 } | null>(null);
+
+  const autoBatchIndex = autoDraft ? autoBatchTotal - autoDraftQueue.length : 0;
 
   const parsePilgrimageKeys = (placeId: string) => {
   if (!placeId?.startsWith("layer:")) return null;
@@ -1793,6 +1806,8 @@ useEffect(() => {
     const snap = getViewRef.current();
     setInitialView(snap);
     setAutoDraft(null);
+    setAutoDraftQueue([]);
+    setAutoBatchTotal(0);
     setNewAt(p);
     setSelectedId(null);
     setTimeout(() => setViewRef.current(snap), 0);
@@ -1805,49 +1820,37 @@ useEffect(() => {
     )}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   };
 
- const onPickAutoPhoto = async (fileList: FileList | null) => {
-  const files = Array.from(fileList ?? []);
-  if (!files.length) return;
+  const resetAutoBatch = () => {
+    setAutoDraft(null);
+    setAutoDraftQueue([]);
+    setAutoBatchTotal(0);
+  };
 
-  // ✅ ログイン必須チェック（ファイル選択後なのでiOSでもOK）
-  const { data: ses } = await supabase.auth.getSession();
-  const uid = ses.session?.user.id;
-  if (!uid) {
-    alert("ログインが必要です");
-    return;
-  }
+  const getFallbackLocation = () => ({
+    lat: mapCenter?.lat ?? 35.68,
+    lng: mapCenter?.lng ?? 139.76,
+  });
 
- if (!autoPostFreeForAll) {
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_premium, auto_post_count_today, auto_post_last_used")
-      .eq("id", uid)
-      .single();
+  const openAutoDraft = (draft: AutoExifDraft, rest: AutoExifDraft[], total: number, snap?: View) => {
+    const baseView = snap ?? initialView ?? getViewRef.current();
+    const fallback = getFallbackLocation();
+    setInitialView(baseView);
+    setAutoDraft(draft);
+    setAutoDraftQueue(rest);
+    setAutoBatchTotal(total);
+    setNewAt({
+      lat: draft.lat ?? fallback.lat,
+      lng: draft.lng ?? fallback.lng,
+      mode: "normal",
+    });
+    setSelectedId(null);
+    setTimeout(() => setViewRef.current(baseView), 0);
+  };
 
-   if (error || !profile) {
-      alert("プロフィール取得に失敗しました");
-      return;
-    }
-
-   if (!profile.is_premium) {
-      const today = getTodayJST();
-      const usedToday = profile.auto_post_last_used === today;
-      const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
-
-         if (countToday >= AUTO_POST_FREE_DAILY_LIMIT) {
-        alert(`本日の無料自動投稿は${AUTO_POST_FREE_DAILY_LIMIT}回までです。プレミアムをご利用ください。`);
-        router.push("/plans");
-        return;
-      }
-    }
-  }
-
-  // ---- ここから下は、あなたの既存のEXIF処理（元のまま） ----
-  setAutoReading(true);
-  try {
-    const exif = await parseExifFromFile(files[0]);
-
+  const createAutoDraftFromFile = async (file: File): Promise<AutoExifDraft> => {
+    const exif = await parseExifFromFile(file);
     const chips: string[] = [];
+
     if (exif.takenAt) chips.push("✅ 撮影日時を反映しました");
     if (typeof exif.lat === "number" && typeof exif.lng === "number") {
       chips.push("✅ 位置情報を反映しました");
@@ -1865,18 +1868,14 @@ useEffect(() => {
       chips.push("✅ カメラ情報を反映しました");
     }
 
-    const fallbackLat = mapCenter?.lat ?? 35.68;
-    const fallbackLng = mapCenter?.lng ?? 139.76;
-
-    const snap = getViewRef.current();
-    setInitialView(snap);
-
-    setAutoDraft({
-      files,
+    return {
+      files: [file],
       chips,
       hasGps: !!exif.hasGps,
       lat: exif.lat,
       lng: exif.lng,
+      sourceName: file.name,
+      suggestedTitle: file.name.replace(/\.[^.]+$/, "").trim(),
       takenAt: exif.takenAt ? formatTakenAt(exif.takenAt) : undefined,
       cameraMake: exif.make,
       cameraModel: exif.model,
@@ -1884,16 +1883,70 @@ useEffect(() => {
       exposureTime: exif.exposureTime,
       iso: exif.iso,
       focalLength: exif.focalLength,
-    });
+    };
+  };
 
-    setNewAt({
-      lat: exif.lat ?? fallbackLat,
-      lng: exif.lng ?? fallbackLng,
-      mode: "normal",
-    });
+ const onPickAutoPhoto = async (fileList: FileList | null) => {
+ const MAX_AUTO_BATCH = 10;
+  const pickedFiles = Array.from(fileList ?? []);
+  if (pickedFiles.length > MAX_AUTO_BATCH) {
+    alert(`自動投稿は1回につき最大${MAX_AUTO_BATCH}件までです。先頭${MAX_AUTO_BATCH}件を読み込みます。`);
+  }
+  const files = pickedFiles.slice(0, MAX_AUTO_BATCH);
+  if (!files.length) return;
 
-    setSelectedId(null);
-    setTimeout(() => setViewRef.current(snap), 0);
+  // ✅ ログイン必須チェック（ファイル選択後なのでiOSでもOK）
+  const { data: ses } = await supabase.auth.getSession();
+  const uid = ses.session?.user.id;
+  if (!uid) {
+    alert("ログインが必要です");
+    return;
+  }
+
+  let allowedFiles = files;
+
+ if (!autoPostFreeForAll) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("is_premium, auto_post_count_today, auto_post_last_used")
+      .eq("id", uid)
+      .single();
+
+   if (error || !profile) {
+      alert("プロフィール取得に失敗しました");
+      return;
+    }
+
+   if (!profile.is_premium) {
+      const today = getTodayJST();
+      const usedToday = profile.auto_post_last_used === today;
+      const countToday = usedToday ? (profile.auto_post_count_today ?? 0) : 0;
+      const remaining = Math.max(0, AUTO_POST_FREE_DAILY_LIMIT - countToday);
+
+      if (remaining <= 0) {
+        alert(`本日の無料自動投稿は${AUTO_POST_FREE_DAILY_LIMIT}回までです。プレミアムをご利用ください。`);
+        router.push("/plans");
+        return;
+      }
+
+      if (allowedFiles.length > remaining) {
+        allowedFiles = allowedFiles.slice(0, remaining);
+        alert(`無料枠の都合で、今回の自動投稿は先頭${remaining}件だけ受け付けます。`);
+      }
+    }
+  }
+
+  setAutoReading(true);
+  try {
+    const drafts: AutoExifDraft[] = [];
+    for (const file of allowedFiles) {
+      drafts.push(await createAutoDraftFromFile(file));
+    }
+
+    if (!drafts.length) return;
+
+    const snap = getViewRef.current();
+    openAutoDraft(drafts[0], drafts.slice(1), drafts.length, snap);
   } catch (e) {
     console.error(e);
     alert("EXIFの読み取りに失敗しました。手動投稿に切り替えてください。");
@@ -2138,6 +2191,7 @@ useEffect(() => {
         ref={autoFileRef}
         type="file"
         accept="image/*,image/heic,image/heif"
+        multiple
         style={{ display: "none" }}
         onChange={(e) => void onPickAutoPhoto(e.target.files)}
       />
@@ -2167,6 +2221,7 @@ useEffect(() => {
           fontWeight: 700,
            opacity: (!autoPostFreeForAll && !premiumLoaded) || autoReading ? 0.7 : 1,
         }}
+        title="写真を複数選ぶと、最大10件まで順番に自動投稿できます"
       >
         {autoReading ? "読み取り中…" : autoPostFreeForAll ? "🤖自動投稿（今だけ無料）" : "🤖自動投稿（プレミアム）"}
       </button>
@@ -2322,9 +2377,10 @@ useEffect(() => {
           place={{ lat: newAt.lat, lng: newAt.lng }}
           presetTitle={newAt.mode === "pilgrimage" ? (newAt.presetTitle ?? "") : ""}
           autoDraft={autoDraft}
+          batchLabel={autoBatchTotal > 1 ? `自動投稿 ${autoBatchIndex}/${autoBatchTotal}` : null}
           onClose={() => {
             setNewAt(null);
-            setAutoDraft(null);
+            resetAutoBatch();
             const snap = initialView ?? getViewRef.current();
             setTimeout(() => setViewRef.current(snap), 0);
           }}
@@ -2422,10 +2478,14 @@ useEffect(() => {
 
               setSelectedId(created.id);
               setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
-              setNewAt(null);
-              setAutoDraft(null);
-              const snap = initialView ?? getViewRef.current();
-              setTimeout(() => setViewRef.current(snap), 0);
+              if (autoDraftQueue.length > 0) {
+                openAutoDraft(autoDraftQueue[0], autoDraftQueue.slice(1), autoBatchTotal);
+              } else {
+                setNewAt(null);
+                resetAutoBatch();
+                const snap = initialView ?? getViewRef.current();
+                setTimeout(() => setViewRef.current(snap), 0);
+              }
             } catch (e: any) {
               alert(`保存に失敗しました: ${e?.message ?? e}`);
               console.error(e);
