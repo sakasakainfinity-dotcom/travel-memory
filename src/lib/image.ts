@@ -14,10 +14,13 @@ const DEFAULT_MAX_SIDE = 1280;
 const DEFAULT_QUALITY = 0.68;
 const DEFAULT_TARGET_MAX_BYTES = 350 * 1024;
 const DEFAULT_SIZE_CAP_BYTES = 700 * 1024;
-const DEFAULT_MAX_RECOMPRESSIONS = 2;
-const DEFAULT_RECOMPRESS_QUALITY_STEP = 0.08;
-const MIN_QUALITY = 0.4;
-const MIN_MAX_SIDE = 720;
+const DEFAULT_MAX_RECOMPRESSIONS = 3;
+const DEFAULT_RECOMPRESS_QUALITY_STEP = 0.1;
+const MIN_QUALITY = 0.3;
+const MIN_MAX_SIDE = 320;
+const SIZE_CAP_SCALE_STEP = 0.85;
+
+type SupportedCanvasMimeType = "image/webp" | "image/jpeg";
 
 export async function compressImage(file: File, opts: CompressOptions = {}): Promise<Blob> {
   const {
@@ -91,7 +94,7 @@ export async function compress(file: File, opts?: CompressOptions) {
 }
 
 async function enforceBlobSizeCap(
-  canvas: HTMLCanvasElement,
+  sourceCanvas: HTMLCanvasElement,
   initialBlob: Blob,
   initialQuality: number,
   opts: Required<Pick<CompressOptions, "sizeCapBytes" | "maxRecompressions" | "recompressQualityStep" | "minRecompressQuality">>
@@ -101,7 +104,55 @@ async function enforceBlobSizeCap(
   if (initialBlob.size <= sizeCapBytes) return initialBlob;
 
   let bestBlob = initialBlob;
+  let currentQuality = initialQuality;
+  let workingCanvas = sourceCanvas;
+  let currentMaxSide = Math.max(sourceCanvas.width, sourceCanvas.height);
+
+  while (true) {
+    const recompressed = await recompressWithinCanvas(workingCanvas, currentQuality, {
+      sizeCapBytes,
+      maxRecompressions,
+      recompressQualityStep,
+      minRecompressQuality,
+    });
+
+    if (recompressed.bestBlob.size < bestBlob.size) {
+      bestBlob = recompressed.bestBlob;
+    }
+    if (recompressed.bestBlob.size <= sizeCapBytes) {
+      return recompressed.bestBlob;
+    }
+
+    if (currentMaxSide <= MIN_MAX_SIDE) {
+      return bestBlob;
+    }
+
+    const nextMaxSide = Math.max(MIN_MAX_SIDE, Math.round(currentMaxSide * SIZE_CAP_SCALE_STEP));
+    const [nextWidth, nextHeight] = fitWithin(sourceCanvas.width, sourceCanvas.height, nextMaxSide);
+
+    if (nextWidth === workingCanvas.width && nextHeight === workingCanvas.height) {
+      return bestBlob;
+    }
+
+    workingCanvas = resizeCanvas(sourceCanvas, nextWidth, nextHeight);
+    currentMaxSide = Math.max(nextWidth, nextHeight);
+    currentQuality = recompressed.lastQuality;
+  }
+}
+
+async function recompressWithinCanvas(
+  canvas: HTMLCanvasElement,
+  initialQuality: number,
+  opts: Required<Pick<CompressOptions, "sizeCapBytes" | "maxRecompressions" | "recompressQualityStep" | "minRecompressQuality">>
+) {
+  const { sizeCapBytes, maxRecompressions, recompressQualityStep, minRecompressQuality } = opts;
+
+  let bestBlob = await canvasToBestFormat(canvas, initialQuality);
   let nextQuality = initialQuality;
+
+  if (bestBlob.size <= sizeCapBytes) {
+    return { bestBlob, lastQuality: nextQuality };
+  }
 
   for (let attempt = 0; attempt < maxRecompressions; attempt += 1) {
     const loweredQuality = Number(
@@ -115,13 +166,13 @@ async function enforceBlobSizeCap(
       bestBlob = candidate;
     }
     if (candidate.size <= sizeCapBytes) {
-      return candidate;
+      return { bestBlob: candidate, lastQuality: loweredQuality };
     }
 
     nextQuality = loweredQuality;
   }
 
-  return bestBlob;
+  return { bestBlob, lastQuality: nextQuality };
 }
 
 function fitWithin(width: number, height: number, maxSide: number): [number, number] {
@@ -131,27 +182,61 @@ function fitWithin(width: number, height: number, maxSide: number): [number, num
 }
 
 async function canvasToBestFormat(canvas: HTMLCanvasElement, quality: number) {
+  const webpBlob = await tryCanvasToBlob(canvas, "image/webp", quality);
+  if (webpBlob?.type === "image/webp") {
+    return webpBlob;
+  }
+
+  const jpegBlob = await tryCanvasToBlob(canvas, "image/jpeg", quality);
+  if (jpegBlob?.type === "image/jpeg") {
+    return jpegBlob;
+  }
+
+  throw new Error("canvas export failed for webp and jpeg");
+}
+
+async function tryCanvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: SupportedCanvasMimeType,
+  quality: number
+) {
   try {
-    return await canvasToBlob(canvas, "image/webp", quality);
+    return await canvasToBlob(canvas, type, quality);
   } catch {
-    return canvasToBlob(canvas, "image/jpeg", quality);
+    return null;
   }
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+function canvasToBlob(canvas: HTMLCanvasElement, type: SupportedCanvasMimeType, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
-        if (blob) {
-          resolve(blob);
+        if (!blob) {
+          reject(new Error(`toBlob failed for ${type}`));
           return;
         }
-        reject(new Error(`toBlob failed for ${type}`));
+        if (blob.type !== type) {
+          reject(new Error(`toBlob returned ${blob.type || "unknown"} instead of ${type}`));
+          return;
+        }
+        resolve(blob);
       },
       type,
       quality
     );
   });
+}
+
+function resizeCanvas(sourceCanvas: HTMLCanvasElement, width: number, height: number) {
+  const resizedCanvas = document.createElement("canvas");
+  resizedCanvas.width = width;
+  resizedCanvas.height = height;
+
+  const ctx = resizedCanvas.getContext("2d");
+  if (!ctx) throw new Error("canvas context unavailable");
+
+  ctx.drawImage(sourceCanvas, 0, 0, width, height);
+  return resizedCanvas;
 }
 
 function loadImage(src: string) {
@@ -168,26 +253,26 @@ function clampTargetBytes(bytes: number) {
 }
 
 function buildSideCandidates(maxSide: number) {
-  return uniqueDescending([
-    maxSide,
-    Math.round(maxSide * 0.85),
-    Math.round(maxSide * 0.72),
-    Math.round(maxSide * 0.6),
-    Math.max(MIN_MAX_SIDE, Math.round(maxSide * 0.5)),
-    MIN_MAX_SIDE,
-  ].filter((side) => side >= MIN_MAX_SIDE));
+  return uniqueDescending(
+    [
+      maxSide,
+      Math.round(maxSide * 0.85),
+      Math.round(maxSide * 0.72),
+      Math.round(maxSide * 0.6),
+      Math.round(maxSide * 0.5),
+      Math.round(maxSide * 0.42),
+      Math.round(maxSide * 0.34),
+      MIN_MAX_SIDE,
+    ].filter((side) => side >= MIN_MAX_SIDE)
+  );
 }
 
 function buildQualityCandidates(quality: number) {
-  return uniqueDescending([
-    quality,
-    quality - 0.03,
-    quality - 0.12,
-    quality - 0.2,
-    quality - 0.28,
-    quality - 0.36,
-    MIN_QUALITY,
-  ].map((value) => Number(Math.min(0.92, Math.max(MIN_QUALITY, value)).toFixed(2))));
+  return uniqueDescending(
+    [quality, quality - 0.03, quality - 0.12, quality - 0.2, quality - 0.28, quality - 0.36, MIN_QUALITY].map(
+      (value) => Number(Math.min(0.92, Math.max(MIN_QUALITY, value)).toFixed(2))
+    )
+  );
 }
 
 function uniqueDescending(values: number[]) {
