@@ -4,16 +4,31 @@ export type CompressOptions = {
   maxSide?: number;
   quality?: number;
   targetMaxBytes?: number;
+  sizeCapBytes?: number;
+  maxRecompressions?: number;
+  recompressQualityStep?: number;
+  minRecompressQuality?: number;
 };
 
 const DEFAULT_MAX_SIDE = 1280;
 const DEFAULT_QUALITY = 0.68;
 const DEFAULT_TARGET_MAX_BYTES = 350 * 1024;
+const DEFAULT_SIZE_CAP_BYTES = 700 * 1024;
+const DEFAULT_MAX_RECOMPRESSIONS = 2;
+const DEFAULT_RECOMPRESS_QUALITY_STEP = 0.08;
 const MIN_QUALITY = 0.4;
 const MIN_MAX_SIDE = 720;
 
 export async function compressImage(file: File, opts: CompressOptions = {}): Promise<Blob> {
-  const { maxSide = DEFAULT_MAX_SIDE, quality = DEFAULT_QUALITY, targetMaxBytes } = opts;
+  const {
+    maxSide = DEFAULT_MAX_SIDE,
+    quality = DEFAULT_QUALITY,
+    targetMaxBytes,
+    sizeCapBytes = DEFAULT_SIZE_CAP_BYTES,
+    maxRecompressions = DEFAULT_MAX_RECOMPRESSIONS,
+    recompressQualityStep = DEFAULT_RECOMPRESS_QUALITY_STEP,
+    minRecompressQuality = MIN_QUALITY,
+  } = opts;
   const normalized = await convertToUploadableImage(file);
 
   let bitmap: ImageBitmap | null = null;
@@ -47,12 +62,18 @@ export async function compressImage(file: File, opts: CompressOptions = {}): Pro
 
       for (const candidateQuality of qualityCandidates) {
         const blob = await canvasToBestFormat(canvas, candidateQuality);
+        const adjustedBlob = await enforceBlobSizeCap(canvas, blob, candidateQuality, {
+          sizeCapBytes,
+          maxRecompressions,
+          recompressQualityStep,
+          minRecompressQuality,
+        });
 
-        if (!bestBlob || blob.size < bestBlob.size) {
-          bestBlob = blob;
+        if (!bestBlob || adjustedBlob.size < bestBlob.size) {
+          bestBlob = adjustedBlob;
         }
-        if (blob.size <= desiredMaxBytes) {
-          return blob;
+        if (adjustedBlob.size <= desiredMaxBytes) {
+          return adjustedBlob;
         }
       }
     }
@@ -67,6 +88,40 @@ export async function compressImage(file: File, opts: CompressOptions = {}): Pro
 
 export async function compress(file: File, opts?: CompressOptions) {
   return compressImage(file, opts);
+}
+
+async function enforceBlobSizeCap(
+  canvas: HTMLCanvasElement,
+  initialBlob: Blob,
+  initialQuality: number,
+  opts: Required<Pick<CompressOptions, "sizeCapBytes" | "maxRecompressions" | "recompressQualityStep" | "minRecompressQuality">>
+) {
+  const { sizeCapBytes, maxRecompressions, recompressQualityStep, minRecompressQuality } = opts;
+
+  if (initialBlob.size <= sizeCapBytes) return initialBlob;
+
+  let bestBlob = initialBlob;
+  let nextQuality = initialQuality;
+
+  for (let attempt = 0; attempt < maxRecompressions; attempt += 1) {
+    const loweredQuality = Number(
+      Math.max(minRecompressQuality, nextQuality - recompressQualityStep).toFixed(2)
+    );
+
+    if (loweredQuality >= nextQuality) break;
+
+    const candidate = await canvasToBestFormat(canvas, loweredQuality);
+    if (candidate.size < bestBlob.size) {
+      bestBlob = candidate;
+    }
+    if (candidate.size <= sizeCapBytes) {
+      return candidate;
+    }
+
+    nextQuality = loweredQuality;
+  }
+
+  return bestBlob;
 }
 
 function fitWithin(width: number, height: number, maxSide: number): [number, number] {

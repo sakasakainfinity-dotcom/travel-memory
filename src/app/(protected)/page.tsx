@@ -44,6 +44,20 @@ type AutoExifDraft = {
   focalLength?: number;
 };
 
+const AUTO_POST_PHOTO_LIMIT = 2;
+const AUTO_POST_PHOTO_LIMIT_MESSAGE = `この投稿では最大${AUTO_POST_PHOTO_LIMIT}枚までです。`;
+
+function limitSelectedFiles(files: File[], maxFiles?: number) {
+  if (!maxFiles || files.length <= maxFiles) {
+    return { files, message: "" };
+  }
+
+  return {
+    files: files.slice(0, maxFiles),
+    message: `最大${maxFiles}枚まで選択できます。先頭${maxFiles}枚に調整しました。`,
+  };
+}
+
 function formatTakenAt(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
@@ -163,6 +177,8 @@ function PostModal({
   const [hasGps, setHasGps] = useState(false);
   const [takenAt, setTakenAt] = useState<string>("");
   const [cameraMake, setCameraMake] = useState("");
+  const [photoMessage, setPhotoMessage] = useState("");
+  const isAutoPostMode = Boolean(autoDraft);
 
   /* ---------- 投稿制御 ---------- */
   const [clientRequestId, setClientRequestId] = useState<string>(() =>
@@ -198,6 +214,7 @@ function PostModal({
     setVisitedAt(todayYmd());
     setTakenAt("");
     setCameraMake("");
+    setPhotoMessage("");
 
     if (autoDraft) {
       applyDraftToForm(autoDraft);
@@ -220,7 +237,9 @@ function PostModal({
   }, [previews]);
 
   const applyDraftToForm = (draft: AutoExifDraft, nextFiles?: File[]) => {
-    setFiles(nextFiles ?? draft.files ?? []);
+    const limited = limitSelectedFiles(nextFiles ?? draft.files ?? [], isAutoPostMode ? AUTO_POST_PHOTO_LIMIT : undefined);
+    setFiles(limited.files);
+    setPhotoMessage(limited.message);
     setAutoChips(draft.chips ?? []);
     setHasGps(draft.hasGps);
     if (typeof draft.lat === "number" && typeof draft.lng === "number") {
@@ -253,8 +272,10 @@ function PostModal({
   };
 
   const handleFilesChange = async (fileList: FileList | null) => {
-    const nextFiles = Array.from(fileList ?? []);
+    const limited = limitSelectedFiles(Array.from(fileList ?? []), isAutoPostMode ? AUTO_POST_PHOTO_LIMIT : undefined);
+    const nextFiles = limited.files;
     setFiles(nextFiles);
+    setPhotoMessage(limited.message);
     setAutoChips([]);
     setHasGps(false);
     setVisitedAt(todayYmd());
@@ -451,6 +472,29 @@ function PostModal({
               />
             </label>
           </div>
+
+          {isAutoPostMode && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+              自動投稿では1投稿あたり最大{AUTO_POST_PHOTO_LIMIT}枚まで追加できます。
+            </div>
+          )}
+
+          {photoMessage && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #fde68a",
+                background: "#fffbeb",
+                color: "#92400e",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {photoMessage}
+            </div>
+          )}
 
           {previews.length > 0 && (
             <div
@@ -870,12 +914,16 @@ function PostModal({
 function EditModal({
   open,
   place,
+  photoLimit,
+  photoLimitLabel,
   onClose,
   onSaved,
   onDeleted,
 }: {
   open: boolean;
   place: { id: string; title: string; memo: string };
+  photoLimit?: number;
+  photoLimitLabel?: string;
   onClose: () => void;
   onSaved: (d: { title?: string; memo?: string; addPhotos?: File[] }) => Promise<void>;
   onDeleted: () => Promise<void>;
@@ -898,6 +946,7 @@ function EditModal({
   const [hasGps, setHasGps] = useState(false);
   const [takenAt, setTakenAt] = useState<string>("");
   const [cameraMake, setCameraMake] = useState("");
+  const [photoMessage, setPhotoMessage] = useState("");
 
 
   const [addFiles, setAddFiles] = useState<File[]>([]);
@@ -919,6 +968,7 @@ function EditModal({
     setIso("");
     setShootMemo("");
     setAddFiles([]);
+    setPhotoMessage("");
 
     // できる範囲で復元（あなたの新規投稿のフォーマットに合わせる）
     const m = (place.memo ?? "").trim();
@@ -1326,7 +1376,7 @@ function EditModal({
         </div>
 
         {/* 写真追加（編集なので「追加」だけ） */}
-        <div style={{ marginTop: 14 }}>
+      <div style={{ marginTop: 14 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
             写真を上書き（任意）
           </label>
@@ -1349,11 +1399,38 @@ function EditModal({
                 type="file"
                 accept="image/*,image/heic,image/heif"
                 multiple
-                onChange={(e) => setAddFiles(Array.from(e.target.files ?? []))}
+                onChange={(e) => {
+                  const limited = limitSelectedFiles(Array.from(e.target.files ?? []), photoLimit);
+                  setAddFiles(limited.files);
+                  setPhotoMessage(limited.message);
+                }}
                 style={{ display: "none" }}
               />
             </label>
           </div>
+
+          {photoLimit && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+              {photoLimitLabel ?? `この投稿では最大${photoLimit}枚まで上書きできます。`}
+            </div>
+          )}
+
+          {photoMessage && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #fde68a",
+                background: "#fffbeb",
+                color: "#92400e",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {photoMessage}
+            </div>
+          )}
 
           {previews.length > 0 && (
             <div
@@ -2548,6 +2625,8 @@ useEffect(() => {
         <EditModal
           open={editOpen}
           place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
+          photoLimit={AUTO_POST_PHOTO_LIMIT}
+          photoLimitLabel={AUTO_POST_PHOTO_LIMIT_MESSAGE}
           onClose={() => setEditOpen(false)}
           onSaved={async ({ title, memo, addPhotos }) => {
             try {
