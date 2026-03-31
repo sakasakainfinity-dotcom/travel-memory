@@ -1,4 +1,4 @@
-export type TripPlanVisibility = "public" | "private" | "pair";
+export type TripPlanVisibility = "public" | "private";
 export type TripLengthType = "day_trip" | "overnight";
 
 export type TripPlanInput = {
@@ -22,6 +22,7 @@ export type CandidateOption = {
   address?: string;
   costMin?: number;
   costMax?: number;
+  feature?: string;
 };
 
 export type TripPlanDraftItem = {
@@ -44,6 +45,7 @@ export type TripPlanDraftDay = {
 export type TripPlanDraft = {
   title: string;
   concept: string;
+  recommendedFor?: string;
   estimatedCostMin?: number;
   estimatedCostMax?: number;
   days: TripPlanDraftDay[];

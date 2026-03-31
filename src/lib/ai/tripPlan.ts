@@ -8,6 +8,7 @@ const OUTPUT_FORMAT = {
     {
       title: "しおりタイトル",
       concept: "旅コンセプト",
+      recommendedFor: "こんな人向けの一言",
       estimatedCostMin: 15000,
       estimatedCostMax: 30000,
       days: [
@@ -16,15 +17,17 @@ const OUTPUT_FORMAT = {
           items: [
             {
               startTime: "09:30",
+              endTime: "10:30",
               category: "breakfast",
-              title: "朝食候補",
-              memo: "候補1: 店名A / 候補2: 店名B",
-              address: "住所",
+              title: "朝食タイム",
+              memo: "地元らしい朝食を楽しむ",
+              address: "主要エリア名",
               estimatedCostMin: 1000,
               estimatedCostMax: 1800,
               candidateOptions: [
-                { name: "候補1", address: "住所1", costMin: 800, costMax: 1500 },
-                { name: "候補2", address: "住所2", costMin: 1000, costMax: 1800 }
+                { name: "候補1", feature: "一言特徴", address: "住所1", costMin: 800, costMax: 1500 },
+                { name: "候補2", feature: "一言特徴", address: "住所2", costMin: 1000, costMax: 1800 },
+                { name: "候補3", feature: "一言特徴", address: "住所3", costMin: 900, costMax: 1700 }
               ]
             }
           ]
@@ -35,7 +38,7 @@ const OUTPUT_FORMAT = {
 };
 
 function buildPrompt(input: TripPlanInput) {
-  return `あなたは日本旅行のしおり作成アシスタントです。\n\n入力:\n${JSON.stringify(input, null, 2)}\n\n要件:\n- 旅のしおり案を2案作成する\n- なるべく具体的な地元店やホテル候補を入れる\n- 朝/昼/夕食とホテルは可能なら2候補を candidateOptions に入れる\n- JSONのみ返す。説明文は禁止\n- スキーマは次に厳密準拠: ${JSON.stringify(OUTPUT_FORMAT)}`;
+  return `あなたは日本旅行のしおり作成アシスタントです。\n\n入力:\n${JSON.stringify(input, null, 2)}\n\n要件:\n- 旅のしおり案を2案作成する\n- 主役は「旅のしおり」。移動や観光だけでなく、食事・宿泊候補の情報密度を重視する\n- breakfast / lunch / dinner / hotel カテゴリの item には candidateOptions を原則3件入れる\n- candidateOptions の各要素には name, feature(一言特徴), costMin, costMax を可能な限り入れる\n- 候補が弱く3件が難しい場合は無理に埋めず、2件以下でも可\n- days は日帰りなら1日、宿泊なら泊数+1日を目安に作る\n- title / concept / recommendedFor を必ず書く\n- JSONのみ返す。説明文は禁止\n- スキーマは次に厳密準拠: ${JSON.stringify(OUTPUT_FORMAT)}`;
 }
 
 function coerceResult(raw: unknown): TripPlanAIResult {
@@ -44,6 +47,7 @@ function coerceResult(raw: unknown): TripPlanAIResult {
     plans: plans.slice(0, 2).map((plan: any, idx: number) => ({
       title: String(plan?.title || `AIしおり案 ${idx + 1}`),
       concept: String(plan?.concept || "AIが作成した旅コンセプト"),
+      recommendedFor: plan?.recommendedFor ? String(plan.recommendedFor) : undefined,
       estimatedCostMin: typeof plan?.estimatedCostMin === "number" ? plan.estimatedCostMin : undefined,
       estimatedCostMax: typeof plan?.estimatedCostMax === "number" ? plan.estimatedCostMax : undefined,
       days: Array.isArray(plan?.days)
@@ -60,8 +64,9 @@ function coerceResult(raw: unknown): TripPlanAIResult {
                   estimatedCostMin: typeof item?.estimatedCostMin === "number" ? item.estimatedCostMin : undefined,
                   estimatedCostMax: typeof item?.estimatedCostMax === "number" ? item.estimatedCostMax : undefined,
                   candidateOptions: Array.isArray(item?.candidateOptions)
-                    ? item.candidateOptions.slice(0, 4).map((c: any) => ({
+                    ? item.candidateOptions.slice(0, 6).map((c: any) => ({
                         name: String(c?.name || "候補"),
+                        feature: c?.feature ? String(c.feature) : undefined,
                         address: c?.address ? String(c.address) : undefined,
                         costMin: typeof c?.costMin === "number" ? c.costMin : undefined,
                         costMax: typeof c?.costMax === "number" ? c.costMax : undefined,
