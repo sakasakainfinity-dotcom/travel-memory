@@ -16,7 +16,378 @@ const STEP_LOADING_TEXTS = [
   "いい感じの2案に整えています…",
 ];
 
+const MANUAL_CATEGORIES = ["出発", "食事", "観光", "宿泊", "移動", "ゆっくり", "その他", "到着"];
+const PLAN_LENGTH_OPTIONS = [
+  { value: "day_trip", label: "日帰り", dayCount: 1, nights: null as number | null },
+  { value: "1n2d", label: "1泊2日", dayCount: 2, nights: 1 },
+  { value: "2n3d", label: "2泊3日", dayCount: 3, nights: 2 },
+  { value: "3n4d", label: "3泊4日", dayCount: 4, nights: 3 },
+];
+
+type PlaceCandidate = {
+  name: string;
+  lat: number;
+  lon: number;
+  address?: string;
+};
+
+type ManualStopDraft = {
+  localId: string;
+  start_time: string;
+  category: string;
+  title: string;
+  memo: string;
+  map_enabled: boolean;
+  map_label: string | null;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  status: "planned" | "visited" | "skipped";
+  resolving: boolean;
+  resolve_error: string | null;
+  candidates: PlaceCandidate[];
+};
+
 export default function PlanNewPage() {
+  const [mode, setMode] = useState<string | null>("__loading__");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setMode(params.get("mode") ?? "ai");
+  }, []);
+
+  if (mode === "__loading__") {
+    return <main style={{ maxWidth: 860, margin: "0 auto", padding: "14px 12px" }}>読み込み中...</main>;
+  }
+  if (mode === "manual") {
+    return <ManualPlanPage />;
+  }
+  return <AiPlanPage />;
+}
+
+function ManualPlanPage() {
+  const router = useRouter();
+  const [selectedLength, setSelectedLength] = useState(PLAN_LENGTH_OPTIONS[0]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [departureFrom, setDepartureFrom] = useState("");
+  const [destination1, setDestination1] = useState("");
+  const [destination2, setDestination2] = useState("");
+  const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [days, setDays] = useState<ManualStopDraft[][]>(() => createInitialDays(PLAN_LENGTH_OPTIONS[0].dayCount));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDays((prev) => adjustDays(prev, selectedLength.dayCount));
+  }, [selectedLength.dayCount]);
+
+  const canSave = useMemo(() => days.some((day) => day.some((stop) => stop.title.trim().length > 0)), [days]);
+
+  const setStop = (dayIndex: number, localId: string, updater: (stop: ManualStopDraft) => ManualStopDraft) => {
+    setDays((prev) => prev.map((day, idx) => (idx !== dayIndex ? day : day.map((stop) => (stop.localId === localId ? updater(stop) : stop)))));
+  };
+
+  const addStop = (dayIndex: number) => {
+    setDays((prev) => prev.map((day, idx) => (idx !== dayIndex ? day : [...day, createEmptyStop(day.length)])));
+  };
+
+  const removeStop = (dayIndex: number, localId: string) => {
+    setDays((prev) =>
+      prev.map((day, idx) => {
+        if (idx !== dayIndex) return day;
+        if (day.length === 1) return day;
+        return day.filter((stop) => stop.localId !== localId);
+      })
+    );
+  };
+
+  const resolveLocation = async (dayIndex: number, stop: ManualStopDraft) => {
+    const trimmed = stop.title.trim();
+    if (!trimmed) {
+      setStop(dayIndex, stop.localId, (current) => ({ ...current, resolve_error: "タイトルを入力してから地図に追加してください。" }));
+      return;
+    }
+
+    setStop(dayIndex, stop.localId, (current) => ({
+      ...current,
+      resolving: true,
+      map_enabled: true,
+      map_label: buildMapLabel(dayIndex + 1, current.start_time, trimmed),
+      resolve_error: null,
+      candidates: [],
+    }));
+
+    try {
+      const params = new URLSearchParams({ q: trimmed });
+      const res = await fetch(`/api/place-search?${params.toString()}`);
+      const json: { items?: PlaceCandidate[]; error?: string } = await res.json();
+      const items = Array.isArray(json.items) ? json.items.slice(0, 5) : [];
+
+      if (!res.ok) {
+        throw new Error(json.error ?? "場所の検索に失敗しました");
+      }
+
+      if (items.length === 0) {
+        setStop(dayIndex, stop.localId, (current) => ({
+          ...current,
+          resolving: false,
+          lat: null,
+          lng: null,
+          address: null,
+          resolve_error: "場所が見つかりませんでした。タイトルを具体的にしてください。",
+        }));
+        return;
+      }
+
+      if (items.length === 1) {
+        const picked = items[0];
+        setStop(dayIndex, stop.localId, (current) => ({
+          ...current,
+          resolving: false,
+          lat: picked.lat,
+          lng: picked.lon,
+          address: picked.address ?? null,
+          candidates: [],
+          resolve_error: null,
+          map_label: buildMapLabel(dayIndex + 1, current.start_time, current.title),
+        }));
+        return;
+      }
+
+      setStop(dayIndex, stop.localId, (current) => ({
+        ...current,
+        resolving: false,
+        candidates: items,
+        resolve_error: "候補が複数あります。地図に表示する場所を選んでください。",
+      }));
+    } catch (error) {
+      setStop(dayIndex, stop.localId, (current) => ({
+        ...current,
+        resolving: false,
+        resolve_error: error instanceof Error ? error.message : "場所検索に失敗しました",
+      }));
+    }
+  };
+
+  const selectCandidate = (dayIndex: number, localId: string, picked: PlaceCandidate) => {
+    setStop(dayIndex, localId, (current) => ({
+      ...current,
+      lat: picked.lat,
+      lng: picked.lon,
+      address: picked.address ?? null,
+      candidates: [],
+      resolve_error: null,
+      map_enabled: true,
+      map_label: buildMapLabel(dayIndex + 1, current.start_time, current.title || picked.name),
+    }));
+  };
+
+  const toggleMapEnabled = (dayIndex: number, localId: string) => {
+    setStop(dayIndex, localId, (current) => {
+      const next = !current.map_enabled;
+      return {
+        ...current,
+        map_enabled: next,
+        map_label: next ? buildMapLabel(dayIndex + 1, current.start_time, current.title) : null,
+      };
+    });
+  };
+
+  const saveManualPlan = async () => {
+    if (!canSave) {
+      alert("最低1件はタイトルを入力してください");
+      return;
+    }
+
+    setSaving(true);
+    const { data: ses } = await supabase.auth.getSession();
+    const uid = ses.session?.user?.id;
+    if (!uid) {
+      router.push("/login");
+      return;
+    }
+
+    const space = await ensureMySpace();
+    if (!space?.id) {
+      setSaving(false);
+      alert("スペース情報が見つかりませんでした");
+      return;
+    }
+
+    const shareToken = visibility === "public" ? crypto.randomUUID().replaceAll("-", "") : null;
+    const { data: row, error } = await supabase
+      .from("trip_plans")
+      .insert({
+        space_id: space.id,
+        created_by: uid,
+        title: title.trim() || `${destination1 || "手動しおり"}`,
+        description: description.trim() || "出発から到着まで手動で組み立てた旅のしおりです。",
+        departure_from: departureFrom || null,
+        trip_length_type: selectedLength.dayCount === 1 ? "day_trip" : "overnight",
+        nights: selectedLength.nights,
+        destination_1: destination1 || null,
+        destination_2: destination2 || null,
+        visibility,
+        share_token: shareToken,
+      })
+      .select("id")
+      .single();
+
+    if (error || !row?.id) {
+      setSaving(false);
+      alert(error?.message ?? "しおり保存に失敗しました");
+      return;
+    }
+
+    const stopRows = days.flatMap((dayStops, dayIndex) =>
+      dayStops.map((stop, sortOrder) => ({
+        plan_id: row.id,
+        day_number: dayIndex + 1,
+        sort_order: sortOrder,
+        start_time: stop.start_time || null,
+        category: stop.category,
+        title: stop.title.trim() || "（タイトル未設定）",
+        memo: stop.memo.trim() || null,
+        map_enabled: stop.map_enabled,
+        map_label: stop.map_enabled ? buildMapLabel(dayIndex + 1, stop.start_time, stop.title) : null,
+        lat: stop.lat,
+        lng: stop.lng,
+        address: stop.address,
+        status: stop.status,
+      }))
+    );
+
+    if (stopRows.length) {
+      const { error: stopErr } = await supabase.from("trip_plan_stops").insert(stopRows);
+      if (stopErr) {
+        setSaving(false);
+        alert(stopErr.message);
+        return;
+      }
+    }
+
+    setSaving(false);
+    router.push(`/plans/${row.id}`);
+  };
+
+  return (
+    <main style={{ maxWidth: 860, margin: "0 auto", padding: "14px 12px 96px" }}>
+      <Link href="/plans" style={backBtn}>旅のしおり一覧へ戻る</Link>
+
+      <header style={manualHeaderCard}>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>手動でしおりをつくる</h1>
+        <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 14 }}>出発から到着まで、自分で旅の流れを組み立てられます。</p>
+      </header>
+
+      <section style={manualCard}>
+        <h2 style={manualSectionTitle}>日数設定</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {PLAN_LENGTH_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              style={pillButton(selectedLength.value === option.value)}
+              onClick={() => setSelectedLength(option)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section style={manualCard}>
+        <h2 style={manualSectionTitle}>しおり情報</h2>
+        <div style={metaGrid}>
+          <label style={labelWrap}><span style={inputLabel}>しおりタイトル</span><input value={title} onChange={(e) => setTitle(e.target.value)} style={input} placeholder="例: 金沢ゆったり旅" /></label>
+          <label style={labelWrap}><span style={inputLabel}>出発地</span><input value={departureFrom} onChange={(e) => setDepartureFrom(e.target.value)} style={input} placeholder="例: 東京駅" /></label>
+          <label style={labelWrap}><span style={inputLabel}>目的地</span><input value={destination1} onChange={(e) => setDestination1(e.target.value)} style={input} placeholder="例: 金沢" /></label>
+          <label style={labelWrap}><span style={inputLabel}>目的地（任意）</span><input value={destination2} onChange={(e) => setDestination2(e.target.value)} style={input} placeholder="例: 能登" /></label>
+        </div>
+        <label style={{ ...labelWrap, marginTop: 10 }}>
+          <span style={inputLabel}>説明メモ</span>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ ...input, minHeight: 84 }} placeholder="この旅でやりたいことなど" />
+        </label>
+      </section>
+
+      {days.map((dayStops, dayIndex) => (
+        <section key={`day-${dayIndex + 1}`} style={dayCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>{dayIndex + 1}日目</h2>
+            <button type="button" style={smallActionBtn} onClick={() => addStop(dayIndex)}>+ 予定を追加</button>
+          </div>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            {dayStops.map((stop) => (
+              <article key={stop.localId} style={stopCard}>
+                <div className="manual-stop-grid" style={manualStopGrid}>
+                  <label style={labelWrap}><span style={inputLabel}>時間</span><input type="time" value={stop.start_time} onChange={(e) => setStop(dayIndex, stop.localId, (c) => ({ ...c, start_time: e.target.value, map_label: c.map_enabled ? buildMapLabel(dayIndex + 1, e.target.value, c.title) : c.map_label }))} style={input} /></label>
+                  <label style={labelWrap}><span style={inputLabel}>項目</span><select value={stop.category} onChange={(e) => setStop(dayIndex, stop.localId, (c) => ({ ...c, category: e.target.value }))} style={input}>{MANUAL_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select></label>
+                  <label style={labelWrap}><span style={inputLabel}>タイトル</span><input value={stop.title} onChange={(e) => setStop(dayIndex, stop.localId, (c) => ({ ...c, title: e.target.value, map_label: c.map_enabled ? buildMapLabel(dayIndex + 1, c.start_time, e.target.value) : c.map_label }))} style={input} placeholder="例: 近江町市場" /></label>
+                </div>
+
+                <label style={{ ...labelWrap, marginTop: 8 }}>
+                  <span style={inputLabel}>一言メモ</span>
+                  <textarea value={stop.memo} onChange={(e) => setStop(dayIndex, stop.localId, (c) => ({ ...c, memo: e.target.value }))} style={{ ...input, minHeight: 68 }} placeholder="例: ここで海鮮丼を食べたい" />
+                </label>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" onClick={() => void resolveLocation(dayIndex, stop)} disabled={stop.resolving} style={mapButton(stop.map_enabled)}>
+                    {stop.resolving ? "場所を検索中…" : stop.map_enabled ? "地図追加済み（再検索）" : "地図に追加"}
+                  </button>
+                  <button type="button" onClick={() => toggleMapEnabled(dayIndex, stop.localId)} style={smallActionBtn}>
+                    {stop.map_enabled ? "地図対象から外す" : "地図対象にする"}
+                  </button>
+                  <button type="button" onClick={() => removeStop(dayIndex, stop.localId)} style={smallActionBtn} disabled={dayStops.length === 1}>削除</button>
+                  {stop.map_enabled ? <span style={mapDoneBadge}>地図追加済み</span> : null}
+                </div>
+
+                {stop.resolve_error ? <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 12 }}>{stop.resolve_error}</p> : null}
+                {stop.lat && stop.lng ? <p style={{ margin: "6px 0 0", color: "#0f766e", fontSize: 12 }}>地図位置: {stop.address ?? "座標を設定しました"}</p> : null}
+
+                {stop.candidates.length > 0 ? (
+                  <div style={candidateBox}>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>候補から選択してください</div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {stop.candidates.map((candidate, idx) => (
+                        <button key={`${candidate.name}-${idx}`} type="button" onClick={() => selectCandidate(dayIndex, stop.localId, candidate)} style={candidateButton}>
+                          <strong>{candidate.name}</strong>
+                          {candidate.address ? <span style={{ display: "block", fontSize: 12, color: "#475569" }}>{candidate.address}</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <section style={manualCard}>
+        <h2 style={manualSectionTitle}>公開範囲</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" style={pillButton(visibility === "private")} onClick={() => setVisibility("private")}>private</button>
+          <button type="button" style={pillButton(visibility === "public")} onClick={() => setVisibility("public")}>public</button>
+        </div>
+      </section>
+
+      <button type="button" onClick={() => void saveManualPlan()} style={saveBtn} disabled={saving}>{saving ? "保存中…" : "この手動しおりを保存する"}</button>
+
+      <style jsx>{`
+        @media (max-width: 720px) {
+          .manual-stop-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .manual-stop-grid > label:last-child {
+            grid-column: 1 / -1;
+          }
+        }
+      `}</style>
+    </main>
+  );
+}
+
+function AiPlanPage() {
   const router = useRouter();
 
   const [form, setForm] = useState<TripPlanInput>({ tripLengthType: "day_trip", visibility: "private" });
@@ -178,6 +549,8 @@ export default function PlanNewPage() {
         candidate_options: item.candidateOptions ?? null,
         estimated_cost_min: item.estimatedCostMin,
         estimated_cost_max: item.estimatedCostMax,
+        map_enabled: true,
+        map_label: `Day${d.dayNumber} ${item.startTime ?? ""} ${item.title}`.trim(),
       }))
     );
 
@@ -385,6 +758,39 @@ function StepTitle({ children }: { children: React.ReactNode }) {
   return <h2 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900 }}>{children}</h2>;
 }
 
+function createEmptyStop(sortOrder = 0): ManualStopDraft {
+  return {
+    localId: `${Date.now()}-${sortOrder}-${Math.random().toString(16).slice(2)}`,
+    start_time: "",
+    category: "観光",
+    title: "",
+    memo: "",
+    map_enabled: false,
+    map_label: null,
+    lat: null,
+    lng: null,
+    address: null,
+    status: "planned",
+    resolving: false,
+    resolve_error: null,
+    candidates: [],
+  };
+}
+
+function createInitialDays(dayCount: number) {
+  return Array.from({ length: dayCount }, () => Array.from({ length: 4 }, (_, idx) => createEmptyStop(idx)));
+}
+
+function adjustDays(current: ManualStopDraft[][], dayCount: number) {
+  if (!current.length) return createInitialDays(dayCount);
+  const next = Array.from({ length: dayCount }, (_, idx) => current[idx] ?? Array.from({ length: 4 }, (_, sIdx) => createEmptyStop(sIdx)));
+  return next.map((day) => (day.length === 0 ? [createEmptyStop()] : day));
+}
+
+function buildMapLabel(dayNumber: number, startTime: string, title: string) {
+  return `${dayNumber}日目 ${startTime || "--:--"} ${title || "タイトル未設定"}`.trim();
+}
+
 const stepCard: React.CSSProperties = { marginTop: 10, border: "1px solid #e2e8f0", borderRadius: 16, padding: 12, background: "linear-gradient(180deg,#fff,#f8fafc)" };
 const input: React.CSSProperties = { display: "block", width: "100%", marginTop: 4, border: "1px solid #cbd5e1", borderRadius: 10, padding: "10px" };
 const btn: React.CSSProperties = { border: "none", borderRadius: 12, padding: "12px 10px", fontWeight: 900, background: "linear-gradient(135deg,#7c3aed,#0ea5e9)", color: "white" };
@@ -392,10 +798,27 @@ const subBtn: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius:
 const mini: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius: 999, padding: "8px 12px", background: "#fff", fontWeight: 700, fontSize: 12 };
 const miniPrimary: React.CSSProperties = { ...mini, border: "none", background: "#0f172a", color: "#fff" };
 const chipStyle: React.CSSProperties = { display: "inline-block", padding: "6px 10px", background: "#eef2ff", borderRadius: 999, color: "#4338ca", fontSize: 12, fontWeight: 700 };
-const backBtn: React.CSSProperties = { display: "inline-block", border: "1px solid #cbd5e1", borderRadius: 999, padding: "8px 12px", textDecoration: "none", color: "#0f172a", fontWeight: 700, fontSize: 13 };
+const backBtn: React.CSSProperties = { display: "inline-block", border: "1px solid #cbd5e1", borderRadius: 999, padding: "10px 14px", textDecoration: "none", color: "#0f172a", fontWeight: 700, fontSize: 14, background: "#fff" };
 const chipWrap: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
 const selectChip = (active: boolean): React.CSSProperties => ({ border: "1px solid", borderColor: active ? "#7c3aed" : "#cbd5e1", borderRadius: 999, padding: "8px 12px", background: active ? "#ede9fe" : "#fff", color: active ? "#6d28d9" : "#334155", fontWeight: 700, fontSize: 13 });
 const resultCard: React.CSSProperties = { border: "1px solid #dbeafe", borderRadius: 16, padding: 14, background: "linear-gradient(150deg,#ffffff,#f8fafc)" };
 const loadingOverlay: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", display: "grid", placeItems: "center", zIndex: 40, padding: 14 };
 const loadingCard: React.CSSProperties = { width: "100%", maxWidth: 360, background: "#fff", borderRadius: 16, border: "1px solid #cbd5e1", padding: 16, textAlign: "center" };
 const spinner: React.CSSProperties = { width: 42, height: 42, border: "4px solid #e2e8f0", borderTopColor: "#7c3aed", borderRadius: "50%", margin: "0 auto", animation: "plan-spin 1s linear infinite" };
+
+const manualHeaderCard: React.CSSProperties = { marginTop: 10, padding: 16, borderRadius: 18, border: "1px solid #dbeafe", background: "linear-gradient(160deg,#ffffff,#eff6ff)" };
+const manualCard: React.CSSProperties = { marginTop: 12, border: "1px solid #e2e8f0", borderRadius: 16, background: "#fff", padding: 14 };
+const dayCard: React.CSSProperties = { marginTop: 14, border: "1px solid #dbeafe", borderRadius: 18, background: "#f8fbff", padding: 14 };
+const stopCard: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff", padding: 10 };
+const manualStopGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "120px 160px 1fr", gap: 8 };
+const labelWrap: React.CSSProperties = { display: "block" };
+const inputLabel: React.CSSProperties = { fontSize: 11, color: "#64748b", fontWeight: 700 };
+const manualSectionTitle: React.CSSProperties = { margin: "0 0 10px", fontSize: 17, fontWeight: 900 };
+const saveBtn: React.CSSProperties = { marginTop: 16, width: "100%", border: "none", borderRadius: 14, padding: "14px 12px", background: "linear-gradient(135deg,#2563eb,#0ea5e9)", color: "#fff", fontWeight: 900, fontSize: 16 };
+const mapDoneBadge: React.CSSProperties = { display: "inline-block", borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 700, color: "#0f766e", background: "#ccfbf1" };
+const smallActionBtn: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius: 999, padding: "7px 12px", background: "#fff", fontWeight: 700, fontSize: 12 };
+const mapButton = (enabled: boolean): React.CSSProperties => ({ border: "none", borderRadius: 999, padding: "7px 12px", background: enabled ? "#0f766e" : "#2563eb", color: "#fff", fontWeight: 800, fontSize: 12 });
+const candidateBox: React.CSSProperties = { marginTop: 8, border: "1px dashed #cbd5e1", borderRadius: 10, padding: 8, background: "#f8fafc" };
+const candidateButton: React.CSSProperties = { textAlign: "left", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", padding: "8px 10px" };
+const metaGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 };
+const pillButton = (active: boolean): React.CSSProperties => ({ border: "1px solid", borderColor: active ? "#2563eb" : "#cbd5e1", borderRadius: 999, padding: "9px 14px", background: active ? "#dbeafe" : "#fff", color: active ? "#1d4ed8" : "#334155", fontWeight: 700, fontSize: 13 });
