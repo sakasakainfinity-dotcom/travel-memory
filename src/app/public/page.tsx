@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Place as MapPlace } from "@/components/MapView";
 import { useRouter } from "next/navigation";
 import SearchBox from "@/components/SearchBox";
+import { ensureMySpace } from "@/lib/ensureMySpace";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -34,6 +35,7 @@ type PublicMarkerPlace = MapPlace & {
   startTime?: string | null;
   category?: string | null;
   mapSource?: "auto" | "manual" | null;
+  sourcePlaceId?: string;
 };
 
 // ★同じ場所判定キー（title + lat/lng 丸め）
@@ -305,6 +307,7 @@ useEffect(() => {
           return {
             ...repr,
             id: key,
+            sourcePlaceId: repr.id,
             postCount: posts.length,
             wantCount: f.wantCount,
             visitedCount: f.visitedCount,
@@ -313,34 +316,9 @@ useEffect(() => {
           } as PublicMarkerPlace;
         });
 
-        const { data: publicStops } = await supabase
-          .from("trip_plan_stops")
-          .select("id, day_number, start_time, category, title, memo, map_label, map_source, lat, lng, plan_id, trip_plans!inner(id,title,visibility)")
-          .eq("trip_plans.visibility", "public")
-          .eq("map_enabled", true)
-          .not("lat", "is", null)
-          .not("lng", "is", null);
-
-        const stopMarkers: PublicMarkerPlace[] = (publicStops ?? []).map((s: any) => ({
-          id: `trip-stop:${s.id}`,
-          name: s.title,
-          memo: s.memo ?? "",
-          lat: Number(s.lat),
-          lng: Number(s.lng),
-          markerType: "trip_plan_stop",
-          markerLabel: s.map_label || `${s.day_number}日目 ${s.start_time ?? "--:--"} ${s.title}`,
-          visibility: "public",
-          tripPlanId: s.plan_id,
-          tripPlanTitle: s.trip_plans?.title ?? "",
-          dayNumber: s.day_number,
-          startTime: s.start_time,
-          category: s.category,
-          mapSource: s.map_source,
-        }));
-
         // 8) state反映
         setPostsByPlaceKey(grouped);
-        setPlaces([...markerPlaces, ...stopMarkers]);
+        setPlaces(markerPlaces);
 
         // postId -> placeKey
         const idMap: Record<string, string> = {};
@@ -421,13 +399,68 @@ useEffect(() => {
     }
   }
 
-  // ✅ want/visited トグル（場所単位）※ここが“絶対に”トップレベル
+  async function saveToPrivateWishlist(placeKey: string) {
+    const marker = places.find((p) => p.id === placeKey);
+    if (!marker) return;
+    const uid = await ensureSignedInOrPrompt("保存するにはログインが必要です", "自分のPrivateマップへ保存できます。", "このまま見る");
+    if (!uid) return;
+    const mySpace = await ensureMySpace();
+    if (!mySpace?.id) return;
+
+    const sourcePlaceId = (marker as PublicMarkerPlace).sourcePlaceId ?? null;
+    if (!sourcePlaceId) return;
+
+    const { data: existing } = await supabase
+      .from("places")
+      .select("id, lat, lng")
+      .eq("space_id", mySpace.id)
+      .eq("visibility", "private")
+      .eq("source_place_id", sourcePlaceId)
+      .maybeSingle();
+    if (existing?.id) {
+      alert("すでに保存済みです");
+      return;
+    }
+
+    const { data: inserted, error } = await supabase
+      .from("places")
+      .insert({
+        space_id: mySpace.id,
+        title: marker.name ?? "行きたい場所",
+        memo: marker.memo ?? null,
+        lat: marker.lat,
+        lng: marker.lng,
+        created_by: uid,
+        visibility: "private",
+        status: "wishlist",
+        source_place_id: sourcePlaceId,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+
+    fetch("/api/enrich-wishlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        placeId: inserted.id,
+        lat: marker.lat,
+        lng: marker.lng,
+        title: marker.name ?? "",
+        memo: marker.memo ?? "",
+      }),
+    }).catch(() => undefined);
+
+    alert("Privateの行きたいリストに保存しました");
+  }
+
+  // ✅ want/visited トグル（場所単位）
   async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     const busyKey = `${placeKey}:${kind}`;
     try {
       setReactBusyId(busyKey);
 
-       const uid = await ensureSignedInOrPrompt(
+      const uid = await ensureSignedInOrPrompt(
         "保存するにはログインが必要です",
         "ログインすると「行きたい/行った」を保存できます。",
         "このまま見る"
@@ -435,34 +468,20 @@ useEffect(() => {
       if (!uid) return;
       const marker = places.find((p) => p.id === placeKey);
       if (!marker) return;
-
       const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
 
-      // 追加時だけ上限チェック
-      // 追加時だけ上限チェック（★非プレミアムだけ）
-if (!already) {
-  // premium判定がまだなら、一旦待たせる（適当な挙動でOK）
-  if (!premiumLoaded) return;
-
-  // ✅ プレミアムなら上限チェック不要
-  if (!isPremium) {
-    const r = await getMyFlagCount(kind);
-      if (!r.ok) {
-      askLogin(
-        "保存するにはログインが必要です",
-        "ログインすると「行きたい/行った」を保存できます。",
-        "このまま見る"
-      );
-      return;
-    }
-
-    if (r.count >= FREE_FLAG_LIMIT) {
-      setPaywallKind(kind);
-      setPaywallOpen(true);
-      return;
-    }
-  }
-}
+      if (!already) {
+        if (!premiumLoaded) return;
+        if (!isPremium) {
+          const r = await getMyFlagCount(kind);
+          if (!r.ok) return;
+          if (r.count >= FREE_FLAG_LIMIT) {
+            setPaywallKind(kind);
+            setPaywallOpen(true);
+            return;
+          }
+        }
+      }
 
       // UI先に反映
       setPlaces((prev) =>
@@ -701,7 +720,14 @@ if (!already) {
                     <button
                       type="button"
                       disabled={reactBusyId === `${selectedId}:want`}
-                      onClick={() => togglePlaceFlag(selectedId!, "want")}
+                      onClick={async () => {
+                        try {
+                          await saveToPrivateWishlist(selectedId!);
+                        } catch (e) {
+                          console.error(e);
+                          alert("保存に失敗しました");
+                        }
+                      }}
                       style={{
                         padding: "7px 12px",
                         borderRadius: 999,
@@ -714,7 +740,7 @@ if (!already) {
                         boxShadow: wanted ? "0 10px 18px rgba(245,158,11,0.25)" : "none",
                       }}
                     >
-                      ⭐ 行きたい
+                      ⭐ 行きたいに追加
                     </button>
 
                     <button
@@ -876,7 +902,7 @@ if (!already) {
             <div style={{ display: "grid", gap: 10 }}>
               <MenuButton label="みんなの投稿" onClick={() => { setMenuOpen(false); router.push("/community"); }} />
               <MenuButton label="投稿履歴" onClick={() => { setMenuOpen(false); router.push("/history"); }} />
-                            <MenuButton label="旅のしおり" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
+              <MenuButton label="行きたい場所リスト" onClick={() => { setMenuOpen(false); router.push("/list"); }} />
               <MenuButton label="シェアする" onClick={() => { setMenuOpen(false); router.push("/share"); }} />
               <MenuButton label="アカウント設定" onClick={() => { setMenuOpen(false); router.push("/account"); }} />
               <MenuButton label="このアプリについて" onClick={() => { setMenuOpen(false); router.push("/about"); }} />

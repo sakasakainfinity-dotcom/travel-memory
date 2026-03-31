@@ -38,8 +38,8 @@ export async function POST(req: Request) {
       subscription_data: {
         metadata: { uid },
       },
-      success_url: `${baseUrl}/plans/success`,
-      cancel_url: `${baseUrl}/plans`,
+      success_url: `${baseUrl}/list`,
+      cancel_url: `${baseUrl}/list`,
     });
 
     return NextResponse.json({ url: session.url });
