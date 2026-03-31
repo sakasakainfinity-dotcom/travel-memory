@@ -17,6 +17,7 @@ export type Place = {
   markerLabel?: string | null;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
+  status?: "wishlist" | "visited";
 };
 
 type View = { lat: number; lng: number; zoom: number };
@@ -171,6 +172,7 @@ export default function MapView({
           visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
           wantedByMe: !!p.wantedByMe,
           visitedByMe: !!p.visitedByMe,
+          status: p.status ?? "visited",
         },
       })),
     } as GeoJSON.FeatureCollection;
@@ -278,7 +280,12 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           id: "pin-camera-private",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visibility"], "private"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
+          filter: [
+            "all",
+            ["==", ["get", "visibility"], "private"],
+            ["==", ["get", "status"], "visited"],
+            ["!=", ["get", "markerType"], "trip_plan_stop"],
+          ],
           layout: {
             "icon-image": "pin-camera-private",
             "icon-size": 0.9,
@@ -294,14 +301,19 @@ if (!map.getLayer("pin-lock-badge")) {
     id: "pin-lock-badge",
     type: "symbol",
     source: "places",
-    filter: ["all", ["==", ["get", "visibility"], "private"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
+    filter: [
+      "all",
+      ["==", ["get", "visibility"], "private"],
+      ["==", ["get", "status"], "visited"],
+      ["!=", ["get", "markerType"], "trip_plan_stop"],
+    ],
     layout: {
       "icon-image": "pin-lock",
-      "icon-size": 0.75,          // ← 鍵だけサイズ調整はここ
+      "icon-size": 0.75,
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
-      "icon-offset": [1.25, -1.35], // ← 右上にちょい（微調整OK）
+      "icon-offset": [1.25, -1.35],
     },
   });
 }
@@ -330,7 +342,15 @@ if (!map.getLayer("pin-wanted")) {
     type: "symbol",
     source: "places",
     filter: ["all",
-      ["==", ["get", "wantedByMe"], true],
+      [
+        "any",
+        ["==", ["get", "wantedByMe"], true],
+        [
+          "all",
+          ["==", ["get", "visibility"], "private"],
+          ["==", ["get", "status"], "wishlist"],
+        ],
+      ],
       ["!=", ["get", "visitedByMe"], true],
     ],
     layout: {

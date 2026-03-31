@@ -12,7 +12,7 @@ export default function SharePage() {
   }, []);
 
   async function copyApp() {
-    await navigator.clipboard.writeText(`${origin}\n旅のしおりをAIで作って共有できます！`);
+    await navigator.clipboard.writeText(`${origin}\n行きたい場所を保存して、行った思い出に育てられる地図アプリです。`);
     alert("共有文をコピーしました");
   }
 
@@ -20,7 +20,7 @@ export default function SharePage() {
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "20px 14px 100px" }}>
       <h1 style={{ fontSize: 24, fontWeight: 900 }}>シェアする</h1>
       <p style={{ color: "#475569", fontSize: 13, lineHeight: 1.6 }}>
-        共有まとめ機能は廃止されました。これからは「旅のしおり」を作成して共有できます。
+        行きたい場所リストの共有と、公開マップへの投稿共有ができます。
       </p>
 
       <section style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, marginTop: 12 }}>
@@ -30,11 +30,11 @@ export default function SharePage() {
       </section>
 
       <section style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, marginTop: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>旅のしおりを共有する</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>行きたい場所リストを見る</h2>
         <p style={{ fontSize: 13, color: "#475569" }}>
-          「旅のしおり」で公開範囲を public に設定すると、しおり詳細から共有リンクを発行できます。
+          Privateで保存した行きたい場所を一覧で確認できます。公開切り替えでPublic投稿として共有できます。
         </p>
-        <button onClick={() => router.push("/plans")} style={btn}>旅のしおりへ移動</button>
+        <button onClick={() => router.push("/list")} style={btn}>行きたい場所リストへ移動</button>
       </section>
     </main>
   );

@@ -1567,7 +1567,7 @@ async function insertPlace({
   memo?: string;
   visitedAt?: string;
   files: File[];
-  visibility: "public" | "private";
+  visibility: "public" | "private" | "pair";
    spotId?: string | null;
   takenAt?: string;
   cameraMake?: string;
@@ -1610,6 +1610,7 @@ async function insertPlace({
       created_by: uid,
       created_by_name: displayName,
       visibility,
+      status: (files?.length ?? 0) > 0 ? "visited" : "wishlist",
       taken_at: takenAt ?? null,
       camera_make: cameraMake ?? null,
       camera_model: cameraModel ?? null,
@@ -1621,7 +1622,7 @@ async function insertPlace({
     },
     { onConflict: "space_id,client_request_id" }
   )
-  .select("id, title, memo, lat, lng, visibility, created_by_name, created_at")
+  .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, created_by_name, created_at")
   .single();
 
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
@@ -1652,6 +1653,9 @@ async function insertPlace({
     lat: placeRow.lat,
     lng: placeRow.lng,
     visibility: placeRow.visibility,
+    status: (files?.length ?? 0) > 0 ? "visited" : "wishlist",
+    ai_summary: (placeRow as any).ai_summary ?? null,
+    ai_tips: (placeRow as any).ai_tips ?? null,
     created_by_name: placeRow.created_by_name,
     created_at: placeRow.created_at,
     photos: urls,
@@ -1928,8 +1932,9 @@ useEffect(() => {
 
       const { data: ps } = await supabase
         .from("places")
-        .select("id, title, memo, lat, lng, visibility")
+        .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips")
         .eq("space_id", mySpace.id)
+        .eq("visibility", "private")
         .order("created_at", { ascending: false });
 
       const ids = (ps ?? []).map((p) => p.id);
@@ -1957,36 +1962,11 @@ useEffect(() => {
         photos: photosBy[p.id] ?? [],
         markerType: "place" as const,
         visibility: (p as any).visibility ?? "private",
+        status: (p as any).status ?? ((photosBy[p.id] ?? []).length > 0 ? "visited" : "wishlist"),
+        ai_summary: (p as any).ai_summary ?? null,
+        ai_tips: (p as any).ai_tips ?? null,
       }));
-
-      const { data: planStops } = await supabase
-        .from("trip_plan_stops")
-        .select("id, day_number, start_time, category, title, memo, map_label, map_source, lat, lng, plan_id, trip_plans!inner(id,title,visibility,created_by)")
-        .eq("trip_plans.created_by", uid)
-        .eq("trip_plans.visibility", "private")
-        .eq("map_enabled", true)
-        .not("lat", "is", null)
-        .not("lng", "is", null);
-
-      const stopPlaces = (planStops ?? []).map((s: any) => ({
-        id: `trip-stop:${s.id}`,
-        name: s.title,
-        memo: s.memo ?? "",
-        lat: Number(s.lat),
-        lng: Number(s.lng),
-        markerType: "trip_plan_stop" as const,
-        markerLabel: s.map_label || `${s.day_number}日目 ${s.start_time ?? "--:--"} ${s.title}`,
-        visibility: "private" as const,
-        tripPlanStopId: s.id,
-        tripPlanId: s.plan_id,
-        tripPlanTitle: s.trip_plans?.title ?? "",
-        dayNumber: s.day_number,
-        startTime: s.start_time,
-        category: s.category,
-        mapSource: s.map_source,
-      }));
-
-      setPlaces([...postPlaces, ...stopPlaces] as any);
+      setPlaces(postPlaces as any);
     } catch (e) {
       console.error(e);
 } finally {
@@ -2085,7 +2065,7 @@ useEffect(() => {
 
       if (remaining <= 0) {
         alert(`本日の無料自動投稿は${AUTO_POST_FREE_DAILY_LIMIT}回までです。プレミアムをご利用ください。`);
-        router.push("/plans");
+        router.push("/list");
         return;
       }
 
@@ -2311,7 +2291,7 @@ useEffect(() => {
 
           <MenuButton label="みんなの投稿" onClick={() => router.push("/community")} />
           <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
-          <MenuButton label="旅のしおり" onClick={() => router.push("/plans")} />
+          <MenuButton label="行きたい場所リスト" onClick={() => router.push("/list")} />
           <MenuButton label="シェアする" onClick={() => router.push("/share")} />
           <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
           <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
@@ -2487,11 +2467,7 @@ useEffect(() => {
             >
               編集
             </button>
-          ) : (
-            <Link href={`/plans/${(selected as any).tripPlanId}`} style={{ position: "absolute", top: 10, right: 12, border: "1px solid #0f766e", background: "#ecfdf5", color: "#065f46", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, textDecoration: "none", fontSize: 12 }}>
-              しおり詳細へ
-            </Link>
-          )}
+          ) : null}
 
           <div
             style={{
@@ -2506,6 +2482,19 @@ useEffect(() => {
               ? `${(selected as any).dayNumber}日目 ${(selected as any).startTime ?? "--:--"} / ${(selected as any).category ?? "カテゴリ未設定"}\n${selected.memo || "（メモなし）"}\n所属しおり: ${(selected as any).tripPlanTitle ?? "-"}`
               : (selected.memo || "（メモなし）")}
           </div>
+
+          {!selectedIsTripStop && (selected as any).ai_summary ? (
+            <div style={{ fontSize: 12, color: "#1f2937", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 8 }}>
+              <strong>この場所の魅力（AI補助）</strong>
+              <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{(selected as any).ai_summary}</div>
+            </div>
+          ) : null}
+          {!selectedIsTripStop && (selected as any).ai_tips ? (
+            <div style={{ fontSize: 12, color: "#1f2937", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 8 }}>
+              <strong>おすすめの楽しみ方（AI補助）</strong>
+              <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{(selected as any).ai_tips}</div>
+            </div>
+          ) : null}
 
           {!selectedIsTripStop ? <div
             style={{
@@ -2628,6 +2617,9 @@ useEffect(() => {
                   lng: created.lng,
                   photos: created.photos ?? [],
                   visibility: created.visibility ?? "private",
+                  status: (created as any).status ?? ((created.photos?.length ?? 0) > 0 ? "visited" : "wishlist"),
+                  ai_summary: (created as any).ai_summary ?? null,
+                  ai_tips: (created as any).ai_tips ?? null,
                 },
                 ...prev,
               ]);
@@ -2691,6 +2683,7 @@ useEffect(() => {
               if (updateError) throw updateError;
 
               let newPhotos = selected.photos ?? [];
+              let nextStatus = (selected as any).status ?? ((selected.photos?.length ?? 0) > 0 ? "visited" : "wishlist");
 
               if ((addPhotos?.length ?? 0) > 0) {
                 newPhotos = await replacePlacePhotos({
@@ -2698,6 +2691,12 @@ useEffect(() => {
                   spaceId: placeRow.space_id,
                   files: addPhotos ?? [],
                 });
+                nextStatus = "visited";
+                const { error: statusError } = await supabase
+                  .from("places")
+                  .update({ status: "visited" })
+                  .eq("id", selected.id);
+                if (statusError) throw statusError;
               }
 
               setPlaces((prev) =>
@@ -2708,6 +2707,7 @@ useEffect(() => {
                         name: title ?? p.name,
                         memo: memo ?? p.memo,
                         photos: newPhotos,
+                        status: nextStatus,
                       }
                     : p
                 )

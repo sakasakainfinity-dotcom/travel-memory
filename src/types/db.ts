@@ -10,6 +10,11 @@ export type Place = {
   created_by: string;
   created_at: string;
   visibility: "public" | "private" | "pair";
+  status?: "wishlist" | "visited";
+  source_place_id?: string | null;
+  ai_summary?: string | null;
+  ai_tips?: string | null;
+  ai_generated_at?: string | null;
 };
 
 export type Photo = {
@@ -51,4 +56,3 @@ export type SpotCollectionItem = {
   sort_order: number;
   created_at: string;
 };
-
