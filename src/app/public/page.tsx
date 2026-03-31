@@ -833,10 +833,9 @@ if (!already) {
             <div style={{ display: "grid", gap: 10 }}>
               <MenuButton label="みんなの投稿" onClick={() => { setMenuOpen(false); router.push("/community"); }} />
               <MenuButton label="投稿履歴" onClick={() => { setMenuOpen(false); router.push("/history"); }} />
-              <MenuButton label="有料プラン" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
-              <MenuButton label="AI 旅行プラン" onClick={() => { setMenuOpen(false); router.push("/ai-trip"); }} />
+                            <MenuButton label="旅のしおり" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
               <MenuButton label="シェアする" onClick={() => { setMenuOpen(false); router.push("/share"); }} />
-              <MenuButton label="撮りたいリスト" onClick={() => { setMenuOpen(false); router.push("/list"); }} />
+              <MenuButton label="ペア機能" onClick={() => { setMenuOpen(false); router.push("/pair"); }} />
               <MenuButton label="アカウント設定" onClick={() => { setMenuOpen(false); router.push("/account"); }} />
               <MenuButton label="このアプリについて" onClick={() => { setMenuOpen(false); router.push("/about"); }} />
             </div>
