@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { TripPlanAIResult, TripPlanDraft, TripPlanInput } from "@/lib/tripPlanTypes";
+const InlineMapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 const REL_OPTIONS = ["1人", "夫婦", "カップル", "友達", "家族", "子連れ", "その他"];
 const BUDGET_OPTIONS = ["節約", "ふつう", "ちょっと贅沢", "贅沢"];
@@ -39,6 +41,7 @@ type ManualStopDraft = {
   memo: string;
   map_enabled: boolean;
   map_label: string | null;
+  map_source: "auto" | "manual" | null;
   lat: number | null;
   lng: number | null;
   address: string | null;
@@ -76,6 +79,7 @@ function ManualPlanPage() {
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [days, setDays] = useState<ManualStopDraft[][]>(() => createInitialDays(PLAN_LENGTH_OPTIONS[0].dayCount));
   const [saving, setSaving] = useState(false);
+  const [manualPicker, setManualPicker] = useState<{ dayIndex: number; localId: string } | null>(null);
 
   useEffect(() => {
     setDays((prev) => adjustDays(prev, selectedLength.dayCount));
@@ -111,8 +115,6 @@ function ManualPlanPage() {
     setStop(dayIndex, stop.localId, (current) => ({
       ...current,
       resolving: true,
-      map_enabled: true,
-      map_label: buildMapLabel(dayIndex + 1, current.start_time, trimmed),
       resolve_error: null,
       candidates: [],
     }));
@@ -147,6 +149,8 @@ function ManualPlanPage() {
           lat: picked.lat,
           lng: picked.lon,
           address: picked.address ?? null,
+          map_enabled: true,
+          map_source: "auto",
           candidates: [],
           resolve_error: null,
           map_label: buildMapLabel(dayIndex + 1, current.start_time, current.title),
@@ -178,19 +182,34 @@ function ManualPlanPage() {
       candidates: [],
       resolve_error: null,
       map_enabled: true,
+      map_source: "auto",
       map_label: buildMapLabel(dayIndex + 1, current.start_time, current.title || picked.name),
     }));
   };
 
-  const toggleMapEnabled = (dayIndex: number, localId: string) => {
-    setStop(dayIndex, localId, (current) => {
-      const next = !current.map_enabled;
-      return {
-        ...current,
-        map_enabled: next,
-        map_label: next ? buildMapLabel(dayIndex + 1, current.start_time, current.title) : null,
-      };
-    });
+  const clearMapLink = (dayIndex: number, localId: string) => {
+    setStop(dayIndex, localId, (current) => ({
+      ...current,
+      map_enabled: false,
+      map_source: null,
+      map_label: null,
+      lat: null,
+      lng: null,
+      address: null,
+    }));
+  };
+
+  const applyManualLocation = (dayIndex: number, localId: string, lat: number, lng: number) => {
+    setStop(dayIndex, localId, (current) => ({
+      ...current,
+      map_enabled: true,
+      map_source: "manual",
+      lat,
+      lng,
+      candidates: [],
+      resolve_error: null,
+      map_label: buildMapLabel(dayIndex + 1, current.start_time, current.title),
+    }));
   };
 
   const saveManualPlan = async () => {
@@ -250,6 +269,7 @@ function ManualPlanPage() {
         memo: stop.memo.trim() || null,
         map_enabled: stop.map_enabled,
         map_label: stop.map_enabled ? buildMapLabel(dayIndex + 1, stop.start_time, stop.title) : null,
+        map_source: stop.map_enabled ? stop.map_source : null,
         lat: stop.lat,
         lng: stop.lng,
         address: stop.address,
@@ -331,18 +351,19 @@ function ManualPlanPage() {
                 </label>
 
                 <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <button type="button" onClick={() => void resolveLocation(dayIndex, stop)} disabled={stop.resolving} style={mapButton(stop.map_enabled)}>
-                    {stop.resolving ? "場所を検索中…" : stop.map_enabled ? "地図追加済み（再検索）" : "地図に追加"}
+                  <button type="button" onClick={() => void resolveLocation(dayIndex, stop)} disabled={stop.resolving} style={mapButton(stop.map_source === "auto")}>
+                    {stop.resolving ? "場所を検索中…" : stop.map_source === "auto" ? "自動追加済み（再検索）" : "自動で地図に追加"}
                   </button>
-                  <button type="button" onClick={() => toggleMapEnabled(dayIndex, stop.localId)} style={smallActionBtn}>
-                    {stop.map_enabled ? "地図対象から外す" : "地図対象にする"}
+                  <button type="button" onClick={() => setManualPicker({ dayIndex, localId: stop.localId })} style={mapButton(stop.map_source === "manual")}>
+                    {stop.map_source === "manual" ? "手動追加済み（再設定）" : "手動で地図に追加"}
                   </button>
+                  <button type="button" onClick={() => clearMapLink(dayIndex, stop.localId)} style={smallActionBtn}>地図対象から外す</button>
                   <button type="button" onClick={() => removeStop(dayIndex, stop.localId)} style={smallActionBtn} disabled={dayStops.length === 1}>削除</button>
-                  {stop.map_enabled ? <span style={mapDoneBadge}>地図追加済み</span> : null}
+                  {stop.map_enabled ? <span style={mapDoneBadge}>{stop.map_source === "manual" ? "手動追加済み" : "自動追加済み"}</span> : <span style={mapMuted}>地図未追加</span>}
                 </div>
 
                 {stop.resolve_error ? <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 12 }}>{stop.resolve_error}</p> : null}
-                {stop.lat && stop.lng ? <p style={{ margin: "6px 0 0", color: "#0f766e", fontSize: 12 }}>地図位置: {stop.address ?? "座標を設定しました"}</p> : null}
+                {stop.lat && stop.lng ? <p style={{ margin: "6px 0 0", color: "#0f766e", fontSize: 12 }}>地図位置: {stop.address ?? "座標を設定しました"}（{stop.map_source === "manual" ? "手動" : "自動"}）</p> : null}
 
                 {stop.candidates.length > 0 ? (
                   <div style={candidateBox}>
@@ -372,6 +393,15 @@ function ManualPlanPage() {
       </section>
 
       <button type="button" onClick={() => void saveManualPlan()} style={saveBtn} disabled={saving}>{saving ? "保存中…" : "この手動しおりを保存する"}</button>
+      {manualPicker ? (
+        <ManualMapPicker
+          onCancel={() => setManualPicker(null)}
+          onPick={(lat, lng) => {
+            applyManualLocation(manualPicker.dayIndex, manualPicker.localId, lat, lng);
+            setManualPicker(null);
+          }}
+        />
+      ) : null}
 
       <style jsx>{`
         @media (max-width: 720px) {
@@ -767,6 +797,7 @@ function createEmptyStop(sortOrder = 0): ManualStopDraft {
     memo: "",
     map_enabled: false,
     map_label: null,
+    map_source: null,
     lat: null,
     lng: null,
     address: null,
@@ -789,6 +820,23 @@ function adjustDays(current: ManualStopDraft[][], dayCount: number) {
 
 function buildMapLabel(dayNumber: number, startTime: string, title: string) {
   return `${dayNumber}日目 ${startTime || "--:--"} ${title || "タイトル未設定"}`.trim();
+}
+
+function ManualMapPicker({ onCancel, onPick }: { onCancel: () => void; onPick: (lat: number, lng: number) => void }) {
+  return (
+    <div style={loadingOverlay}>
+      <div style={{ ...loadingCard, maxWidth: 560, textAlign: "left" }}>
+        <div style={{ fontWeight: 900 }}>地図上で場所を選んでください</div>
+        <div style={{ marginTop: 4, color: "#475569", fontSize: 12 }}>タップした場所に付箋を置きます（ダブルタップで決定）。</div>
+        <div style={{ height: 320, borderRadius: 12, overflow: "hidden", border: "1px solid #e2e8f0", marginTop: 10 }}>
+          <InlineMapView places={[]} onRequestNew={(p: { lat: number; lng: number }) => onPick(p.lat, p.lng)} mode="private" showCenterMarker />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+          <button type="button" onClick={onCancel} style={smallActionBtn}>キャンセル</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const stepCard: React.CSSProperties = { marginTop: 10, border: "1px solid #e2e8f0", borderRadius: 16, padding: 12, background: "linear-gradient(180deg,#fff,#f8fafc)" };
@@ -816,6 +864,7 @@ const inputLabel: React.CSSProperties = { fontSize: 11, color: "#64748b", fontWe
 const manualSectionTitle: React.CSSProperties = { margin: "0 0 10px", fontSize: 17, fontWeight: 900 };
 const saveBtn: React.CSSProperties = { marginTop: 16, width: "100%", border: "none", borderRadius: 14, padding: "14px 12px", background: "linear-gradient(135deg,#2563eb,#0ea5e9)", color: "#fff", fontWeight: 900, fontSize: 16 };
 const mapDoneBadge: React.CSSProperties = { display: "inline-block", borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 700, color: "#0f766e", background: "#ccfbf1" };
+const mapMuted: React.CSSProperties = { display: "inline-block", borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 700, color: "#64748b", background: "#f1f5f9" };
 const smallActionBtn: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius: 999, padding: "7px 12px", background: "#fff", fontWeight: 700, fontSize: 12 };
 const mapButton = (enabled: boolean): React.CSSProperties => ({ border: "none", borderRadius: 999, padding: "7px 12px", background: enabled ? "#0f766e" : "#2563eb", color: "#fff", fontWeight: 800, fontSize: 12 });
 const candidateBox: React.CSSProperties = { marginTop: 8, border: "1px dashed #cbd5e1", borderRadius: 10, padding: 8, background: "#f8fafc" };

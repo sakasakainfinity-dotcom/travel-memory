@@ -38,11 +38,13 @@ export default function PlanDetailPage() {
           id: s.id,
           lat: s.lat,
           lng: s.lng,
-          title: s.map_label || `${s.day_number}日目 ${s.start_time ?? ""} ${s.title}`,
+          name: s.title,
+          markerType: "trip_plan_stop" as const,
+          markerLabel: s.map_label || `${s.day_number}日目 ${s.start_time ?? ""} ${s.title}`,
           memo: s.memo ?? "",
-          visibility: "public",
+          visibility: plan?.visibility === "public" ? "public" : "private",
         })),
-    [stops]
+    [stops, plan?.visibility]
   );
 
   const grouped = useMemo(() => {
@@ -82,7 +84,7 @@ export default function PlanDetailPage() {
     setSaving(true);
     await supabase
       .from("trip_plan_stops")
-      .update({ title: stop.title, memo: stop.memo, start_time: stop.start_time, category: stop.category, map_enabled: stop.map_enabled, map_label: stop.map_label })
+      .update({ title: stop.title, memo: stop.memo, start_time: stop.start_time, category: stop.category, map_enabled: stop.map_enabled, map_label: stop.map_label, map_source: stop.map_source, lat: stop.lat, lng: stop.lng })
       .eq("id", stop.id);
     setSaving(false);
   }

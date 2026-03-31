@@ -27,6 +27,13 @@ type PublicMarkerPlace = MapPlace & {
   visitedCount?: number;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
+  markerType?: "place" | "trip_plan_stop";
+  tripPlanId?: string;
+  tripPlanTitle?: string;
+  dayNumber?: number;
+  startTime?: string | null;
+  category?: string | null;
+  mapSource?: "auto" | "manual" | null;
 };
 
 // ★同じ場所判定キー（title + lat/lng 丸め）
@@ -306,9 +313,34 @@ useEffect(() => {
           } as PublicMarkerPlace;
         });
 
+        const { data: publicStops } = await supabase
+          .from("trip_plan_stops")
+          .select("id, day_number, start_time, category, title, memo, map_label, map_source, lat, lng, plan_id, trip_plans!inner(id,title,visibility)")
+          .eq("trip_plans.visibility", "public")
+          .eq("map_enabled", true)
+          .not("lat", "is", null)
+          .not("lng", "is", null);
+
+        const stopMarkers: PublicMarkerPlace[] = (publicStops ?? []).map((s: any) => ({
+          id: `trip-stop:${s.id}`,
+          name: s.title,
+          memo: s.memo ?? "",
+          lat: Number(s.lat),
+          lng: Number(s.lng),
+          markerType: "trip_plan_stop",
+          markerLabel: s.map_label || `${s.day_number}日目 ${s.start_time ?? "--:--"} ${s.title}`,
+          visibility: "public",
+          tripPlanId: s.plan_id,
+          tripPlanTitle: s.trip_plans?.title ?? "",
+          dayNumber: s.day_number,
+          startTime: s.start_time,
+          category: s.category,
+          mapSource: s.map_source,
+        }));
+
         // 8) state反映
         setPostsByPlaceKey(grouped);
-        setPlaces(markerPlaces);
+        setPlaces([...markerPlaces, ...stopMarkers]);
 
         // postId -> placeKey
         const idMap: Record<string, string> = {};
@@ -327,6 +359,8 @@ useEffect(() => {
     if (!selectedId) return [];
     return postsByPlaceKey[selectedId] ?? [];
   }, [postsByPlaceKey, selectedId]);
+  const selectedMarker = useMemo(() => (selectedId ? places.find((x) => x.id === selectedId) ?? null : null), [places, selectedId]);
+  const selectedIsTripStop = selectedMarker?.markerType === "trip_plan_stop";
 
   const selectedTitle = useMemo(() => {
     if (!selectedId) return "";
@@ -656,7 +690,7 @@ if (!already) {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+            {!selectedIsTripStop ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
               {(() => {
                 const m = places.find((x) => x.id === selectedId);
                 const wanted = !!m?.wantedByMe;
@@ -704,17 +738,26 @@ if (!already) {
                   </>
                 );
               })()}
-            </div>
+            </div> : null}
           </div>
 
           <div style={{ overflowY: "auto", display: "grid", gap: 12, paddingTop: 4 }}>
-            {selectedPosts.length === 0 && (
+            {selectedIsTripStop ? (
+              <div style={{ border: "1px solid #fde68a", borderRadius: 12, background: "#fffbeb", padding: 12, fontSize: 13, lineHeight: 1.6, color: "#78350f" }}>
+                <div><strong>{selectedMarker?.dayNumber}日目 {selectedMarker?.startTime ?? "--:--"}</strong></div>
+                <div>カテゴリ: {selectedMarker?.category ?? "未設定"}</div>
+                <div>タイトル: {selectedMarker?.name ?? "無題"}</div>
+                <div>メモ: {selectedMarker?.memo ?? "（メモなし）"}</div>
+                <div>しおり: {selectedMarker?.tripPlanTitle ?? "-"}</div>
+              </div>
+            ) : null}
+            {!selectedIsTripStop && selectedPosts.length === 0 && (
               <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: 20 }}>
                 投稿が見つからんかった…
               </div>
             )}
 
-            {selectedPosts.map((post) => (
+            {!selectedIsTripStop && selectedPosts.map((post) => (
               <div
                 key={post.id}
                 style={{

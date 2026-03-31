@@ -13,6 +13,8 @@ export type Place = {
   photos?: string[];
   postCount?: number;
   visibility?: "public" | "private";
+  markerType?: "place" | "trip_plan_stop";
+  markerLabel?: string | null;
   wantedByMe?: boolean;
   visitedByMe?: boolean;
 };
@@ -103,6 +105,13 @@ const VISITED_STAR_CHECK_FILLED_SVG = `
 </svg>
 `;
 
+const STICKY_NOTE_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect x="10" y="8" width="44" height="44" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="4"/>
+  <path d="M42 8h12v12z" fill="#fde68a" stroke="#f59e0b" stroke-width="3"/>
+  <circle cx="32" cy="54" r="6" fill="#f59e0b" />
+</svg>
+`;
 
 
 /* ===== MapView ===== */
@@ -157,6 +166,8 @@ export default function MapView({
         properties: {
           id: p.id,
           title: p.name ?? "",
+          markerType: p.markerType ?? "place",
+          markerLabel: p.markerLabel ?? "",
           visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
           wantedByMe: !!p.wantedByMe,
           visitedByMe: !!p.visitedByMe,
@@ -242,6 +253,7 @@ await loadSvgAsImage(map, "pin-lock", LOCK_BADGE_SVG);
 
 await loadSvgAsImage(map, "pin-star-fill", STAR_FILLED_SVG);
 await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
+await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
 
       // 3) レイヤー（public📷）
       if (!map.getLayer("pin-camera-public")) {
@@ -249,7 +261,7 @@ await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
           id: "pin-camera-public",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visibility"], "public"]],
+          filter: ["all", ["==", ["get", "visibility"], "public"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
 
           layout: {
             "icon-image": "pin-camera-public",
@@ -266,7 +278,7 @@ await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
           id: "pin-camera-private",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visibility"], "private"]],
+          filter: ["all", ["==", ["get", "visibility"], "private"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
           layout: {
             "icon-image": "pin-camera-private",
             "icon-size": 0.9,
@@ -282,7 +294,7 @@ if (!map.getLayer("pin-lock-badge")) {
     id: "pin-lock-badge",
     type: "symbol",
     source: "places",
-    filter: ["all", ["==", ["get", "visibility"], "private"]],
+    filter: ["all", ["==", ["get", "visibility"], "private"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
     layout: {
       "icon-image": "pin-lock",
       "icon-size": 0.75,          // ← 鍵だけサイズ調整はここ
@@ -331,6 +343,32 @@ if (!map.getLayer("pin-wanted")) {
   });
 }
 
+if (!map.getLayer("pin-trip-plan-stop")) {
+  map.addLayer({
+    id: "pin-trip-plan-stop",
+    type: "symbol",
+    source: "places",
+    filter: ["==", ["get", "markerType"], "trip_plan_stop"],
+    layout: {
+      "icon-image": "pin-sticky-note",
+      "icon-size": 0.78,
+      "icon-allow-overlap": true,
+      "icon-anchor": "bottom",
+      "text-field": ["get", "markerLabel"],
+      "text-size": 11,
+      "text-anchor": "top",
+      "text-offset": [0, 0.4],
+      "text-max-width": 10,
+      "text-allow-overlap": false,
+    },
+    paint: {
+      "text-color": "#92400e",
+      "text-halo-color": "#fffbeb",
+      "text-halo-width": 1.2,
+    },
+  });
+}
+
 
 // 下：カメラ → 上：鍵 → 上：星 → 最上：行った
 if (map.getLayer("pin-camera-public")) map.moveLayer("pin-camera-public");
@@ -338,11 +376,12 @@ if (map.getLayer("pin-camera-private")) map.moveLayer("pin-camera-private");
 if (map.getLayer("pin-lock-badge")) map.moveLayer("pin-lock-badge");
 if (map.getLayer("pin-wanted")) map.moveLayer("pin-wanted");
 if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
+if (map.getLayer("pin-trip-plan-stop")) map.moveLayer("pin-trip-plan-stop");
 
 
 
       // 7) クリック（📷/📷🔒/⭐/✓ 全部同じ挙動にしとく）
-      const clickableLayers = ["pin-camera-public", "pin-camera-private", "pin-wanted", "pin-visited"] as const;
+      const clickableLayers = ["pin-camera-public", "pin-camera-private", "pin-wanted", "pin-visited", "pin-trip-plan-stop"] as const;
       for (const layerId of clickableLayers) {
         if (!map.getLayer(layerId)) continue;
         map.on("click", layerId, (e) => {
