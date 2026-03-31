@@ -3,6 +3,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Place as MapPlace } from "@/components/MapView";
 import SearchBox from "@/components/SearchBox";
 import { supabase } from "@/lib/supabaseClient";
@@ -1920,6 +1921,7 @@ useEffect(() => {
     try {
       const { data: ses } = await supabase.auth.getSession();
       if (!ses.session) return;
+      const uid = ses.session.user.id;
 
       const mySpace = await ensureMySpace();
       if (!mySpace?.id) return;
@@ -1946,17 +1948,45 @@ useEffect(() => {
         }
       }
 
-      setPlaces(
-        (ps ?? []).map((p) => ({
-          id: p.id,
-          name: p.title,
-          memo: p.memo ?? undefined,
-          lat: p.lat,
-          lng: p.lng,
-          photos: photosBy[p.id] ?? [],
-          visibility: (p as any).visibility ?? "private",
-        }))
-      );
+      const postPlaces = (ps ?? []).map((p) => ({
+        id: p.id,
+        name: p.title,
+        memo: p.memo ?? undefined,
+        lat: p.lat,
+        lng: p.lng,
+        photos: photosBy[p.id] ?? [],
+        markerType: "place" as const,
+        visibility: (p as any).visibility ?? "private",
+      }));
+
+      const { data: planStops } = await supabase
+        .from("trip_plan_stops")
+        .select("id, day_number, start_time, category, title, memo, map_label, map_source, lat, lng, plan_id, trip_plans!inner(id,title,visibility,created_by)")
+        .eq("trip_plans.created_by", uid)
+        .eq("trip_plans.visibility", "private")
+        .eq("map_enabled", true)
+        .not("lat", "is", null)
+        .not("lng", "is", null);
+
+      const stopPlaces = (planStops ?? []).map((s: any) => ({
+        id: `trip-stop:${s.id}`,
+        name: s.title,
+        memo: s.memo ?? "",
+        lat: Number(s.lat),
+        lng: Number(s.lng),
+        markerType: "trip_plan_stop" as const,
+        markerLabel: s.map_label || `${s.day_number}日目 ${s.start_time ?? "--:--"} ${s.title}`,
+        visibility: "private" as const,
+        tripPlanStopId: s.id,
+        tripPlanId: s.plan_id,
+        tripPlanTitle: s.trip_plans?.title ?? "",
+        dayNumber: s.day_number,
+        startTime: s.start_time,
+        category: s.category,
+        mapSource: s.map_source,
+      }));
+
+      setPlaces([...postPlaces, ...stopPlaces] as any);
     } catch (e) {
       console.error(e);
 } finally {
@@ -2090,6 +2120,7 @@ useEffect(() => {
   () => places.find((x) => x.id === selectedId) || null,
   [places, selectedId]
 );
+  const selectedIsTripStop = selected && (selected as any).markerType === "trip_plan_stop";
 
   return (
     <>
@@ -2438,23 +2469,29 @@ useEffect(() => {
             ×
           </button>
 
-          <button
-            onClick={() => setEditOpen(true)}
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 12,
-              border: "1px solid #111827",
-              background: "#111827",
-              color: "#fff",
-              borderRadius: 8,
-              padding: "6px 10px",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
-          >
-            編集
-          </button>
+          {!selectedIsTripStop ? (
+            <button
+              onClick={() => setEditOpen(true)}
+              style={{
+                position: "absolute",
+                top: 10,
+                right: 12,
+                border: "1px solid #111827",
+                background: "#111827",
+                color: "#fff",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              編集
+            </button>
+          ) : (
+            <Link href={`/plans/${(selected as any).tripPlanId}`} style={{ position: "absolute", top: 10, right: 12, border: "1px solid #0f766e", background: "#ecfdf5", color: "#065f46", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, textDecoration: "none", fontSize: 12 }}>
+              しおり詳細へ
+            </Link>
+          )}
 
           <div
             style={{
@@ -2465,10 +2502,12 @@ useEffect(() => {
               overflow: "auto",
             }}
           >
-            {selected.memo || "（メモなし）"}
+            {selectedIsTripStop
+              ? `${(selected as any).dayNumber}日目 ${(selected as any).startTime ?? "--:--"} / ${(selected as any).category ?? "カテゴリ未設定"}\n${selected.memo || "（メモなし）"}\n所属しおり: ${(selected as any).tripPlanTitle ?? "-"}`
+              : (selected.memo || "（メモなし）")}
           </div>
 
-          <div
+          {!selectedIsTripStop ? <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
@@ -2495,7 +2534,7 @@ useEffect(() => {
                 alt=""
               />
             ))}
-          </div>
+          </div> : null}
         </div>
       )}
 
@@ -2624,7 +2663,7 @@ useEffect(() => {
       )}
 
       {/* ✏️ 編集モーダル */}
-      {selected && (
+      {selected && !selectedIsTripStop && (
         <EditModal
           open={editOpen}
           place={{ id: selected.id, title: selected.name ?? "", memo: selected.memo ?? "" }}
