@@ -23,7 +23,8 @@ type PlanRow = {
 
 export default function PlansPage() {
   const router = useRouter();
-  const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [privatePlans, setPrivatePlans] = useState<PlanRow[]>([]);
+  const [publicPlans, setPublicPlans] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -35,19 +36,31 @@ export default function PlansPage() {
     }
     const space = await ensureMySpace();
     if (!space?.id) {
-      setPlans([]);
+      setPrivatePlans([]);
+      setPublicPlans([]);
       setLoading(false);
       return;
     }
 
-    const { data } = await supabase
+    const [privateRes, publicRes] = await Promise.all([
+      supabase
       .from("trip_plans")
       .select("id,title,trip_length_type,nights,destination_1,destination_2,visibility,estimated_cost_min,estimated_cost_max,cover_photo_url,share_token,created_at")
       .eq("space_id", space.id)
+      .eq("visibility", "private")
       .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }),
+      supabase
+      .from("trip_plans")
+      .select("id,title,trip_length_type,nights,destination_1,destination_2,visibility,estimated_cost_min,estimated_cost_max,cover_photo_url,share_token,created_at")
+      .eq("space_id", space.id)
+      .eq("visibility", "public")
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false }),
+    ]);
 
-    setPlans((data ?? []) as PlanRow[]);
+    setPrivatePlans((privateRes.data ?? []) as PlanRow[]);
+    setPublicPlans((publicRes.data ?? []) as PlanRow[]);
     setLoading(false);
   };
 
@@ -75,8 +88,10 @@ export default function PlansPage() {
 
       {loading && <div>読み込み中...</div>}
 
-      <div style={{ display: "grid", gap: 10 }}>
-        {plans.map((plan) => (
+      <section style={{ marginBottom: 18 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 900 }}>private</h2>
+        <div style={{ display: "grid", gap: 10 }}>
+          {privatePlans.map((plan) => (
           <article key={plan.id} style={{ border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", background: "#fff" }}>
             {plan.cover_photo_url ? (
               <img src={plan.cover_photo_url} alt="表紙" style={{ width: "100%", height: 140, objectFit: "cover" }} />
@@ -92,7 +107,7 @@ export default function PlansPage() {
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <Link href={`/plans/${plan.id}`} style={miniBtn}>開く</Link>
-                <button onClick={() => router.push(`/plans/new?edit=${plan.id}`)} style={miniBtn}>編集</button>
+                <button onClick={() => router.push(`/plans/new?edit=${plan.id}&mode=manual`)} style={miniBtn}>編集</button>
                 <button onClick={() => void removePlan(plan.id)} style={miniBtn}>削除</button>
                 {plan.visibility === "public" && plan.share_token ? (
                   <Link href={`/share/plan/${plan.share_token}`} style={miniBtn}>しおりを共有</Link>
@@ -100,8 +115,42 @@ export default function PlansPage() {
               </div>
             </div>
           </article>
-        ))}
-      </div>
+          ))}
+          {!loading && privatePlans.length === 0 ? <div style={{ color: "#64748b", fontSize: 13 }}>private のしおりはまだありません。</div> : null}
+        </div>
+      </section>
+
+      <section>
+        <h2 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 900 }}>public</h2>
+        <div style={{ display: "grid", gap: 10 }}>
+          {publicPlans.map((plan) => (
+            <article key={plan.id} style={{ border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", background: "#fff" }}>
+              {plan.cover_photo_url ? (
+                <img src={plan.cover_photo_url} alt="表紙" style={{ width: "100%", height: 140, objectFit: "cover" }} />
+              ) : null}
+              <div style={{ padding: 12 }}>
+                <div style={{ fontWeight: 900 }}>{plan.title}</div>
+                <div style={{ color: "#475569", fontSize: 12, marginTop: 4 }}>
+                  {plan.trip_length_type === "day_trip" ? "日帰り" : `${plan.nights ?? 1}泊`} / {plan.destination_1 ?? "目的地未設定"}
+                  {plan.destination_2 ? `・${plan.destination_2}` : ""}
+                </div>
+                <div style={{ color: "#475569", fontSize: 12, marginTop: 3 }}>
+                  公開範囲: {plan.visibility} / 予算: {plan.estimated_cost_min ?? "-"}〜{plan.estimated_cost_max ?? "-"}円
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  <Link href={`/plans/${plan.id}`} style={miniBtn}>開く</Link>
+                  <button onClick={() => router.push(`/plans/new?edit=${plan.id}&mode=manual`)} style={miniBtn}>編集</button>
+                  <button onClick={() => void removePlan(plan.id)} style={miniBtn}>削除</button>
+                  {plan.share_token ? (
+                    <Link href={`/share/plan/${plan.share_token}`} style={miniBtn}>しおりを共有</Link>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ))}
+          {!loading && publicPlans.length === 0 ? <div style={{ color: "#64748b", fontSize: 13 }}>public のしおりはまだありません。</div> : null}
+        </div>
+      </section>
     </main>
   );
 }

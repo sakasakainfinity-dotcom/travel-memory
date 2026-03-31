@@ -34,6 +34,7 @@ type PlaceCandidate = {
 };
 
 type ManualStopDraft = {
+  id?: string;
   localId: string;
   start_time: string;
   category: string;
@@ -49,26 +50,33 @@ type ManualStopDraft = {
   resolving: boolean;
   resolve_error: string | null;
   candidates: PlaceCandidate[];
+  initial_map_label?: string | null;
+  initial_lat?: number | null;
+  initial_lng?: number | null;
+  initial_map_source?: "auto" | "manual" | null;
 };
 
 export default function PlanNewPage() {
   const [mode, setMode] = useState<string | null>("__loading__");
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setMode(params.get("mode") ?? "ai");
+    const requestedEditId = params.get("edit");
+    setEditId(requestedEditId);
+    setMode(requestedEditId ? "manual" : params.get("mode") ?? "ai");
   }, []);
 
   if (mode === "__loading__") {
     return <main style={{ maxWidth: 860, margin: "0 auto", padding: "14px 12px" }}>読み込み中...</main>;
   }
   if (mode === "manual") {
-    return <ManualPlanPage />;
+    return <ManualPlanPage editId={editId} />;
   }
   return <AiPlanPage />;
 }
 
-function ManualPlanPage() {
+function ManualPlanPage({ editId }: { editId: string | null }) {
   const router = useRouter();
   const [selectedLength, setSelectedLength] = useState(PLAN_LENGTH_OPTIONS[0]);
   const [title, setTitle] = useState("");
@@ -79,11 +87,101 @@ function ManualPlanPage() {
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [days, setDays] = useState<ManualStopDraft[][]>(() => createInitialDays(PLAN_LENGTH_OPTIONS[0].dayCount));
   const [saving, setSaving] = useState(false);
+  const [hydrating, setHydrating] = useState(false);
+  const [baseVisibility, setBaseVisibility] = useState<"private" | "public">("private");
+  const [initialStopIds, setInitialStopIds] = useState<string[]>([]);
   const [manualPicker, setManualPicker] = useState<{ dayIndex: number; localId: string } | null>(null);
 
   useEffect(() => {
     setDays((prev) => adjustDays(prev, selectedLength.dayCount));
   }, [selectedLength.dayCount]);
+
+  useEffect(() => {
+    if (!editId) return;
+    let alive = true;
+
+    const hydrate = async () => {
+      setHydrating(true);
+      const { data: plan, error: planErr } = await supabase
+        .from("trip_plans")
+        .select("id,title,description,departure_from,destination_1,destination_2,visibility,trip_length_type,nights")
+        .eq("id", editId)
+        .single();
+
+      if (planErr || !plan) {
+        setHydrating(false);
+        alert(planErr?.message ?? "しおりが見つかりませんでした");
+        router.push("/plans");
+        return;
+      }
+
+      const { data: stops, error: stopErr } = await supabase
+        .from("trip_plan_stops")
+        .select("id,day_number,sort_order,start_time,category,title,memo,map_enabled,map_label,map_source,lat,lng,address,status")
+        .eq("plan_id", editId)
+        .order("day_number", { ascending: true })
+        .order("sort_order", { ascending: true });
+
+      if (stopErr) {
+        setHydrating(false);
+        alert(stopErr.message);
+        return;
+      }
+      if (!alive) return;
+
+      const dayCount = plan.trip_length_type === "day_trip" ? 1 : (plan.nights ?? 1) + 1;
+      const nextLength = PLAN_LENGTH_OPTIONS.find((o) => o.dayCount === dayCount) ?? PLAN_LENGTH_OPTIONS[0];
+      setSelectedLength(nextLength);
+      setTitle(plan.title ?? "");
+      setDescription(plan.description ?? "");
+      setDepartureFrom(plan.departure_from ?? "");
+      setDestination1(plan.destination_1 ?? "");
+      setDestination2(plan.destination_2 ?? "");
+      setVisibility(plan.visibility === "public" ? "public" : "private");
+      setBaseVisibility(plan.visibility === "public" ? "public" : "private");
+
+      const grouped = Array.from({ length: dayCount }, () => [] as ManualStopDraft[]);
+      const mappedStops = (stops ?? []).map((stop) => {
+        const row = stop as any;
+        const mapped: ManualStopDraft = {
+          id: row.id,
+          localId: row.id,
+          start_time: row.start_time ?? "",
+          category: row.category ?? "観光",
+          title: row.title ?? "",
+          memo: row.memo ?? "",
+          map_enabled: row.map_enabled === true,
+          map_label: row.map_label ?? null,
+          map_source: row.map_source ?? null,
+          lat: row.lat ?? null,
+          lng: row.lng ?? null,
+          address: row.address ?? null,
+          status: row.status ?? "planned",
+          resolving: false,
+          resolve_error: null,
+          candidates: [],
+          initial_map_label: row.map_label ?? null,
+          initial_lat: row.lat ?? null,
+          initial_lng: row.lng ?? null,
+          initial_map_source: row.map_source ?? null,
+        };
+        return { dayNumber: row.day_number ?? 1, stop: mapped };
+      });
+
+      mappedStops.forEach((entry) => {
+        const idx = Math.max(0, entry.dayNumber - 1);
+        grouped[idx]?.push(entry.stop);
+      });
+      setInitialStopIds(mappedStops.map((entry) => entry.stop.id!).filter(Boolean));
+      setDays(grouped.map((day) => (day.length ? day : [createEmptyStop()])));
+      setHydrating(false);
+    };
+
+    void hydrate();
+    return () => {
+      alive = false;
+    };
+  }, [editId, router]);
 
   const canSave = useMemo(() => days.some((day) => day.some((stop) => stop.title.trim().length > 0)), [days]);
 
@@ -213,6 +311,7 @@ function ManualPlanPage() {
   };
 
   const saveManualPlan = async () => {
+    if (hydrating) return;
     if (!canSave) {
       alert("最低1件はタイトルを入力してください");
       return;
@@ -233,34 +332,76 @@ function ManualPlanPage() {
       return;
     }
 
-    const shareToken = visibility === "public" ? crypto.randomUUID().replaceAll("-", "") : null;
-    const { data: row, error } = await supabase
-      .from("trip_plans")
-      .insert({
-        space_id: space.id,
-        created_by: uid,
-        title: title.trim() || `${destination1 || "手動しおり"}`,
-        description: description.trim() || "出発から到着まで手動で組み立てた旅のしおりです。",
-        departure_from: departureFrom || null,
-        trip_length_type: selectedLength.dayCount === 1 ? "day_trip" : "overnight",
-        nights: selectedLength.nights,
-        destination_1: destination1 || null,
-        destination_2: destination2 || null,
-        visibility,
-        share_token: shareToken,
-      })
-      .select("id")
-      .single();
-
-    if (error || !row?.id) {
+    let planId = editId;
+    let shareToken: string | null = null;
+    if (editId) {
+      const { data: existing, error: existingErr } = await supabase
+        .from("trip_plans")
+        .select("id,share_token")
+        .eq("id", editId)
+        .single();
+      if (existingErr || !existing?.id) {
+        setSaving(false);
+        alert(existingErr?.message ?? "編集対象のしおりを読み込めませんでした");
+        return;
+      }
+      shareToken = visibility === "public" ? (existing.share_token ?? crypto.randomUUID().replaceAll("-", "")) : null;
+      const { error: updateErr } = await supabase
+        .from("trip_plans")
+        .update({
+          title: title.trim() || `${destination1 || "手動しおり"}`,
+          description: description.trim() || "出発から到着まで手動で組み立てた旅のしおりです。",
+          departure_from: departureFrom || null,
+          trip_length_type: selectedLength.dayCount === 1 ? "day_trip" : "overnight",
+          nights: selectedLength.nights,
+          destination_1: destination1 || null,
+          destination_2: destination2 || null,
+          visibility,
+          share_token: shareToken,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editId);
+      if (updateErr) {
+        setSaving(false);
+        alert(updateErr.message);
+        return;
+      }
+    } else {
+      shareToken = visibility === "public" ? crypto.randomUUID().replaceAll("-", "") : null;
+      const { data: row, error } = await supabase
+        .from("trip_plans")
+        .insert({
+          space_id: space.id,
+          created_by: uid,
+          title: title.trim() || `${destination1 || "手動しおり"}`,
+          description: description.trim() || "出発から到着まで手動で組み立てた旅のしおりです。",
+          departure_from: departureFrom || null,
+          trip_length_type: selectedLength.dayCount === 1 ? "day_trip" : "overnight",
+          nights: selectedLength.nights,
+          destination_1: destination1 || null,
+          destination_2: destination2 || null,
+          visibility,
+          share_token: shareToken,
+        })
+        .select("id")
+        .single();
+      if (error || !row?.id) {
+        setSaving(false);
+        alert(error?.message ?? "しおり保存に失敗しました");
+        return;
+      }
+      planId = row.id;
+    }
+    if (!planId) {
       setSaving(false);
-      alert(error?.message ?? "しおり保存に失敗しました");
+      alert("しおりIDを取得できませんでした");
       return;
     }
 
     const stopRows = days.flatMap((dayStops, dayIndex) =>
       dayStops.map((stop, sortOrder) => ({
-        plan_id: row.id,
+        id: stop.id,
+        plan_id: planId,
         day_number: dayIndex + 1,
         sort_order: sortOrder,
         start_time: stop.start_time || null,
@@ -268,7 +409,12 @@ function ManualPlanPage() {
         title: stop.title.trim() || "（タイトル未設定）",
         memo: stop.memo.trim() || null,
         map_enabled: stop.map_enabled,
-        map_label: stop.map_enabled ? buildMapLabel(dayIndex + 1, stop.start_time, stop.title) : null,
+        map_label:
+          stop.map_enabled
+            ? shouldReuseStopMapLabel(stop, visibility, baseVisibility)
+              ? stop.map_label
+              : buildMapLabel(dayIndex + 1, stop.start_time, stop.title)
+            : null,
         map_source: stop.map_enabled ? stop.map_source : null,
         lat: stop.lat,
         lng: stop.lng,
@@ -277,8 +423,71 @@ function ManualPlanPage() {
       }))
     );
 
-    if (stopRows.length) {
-      const { error: stopErr } = await supabase.from("trip_plan_stops").insert(stopRows);
+    if (editId) {
+      const keepIds = stopRows.map((s) => s.id).filter((id): id is string => Boolean(id));
+      const deleteIds = initialStopIds.filter((id) => !keepIds.includes(id));
+      if (deleteIds.length) {
+        const { error: delErr } = await supabase.from("trip_plan_stops").delete().in("id", deleteIds);
+        if (delErr) {
+          setSaving(false);
+          alert(delErr.message);
+          return;
+        }
+      }
+
+      for (const stop of stopRows) {
+        if (stop.id) {
+          const { error: upErr } = await supabase
+            .from("trip_plan_stops")
+            .update({
+              day_number: stop.day_number,
+              sort_order: stop.sort_order,
+              start_time: stop.start_time,
+              category: stop.category,
+              title: stop.title,
+              memo: stop.memo,
+              map_enabled: stop.map_enabled,
+              map_label: stop.map_label,
+              map_source: stop.map_source,
+              lat: stop.lat,
+              lng: stop.lng,
+              address: stop.address,
+              status: stop.status,
+            })
+            .eq("id", stop.id)
+            .eq("plan_id", planId);
+          if (upErr) {
+            setSaving(false);
+            alert(upErr.message);
+            return;
+          }
+          continue;
+        }
+
+        const { error: insErr } = await supabase.from("trip_plan_stops").insert({
+          plan_id: planId,
+          day_number: stop.day_number,
+          sort_order: stop.sort_order,
+          start_time: stop.start_time,
+          category: stop.category,
+          title: stop.title,
+          memo: stop.memo,
+          map_enabled: stop.map_enabled,
+          map_label: stop.map_label,
+          map_source: stop.map_source,
+          lat: stop.lat,
+          lng: stop.lng,
+          address: stop.address,
+          status: stop.status,
+        });
+        if (insErr) {
+          setSaving(false);
+          alert(insErr.message);
+          return;
+        }
+      }
+    } else if (stopRows.length) {
+      const { error: stopErr } = await supabase.from("trip_plan_stops").insert(stopRows.map(({ id, ...row }) => row));
       if (stopErr) {
         setSaving(false);
         alert(stopErr.message);
@@ -287,7 +496,12 @@ function ManualPlanPage() {
     }
 
     setSaving(false);
-    router.push(`/plans/${row.id}`);
+    alert(editId ? "しおりを更新しました" : "しおりを作成しました");
+    if (editId) {
+      router.push(`/plans?visibility=${visibility}`);
+      return;
+    }
+    router.push(`/plans/${planId}`);
   };
 
   return (
@@ -295,9 +509,11 @@ function ManualPlanPage() {
       <Link href="/plans" style={backBtn}>旅のしおり一覧へ戻る</Link>
 
       <header style={manualHeaderCard}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>手動でしおりをつくる</h1>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>{editId ? "しおりを編集する" : "手動でしおりをつくる"}</h1>
         <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 14 }}>出発から到着まで、自分で旅の流れを組み立てられます。</p>
       </header>
+
+      {hydrating ? <div style={{ marginTop: 12, color: "#475569", fontSize: 14 }}>既存データを読み込み中...</div> : null}
 
       <section style={manualCard}>
         <h2 style={manualSectionTitle}>日数設定</h2>
@@ -392,7 +608,7 @@ function ManualPlanPage() {
         </div>
       </section>
 
-      <button type="button" onClick={() => void saveManualPlan()} style={saveBtn} disabled={saving}>{saving ? "保存中…" : "この手動しおりを保存する"}</button>
+      <button type="button" onClick={() => void saveManualPlan()} style={saveBtn} disabled={saving || hydrating}>{saving ? "保存中…" : editId ? "このしおりを更新する" : "この手動しおりを保存する"}</button>
       {manualPicker ? (
         <ManualMapPicker
           onCancel={() => setManualPicker(null)}
@@ -820,6 +1036,21 @@ function adjustDays(current: ManualStopDraft[][], dayCount: number) {
 
 function buildMapLabel(dayNumber: number, startTime: string, title: string) {
   return `${dayNumber}日目 ${startTime || "--:--"} ${title || "タイトル未設定"}`.trim();
+}
+
+function shouldReuseStopMapLabel(
+  stop: ManualStopDraft,
+  nextVisibility: "private" | "public",
+  initialVisibility: "private" | "public"
+) {
+  if (!stop.id || !stop.map_enabled || !stop.map_label) return false;
+  return (
+    stop.initial_map_label === stop.map_label &&
+    stop.initial_lat === stop.lat &&
+    stop.initial_lng === stop.lng &&
+    stop.initial_map_source === stop.map_source &&
+    nextVisibility === initialVisibility
+  );
 }
 
 function ManualMapPicker({ onCancel, onPick }: { onCancel: () => void; onPick: (lat: number, lng: number) => void }) {
