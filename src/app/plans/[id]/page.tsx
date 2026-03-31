@@ -33,8 +33,15 @@ export default function PlanDetailPage() {
   const mapStops = useMemo(
     () =>
       stops
-        .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
-        .map((s) => ({ id: s.id, lat: s.lat, lng: s.lng, title: `Day${s.day_number} ${s.start_time ?? ""} ${s.title}`, memo: s.memo ?? "", visibility: "public" })),
+        .filter((s) => s.map_enabled === true && typeof s.lat === "number" && typeof s.lng === "number")
+        .map((s) => ({
+          id: s.id,
+          lat: s.lat,
+          lng: s.lng,
+          title: s.map_label || `${s.day_number}日目 ${s.start_time ?? ""} ${s.title}`,
+          memo: s.memo ?? "",
+          visibility: "public",
+        })),
     [stops]
   );
 
@@ -75,7 +82,7 @@ export default function PlanDetailPage() {
     setSaving(true);
     await supabase
       .from("trip_plan_stops")
-      .update({ title: stop.title, memo: stop.memo, candidate_options: stop.candidate_options })
+      .update({ title: stop.title, memo: stop.memo, start_time: stop.start_time, category: stop.category, map_enabled: stop.map_enabled, map_label: stop.map_label })
       .eq("id", stop.id);
     setSaving(false);
   }
@@ -101,7 +108,8 @@ export default function PlanDetailPage() {
   return (
     <main style={{ maxWidth: 920, margin: "0 auto", padding: "14px 12px 100px" }}>
       <Link href="/plans" style={backBtn}>旅のしおりページに戻る</Link>
-      <section style={{ border: "1px solid #e2e8f0", borderRadius: 16, padding: 14, marginTop: 10, background: "#fff" }}>
+
+      <section style={{ border: "1px solid #dbeafe", borderRadius: 16, padding: 14, marginTop: 10, background: "linear-gradient(160deg,#ffffff,#eff6ff)" }}>
         <input value={plan.title ?? ""} onChange={(e) => setPlan({ ...plan, title: e.target.value })} style={{ ...input, fontSize: 22, fontWeight: 900 }} />
         <textarea value={plan.description ?? ""} onChange={(e) => setPlan({ ...plan, description: e.target.value })} style={{ ...input, marginTop: 8 }} placeholder="旅のコンセプト・説明" />
         <button onClick={() => void savePlanHeader()} style={miniPrimary} disabled={saving}>タイトル/説明を保存</button>
@@ -115,28 +123,34 @@ export default function PlanDetailPage() {
 
       <section style={{ marginTop: 14, display: "grid", gap: 10 }}>
         {Object.entries(grouped).map(([day, list]) => (
-          <div key={day} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, background: "#fff" }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>Day {day} スケジュール</h2>
+          <div key={day} style={{ border: "1px solid #dbeafe", borderRadius: 14, padding: 12, background: "#fff" }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>{day}日目 スケジュール</h2>
             <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
               {list.map((stop, idx) => (
-                <article key={stop.id} style={{ border: "1px solid #f1f5f9", borderRadius: 10, padding: 10 }}>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{stop.start_time ?? "--:--"} - {stop.end_time ?? ""} / {stop.category ?? "spot"}</div>
-                  <input value={stop.title ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => s.id === stop.id ? { ...s, title: e.target.value } : s))} style={input} />
-                  <textarea value={stop.memo ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => s.id === stop.id ? { ...s, memo: e.target.value } : s))} style={{ ...input, marginTop: 6 }} placeholder="メモ" />
-                  <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700 }}>候補（最大3件を編集可）</div>
-                  {(stop.candidate_options ?? []).slice(0, 3).map((opt: any, i: number) => (
-                    <input
-                      key={i}
-                      value={opt?.name ?? ""}
-                      onChange={(e) => setStops((prev) => prev.map((s) => {
-                        if (s.id !== stop.id) return s;
-                        const next = [...(s.candidate_options ?? [])];
-                        next[i] = { ...(next[i] ?? {}), name: e.target.value };
-                        return { ...s, candidate_options: next };
-                      }))}
-                      style={{ ...input, marginTop: 4 }}
-                    />
-                  ))}
+                <article key={stop.id} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+                  <div className="stop-header-grid" style={{ display: "grid", gridTemplateColumns: "120px 160px 1fr auto", gap: 8 }}>
+                    <label>
+                      <span style={tinyLabel}>時間</span>
+                      <input value={stop.start_time ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => (s.id === stop.id ? { ...s, start_time: e.target.value } : s)))} style={input} />
+                    </label>
+                    <label>
+                      <span style={tinyLabel}>カテゴリ</span>
+                      <input value={stop.category ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => (s.id === stop.id ? { ...s, category: e.target.value } : s)))} style={input} />
+                    </label>
+                    <label>
+                      <span style={tinyLabel}>タイトル</span>
+                      <input value={stop.title ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => (s.id === stop.id ? { ...s, title: e.target.value } : s)))} style={input} />
+                    </label>
+                    <div style={{ display: "grid", alignItems: "end" }}>
+                      {stop.map_enabled ? <span style={mapBadge}>地図追加済み</span> : <span style={mapMuted}>地図未追加</span>}
+                    </div>
+                  </div>
+
+                  <label style={{ display: "block", marginTop: 8 }}>
+                    <span style={tinyLabel}>メモ</span>
+                    <textarea value={stop.memo ?? ""} onChange={(e) => setStops((prev) => prev.map((s) => (s.id === stop.id ? { ...s, memo: e.target.value } : s)))} style={{ ...input, minHeight: 66 }} placeholder="メモ" />
+                  </label>
+
                   {stop.photo_url ? <img src={stop.photo_url} alt="stop" style={{ width: "100%", maxWidth: 240, borderRadius: 10, marginTop: 6 }} /> : null}
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                     <button onClick={() => void saveStop(stop)} style={smallBtn}>変更を保存</button>
@@ -158,6 +172,7 @@ export default function PlanDetailPage() {
 
       <section style={{ marginTop: 16 }}>
         <h3 style={{ fontSize: 14, color: "#64748b" }}>地図（補助表示）</h3>
+        <p style={{ marginTop: 2, color: "#64748b", fontSize: 12 }}>地図には「地図追加済み」かつ座標がある項目だけ表示されます。</p>
         <div style={{ height: 300, borderRadius: 12, overflow: "hidden", border: "1px solid #e2e8f0" }}>
           <MapView
             places={mapStops as any}
@@ -170,6 +185,16 @@ export default function PlanDetailPage() {
           />
         </div>
       </section>
+      <style jsx>{`
+        @media (max-width: 720px) {
+          .stop-header-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .stop-header-grid > label:last-of-type {
+            grid-column: 1 / -1;
+          }
+        }
+      `}</style>
     </main>
   );
 }
@@ -187,3 +212,6 @@ const input: React.CSSProperties = { width: "100%", border: "1px solid #cbd5e1",
 const smallBtn: React.CSSProperties = { border: "1px solid #cbd5e1", background: "#fff", borderRadius: 999, padding: "6px 10px", fontWeight: 700, fontSize: 12 };
 const backBtn: React.CSSProperties = { display: "inline-block", border: "1px solid #cbd5e1", borderRadius: 999, padding: "8px 12px", textDecoration: "none", color: "#0f172a", fontWeight: 700, fontSize: 13 };
 const miniPrimary: React.CSSProperties = { ...smallBtn, marginTop: 8, background: "#0f172a", color: "#fff", border: "none" };
+const tinyLabel: React.CSSProperties = { fontSize: 11, color: "#64748b", fontWeight: 700 };
+const mapBadge: React.CSSProperties = { display: "inline-block", alignSelf: "end", borderRadius: 999, padding: "6px 10px", background: "#ccfbf1", color: "#0f766e", fontSize: 12, fontWeight: 700 };
+const mapMuted: React.CSSProperties = { display: "inline-block", alignSelf: "end", borderRadius: 999, padding: "6px 10px", background: "#f1f5f9", color: "#64748b", fontSize: 12, fontWeight: 700 };
