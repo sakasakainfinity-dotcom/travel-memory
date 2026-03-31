@@ -14,11 +14,11 @@ export interface FullPostModalProps {
     lat: number;
     lng: number;
     photos: File[];
-    visibility: "public" | "private" | "pair"; // ★追加
+    visibility: "public" | "private"; // ★追加
   }) => void;
   place: { lat: number; lng: number };
   defaultMemo?: string;
-  defaultVisibility?: "public" | "private" | "pair"; // ★初期値用（任意）
+  defaultVisibility?: "public" | "private"; // ★初期値用（任意）
 }
 
 export default function FullPostModal({
@@ -42,7 +42,7 @@ export default function FullPostModal({
   const [files, setFiles] = useState<File[]>([]);
 
   // ★ 公開範囲 state（青 / 赤 / 黄）
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
+  const [visibility, setVisibility] = useState<"public" | "private">(
     defaultVisibility
   );
 
@@ -140,7 +140,7 @@ export default function FullPostModal({
             />
           </div>
 
-          {/* ★ 公開範囲：公開 / 自分だけ / ペア限定 */}
+          {/* ★ 公開範囲：公開 / 自分だけ */}
           <div>
             <label className="mb-1 block text-sm">公開範囲</label>
             <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
@@ -163,16 +163,6 @@ export default function FullPostModal({
                   onChange={() => setVisibility("private")}
                 />
                 <span>非公開（自分だけ・赤ピン）</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="pair"
-                  checked={visibility === "pair"}
-                  onChange={() => setVisibility("pair")}
-                />
-                <span>ペア限定（ペア相手とのマップだけで表示・黄ピン想定）</span>
               </label>
             </div>
           </div>

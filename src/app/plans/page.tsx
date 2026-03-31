@@ -13,7 +13,7 @@ type PlanRow = {
   nights: number | null;
   destination_1: string | null;
   destination_2: string | null;
-  visibility: "public" | "private" | "pair";
+  visibility: "public" | "private";
   estimated_cost_min: number | null;
   estimated_cost_max: number | null;
   cover_photo_url: string | null;
@@ -69,8 +69,8 @@ export default function PlansPage() {
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <button onClick={() => router.push("/plans/new?mode=ai")} style={ctaStyle("#7c3aed")}>AIで作成</button>
-        <button onClick={() => router.push("/plans/new?mode=manual")} style={ctaStyle("#2563eb")}>手動で作成</button>
+        <button onClick={() => router.push("/plans/new?mode=ai")} style={ctaStyle("#7c3aed")}>2案の旅しおりを作る</button>
+        <button onClick={() => router.push("/plans/new?mode=manual")} style={ctaStyle("#2563eb")}>手動でしおりを作る</button>
       </div>
 
       {loading && <div>読み込み中...</div>}

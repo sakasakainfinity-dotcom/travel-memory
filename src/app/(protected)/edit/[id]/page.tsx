@@ -18,7 +18,7 @@ export default function EditPlacePage() {
 
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private" | "pair">(
+  const [visibility, setVisibility] = useState<"public" | "private">(
     "private"
   );
 
@@ -155,16 +155,6 @@ export default function EditPlacePage() {
               />
               非公開（赤ピン）
             </label>
-            <label>
-              <input
-                type="radio"
-                name="vis"
-                value="pair"
-                checked={visibility === "pair"}
-                onChange={() => setVisibility("pair")}
-              />
-              ペア限定（黄ピン）
-            </label>
           </div>
         </div>
 
@@ -185,4 +175,3 @@ export default function EditPlacePage() {
     </main>
   );
 }
-

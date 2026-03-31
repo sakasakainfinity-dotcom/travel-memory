@@ -25,7 +25,6 @@ export default function KebabMenu() {
         <div style={{ position: 'absolute', top: 48, right: 0, width: 260, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 20px 40px rgba(0,0,0,.18)', overflow: 'hidden' }}>
           <MenuItem href="/history" onClick={() => setOpen(false)}>投稿履歴</MenuItem>
           <MenuItem href="/plans" onClick={() => setOpen(false)}>旅のしおり</MenuItem>
-          <MenuItem href="/pair" onClick={() => setOpen(false)}>ペア機能</MenuItem>
           <MenuItem href="/share" onClick={() => setOpen(false)}>シェアする</MenuItem>
           <MenuItem href="/account" onClick={() => setOpen(false)}>アカウント設定</MenuItem>
           <MenuItem href="/about" onClick={() => setOpen(false)}>このアプリについて</MenuItem>

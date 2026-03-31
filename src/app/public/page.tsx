@@ -835,7 +835,6 @@ if (!already) {
               <MenuButton label="投稿履歴" onClick={() => { setMenuOpen(false); router.push("/history"); }} />
                             <MenuButton label="旅のしおり" onClick={() => { setMenuOpen(false); router.push("/plans"); }} />
               <MenuButton label="シェアする" onClick={() => { setMenuOpen(false); router.push("/share"); }} />
-              <MenuButton label="ペア機能" onClick={() => { setMenuOpen(false); router.push("/pair"); }} />
               <MenuButton label="アカウント設定" onClick={() => { setMenuOpen(false); router.push("/account"); }} />
               <MenuButton label="このアプリについて" onClick={() => { setMenuOpen(false); router.push("/about"); }} />
             </div>
