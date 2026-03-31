@@ -2280,9 +2280,9 @@ useEffect(() => {
 
           <MenuButton label="みんなの投稿" onClick={() => router.push("/community")} />
           <MenuButton label="投稿履歴" onClick={() => router.push("/history")} />
-          <MenuButton label="有料プラン" onClick={() => router.push("/plans")} />
+          <MenuButton label="旅のしおり" onClick={() => router.push("/plans")} />
           <MenuButton label="シェアする" onClick={() => router.push("/share")} />
-          <MenuButton label="撮りたいリスト" onClick={() => router.push("/list")} />
+          <MenuButton label="ペア機能" onClick={() => router.push("/pair")} />
           <MenuButton label="アカウント設定" onClick={() => router.push("/account")} />
           <MenuButton label="このアプリについて" onClick={() => router.push("/about")} />
           <MenuButton
