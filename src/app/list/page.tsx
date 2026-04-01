@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { isMissingSchemaError } from "@/lib/supabaseSchemaFallback";
 import BackToMapButton from "@/components/BackToMapButton";
+import { uploadPlacePhotos } from "@/lib/placePhotoManager";
 
 type ListRow = {
   id: string;
@@ -18,6 +19,7 @@ type ListRow = {
   created_at: string;
   photos: string[];
   place_category_id: string | null;
+  source_visibility?: "public" | "private" | null;
 };
 
 type CategoryRow = {
@@ -35,6 +37,7 @@ export default function WishlistListPage() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryFeatureReady, setCategoryFeatureReady] = useState(true);
+  const [uploadingPlaceId, setUploadingPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -62,8 +65,8 @@ export default function WishlistListPage() {
       setCategories(((canUseCategoryFeature ? categoryRows : []) ?? []) as CategoryRow[]);
 
       let places: any[] | null = null;
-      const categorySelect = "id,title,memo,ai_summary,status,lat,lng,created_at,place_category_id";
-      const baseSelect = "id,title,memo,ai_summary,status,lat,lng,created_at";
+      const categorySelect = "id,title,memo,ai_summary,status,lat,lng,created_at,place_category_id,source_visibility";
+      const baseSelect = "id,title,memo,ai_summary,status,lat,lng,created_at,source_visibility";
       const { data: placesWithCategory, error } = await supabase
         .from("places")
         .select(categorySelect)
@@ -219,6 +222,37 @@ export default function WishlistListPage() {
     }
   };
 
+  const uploadPhotoForPlace = async (placeId: string, fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
+    if (!spaceId || files.length === 0) return;
+
+    setUploadingPlaceId(placeId);
+    try {
+      const uploadedUrls = await uploadPlacePhotos({ placeId, spaceId, files });
+      if (uploadedUrls.length > 0) {
+        const { error } = await supabase.from("places").update({ status: "visited" }).eq("id", placeId);
+        if (error) throw error;
+      }
+
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === placeId
+            ? {
+                ...r,
+                photos: [...(r.photos ?? []), ...uploadedUrls],
+                status: uploadedUrls.length > 0 ? "visited" : r.status,
+              }
+            : r
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("写真の追加に失敗しました。");
+    } finally {
+      setUploadingPlaceId(null);
+    }
+  };
+
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "18px 14px 100px", color: "#e2e8f0" }}>
       <div style={{ border: "1px solid #1e293b", background: "linear-gradient(180deg, #020617 0%, #0f172a 100%)", borderRadius: 18, padding: 14 }}>
@@ -266,7 +300,34 @@ export default function WishlistListPage() {
         {filtered.map((r) => (
           <article key={r.id} style={{ border: "1px solid #334155", borderRadius: 12, padding: 10, display: "grid", gridTemplateColumns: "84px 1fr", gap: 10, background: "#0b1220" }}>
             <div style={{ width: 84, height: 84, borderRadius: 8, overflow: "hidden", background: "#1e293b", display: "grid", placeItems: "center" }}>
-              {r.photos[0] ? <img src={r.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span>{r.status === "wishlist" ? "⭐" : "📷"}</span>}
+              <label style={{ width: "100%", height: "100%", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                {r.photos[0] ? (
+                  <img
+                    src={r.photos[0]}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      filter:
+                        r.status === "wishlist" && r.source_visibility === "public"
+                          ? "grayscale(100%) brightness(0.95)"
+                          : "none",
+                    }}
+                  />
+                ) : (
+                  <span>{uploadingPlaceId === r.id ? "アップロード中…" : "📷 追加"}</span>
+                )}
+                <input
+                  type="file"
+                  accept="image/*,image/heic,image/heif"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    void uploadPhotoForPlace(r.id, e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
             </div>
             <div>
               <div style={{ fontWeight: 800, color: "#f8fafc" }}>{r.title || "無題"}</div>

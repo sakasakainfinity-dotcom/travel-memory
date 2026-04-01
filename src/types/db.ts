@@ -12,6 +12,7 @@ export type Place = {
   visibility: "public" | "private" | "pair";
   status?: "wishlist" | "visited";
   source_place_id?: string | null;
+  source_visibility?: "public" | "private" | null;
   ai_summary?: string | null;
   ai_tips?: string | null;
   ai_generated_at?: string | null;

@@ -1771,7 +1771,9 @@ export default function Page() {
   const [autoDraft, setAutoDraft] = useState<AutoExifDraft | null>(null);
   const [autoDraftQueue, setAutoDraftQueue] = useState<AutoExifDraft[]>([]);
   const [autoBatchTotal, setAutoBatchTotal] = useState(0);
+  const [quickUploadBusy, setQuickUploadBusy] = useState(false);
   const autoFileRef = useRef<HTMLInputElement | null>(null);
+  const quickUploadInputRef = useRef<HTMLInputElement | null>(null);
   const autoPostFreeForAll = isAutoPostFreeForAll();
 
   const getTodayJST = () => {
@@ -2243,6 +2245,55 @@ useEffect(() => {
   [places, selectedId]
 );
   const selectedIsTripStop = selected && (selected as any).markerType === "trip_plan_stop";
+  const selectedStatus = ((selected as any)?.status ?? (((selected as any)?.photos?.length ?? 0) > 0 ? "visited" : "wishlist")) as "visited" | "wishlist";
+
+  const uploadPhotosToSelectedPlace = async (files: FileList | null) => {
+    if (!selected || selectedIsTripStop) return;
+    const nextFiles = Array.from(files ?? []);
+    if (nextFiles.length === 0) return;
+
+    setQuickUploadBusy(true);
+    try {
+      const { data: placeRow, error: placeFetchError } = await supabase
+        .from("places")
+        .select("id, space_id")
+        .eq("id", selected.id)
+        .single();
+      if (placeFetchError) throw placeFetchError;
+
+      const uploaded = await uploadPlacePhotos({
+        placeId: selected.id,
+        spaceId: placeRow.space_id,
+        files: nextFiles,
+      });
+
+      if (uploaded.length > 0) {
+        const { error: statusError } = await supabase
+          .from("places")
+          .update({ status: "visited" })
+          .eq("id", selected.id);
+        if (statusError) throw statusError;
+      }
+
+      setPlaces((prev) =>
+        prev.map((p) =>
+          p.id === selected.id
+            ? {
+                ...p,
+                photos: [...(p.photos ?? []), ...uploaded],
+                status: uploaded.length > 0 ? "visited" : (p as any).status,
+              }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("写真追加に失敗しました。");
+    } finally {
+      setQuickUploadBusy(false);
+      if (quickUploadInputRef.current) quickUploadInputRef.current.value = "";
+    }
+  };
 
   return (
     <>
@@ -2468,13 +2519,21 @@ useEffect(() => {
   onCenterChange={(c) => setMapCenter(c)}
 />
 
- <input
+      <input
         ref={autoFileRef}
         type="file"
         accept="image/*,image/heic,image/heif"
         multiple
         style={{ display: "none" }}
         onChange={(e) => void onPickAutoPhoto(e.target.files)}
+      />
+      <input
+        ref={quickUploadInputRef}
+        type="file"
+        accept="image/*,image/heic,image/heif"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => void uploadPhotosToSelectedPlace(e.target.files)}
       />
 
        {/* 📷 思い出写真を投稿 */}
@@ -2570,6 +2629,26 @@ useEffect(() => {
             >
               {selected.name || "無題"}
             </div>
+            {!selectedIsTripStop && selectedStatus === "wishlist" ? (
+              <button
+                type="button"
+                onClick={() => quickUploadInputRef.current?.click()}
+                disabled={quickUploadBusy}
+                style={{
+                  marginTop: 8,
+                  border: "1px solid #111827",
+                  borderRadius: 999,
+                  padding: "6px 10px",
+                  background: "#111827",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: quickUploadBusy ? "not-allowed" : "pointer",
+                  opacity: quickUploadBusy ? 0.6 : 1,
+                }}
+              >
+                {quickUploadBusy ? "📷 追加中…" : "📷 写真を追加"}
+              </button>
+            ) : null}
           </div>
 
           <button
@@ -2646,7 +2725,22 @@ useEffect(() => {
             }}
           >
             {(selected.photos ?? []).length === 0 && (
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>写真はまだありません</div>
+              <button
+                type="button"
+                onClick={() => quickUploadInputRef.current?.click()}
+                disabled={quickUploadBusy}
+                style={{
+                  fontSize: 12,
+                  color: "#111827",
+                  border: "1px dashed #9ca3af",
+                  borderRadius: 10,
+                  background: "#f8fafc",
+                  padding: "14px 10px",
+                  cursor: quickUploadBusy ? "not-allowed" : "pointer",
+                }}
+              >
+                {quickUploadBusy ? "アップロード中…" : "📷 写真を追加"}
+              </button>
             )}
             {(selected.photos ?? []).map((u) => (
               <img
