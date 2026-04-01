@@ -15,21 +15,41 @@ type ListRow = {
   lng: number;
   created_at: string;
   photos: string[];
+  place_category_id: string | null;
 };
+
+type CategoryRow = {
+  id: string;
+  name: string;
+};
+
+const MAX_CATEGORY_COUNT = 20;
 
 export default function WishlistListPage() {
   const router = useRouter();
   const [rows, setRows] = useState<ListRow[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [tab, setTab] = useState<"wishlist" | "visited">("wishlist");
+  const [spaceId, setSpaceId] = useState<string | null>(null);
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   useEffect(() => {
     (async () => {
       const mySpace = await ensureMySpace();
       if (!mySpace?.id) return;
+      setSpaceId(mySpace.id);
+
+      const { data: categoryRows, error: categoryError } = await supabase
+        .from("place_categories")
+        .select("id,name")
+        .eq("space_id", mySpace.id)
+        .order("created_at", { ascending: true });
+      if (categoryError) throw categoryError;
+      setCategories((categoryRows ?? []) as CategoryRow[]);
 
       const { data: places, error } = await supabase
         .from("places")
-        .select("id,title,memo,ai_summary,status,lat,lng,created_at")
+        .select("id,title,memo,ai_summary,status,lat,lng,created_at,place_category_id")
         .eq("space_id", mySpace.id)
         .eq("visibility", "private")
         .in("status", ["wishlist", "visited"])
@@ -61,10 +81,88 @@ export default function WishlistListPage() {
   }, []);
 
   const filtered = useMemo(() => rows.filter((r) => r.status === tab), [rows, tab]);
+  const rowsByCategory = useMemo(() => {
+    return categories
+      .map((category) => ({
+        category,
+        count: rows.filter((r) => r.place_category_id === category.id && r.status === "wishlist").length,
+      }))
+      .filter((x) => x.count > 0);
+  }, [categories, rows]);
+
+  const createCategory = async () => {
+    if (!spaceId) return;
+    if (categories.length >= MAX_CATEGORY_COUNT) {
+      alert(`カテゴリーは最大${MAX_CATEGORY_COUNT}件までです。`);
+      return;
+    }
+    const name = prompt("新しいカテゴリー名を入力してください（40文字まで）")?.trim();
+    if (!name) return;
+
+    if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      alert("同じカテゴリー名がすでにあります。");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const { data, error } = await supabase
+        .from("place_categories")
+        .insert({ space_id: spaceId, name })
+        .select("id,name")
+        .single();
+      if (error) throw error;
+      setCategories((prev) => [...prev, data as CategoryRow]);
+    } catch (e) {
+      console.error(e);
+      alert("カテゴリーの作成に失敗しました。");
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
+  const updatePlaceCategory = async (placeId: string, placeCategoryId: string | null) => {
+    const previous = rows;
+    setRows((prev) => prev.map((r) => (r.id === placeId ? { ...r, place_category_id: placeCategoryId } : r)));
+    const { error } = await supabase.from("places").update({ place_category_id: placeCategoryId }).eq("id", placeId);
+    if (error) {
+      setRows(previous);
+      alert("カテゴリーの更新に失敗しました。");
+    }
+  };
 
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "18px 14px 100px" }}>
       <h1 style={{ fontSize: 24, fontWeight: 900 }}>行きたい場所リスト</h1>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={createCategory}
+          disabled={creatingCategory || categories.length >= MAX_CATEGORY_COUNT}
+          style={{ border: "1px solid #111827", borderRadius: 999, padding: "8px 12px", background: "#fff", cursor: "pointer", fontWeight: 700 }}
+        >
+          カテゴリーをつくる
+        </button>
+        <span style={{ fontSize: 12, color: "#6b7280" }}>
+          {categories.length}/{MAX_CATEGORY_COUNT}
+        </span>
+      </div>
+
+      {rowsByCategory.length > 0 && (
+        <section style={{ marginTop: 12, border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>カテゴリー別マップURL</div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {rowsByCategory.map(({ category, count }) => (
+              <button
+                key={category.id}
+                onClick={() => router.push(`/?category=${category.id}&titles=1`)}
+                style={{ border: "1px solid #d1d5db", borderRadius: 10, background: "#fff", textAlign: "left", padding: "8px 10px", cursor: "pointer" }}
+              >
+                ⭐ {category.name}（{count}件）だけを地図で表示
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 12, marginBottom: 14 }}>
         <button onClick={() => setTab("wishlist")} style={chip(tab === "wishlist")}>⭐ 行きたい</button>
         <button onClick={() => setTab("visited")} style={chip(tab === "visited")}>📷 行った</button>
@@ -79,6 +177,20 @@ export default function WishlistListPage() {
             <div>
               <div style={{ fontWeight: 800 }}>{r.title || "無題"}</div>
               <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{r.ai_summary || r.memo || "（メモなし）"}</div>
+              <div style={{ marginTop: 8 }}>
+                <select
+                  value={r.place_category_id ?? ""}
+                  onChange={(e) => updatePlaceCategory(r.id, e.target.value || null)}
+                  style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 8px", background: "#fff" }}
+                >
+                  <option value="">カテゴリー未設定</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                 <span style={{ fontSize: 12 }}>{r.status === "wishlist" ? "⭐ wishlist" : "📷 visited"}</span>
                 <button

@@ -1887,15 +1887,20 @@ useEffect(() => {
   const wantOpen = sp.get("open") === "1";
   const qLat = sp.get("lat");
   const qLng = sp.get("lng");
+  const categoryId = sp.get("category");
+  const showMarkerTitles = sp.get("titles") === "1";
   const didApplyRef = useRef(false);
 
   // ▼▼ ④ 地図に渡すplacesを合体（ここに追加） ▼▼
 const mergedPlaces = useMemo(() => {
+  const categoryFilteredPlaces = categoryId
+    ? places.filter((p: any) => (p.place_category_id ?? null) === categoryId)
+    : places;
   const layerPlaces = Object.values(layerPlacesBySlug).flat();
   return enabledLayerSlugs.length > 0
-    ? [...places, ...layerPlaces]
-    : places;
-}, [places, layerPlacesBySlug, enabledLayerSlugs.length]);
+    ? [...categoryFilteredPlaces, ...layerPlaces]
+    : categoryFilteredPlaces;
+}, [places, layerPlacesBySlug, enabledLayerSlugs.length, categoryId]);
   
 
   // 1) 座標が来てたら先にジャンプ
@@ -1932,7 +1937,7 @@ useEffect(() => {
 
       const { data: ps } = await supabase
         .from("places")
-        .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips")
+        .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, place_category_id")
         .eq("space_id", mySpace.id)
         .order("created_at", { ascending: false });
 
@@ -1962,6 +1967,7 @@ useEffect(() => {
         markerType: "place" as const,
         visibility: (p as any).visibility ?? "private",
         status: (p as any).status ?? ((photosBy[p.id] ?? []).length > 0 ? "visited" : "wishlist"),
+        place_category_id: (p as any).place_category_id ?? null,
         ai_summary: (p as any).ai_summary ?? null,
         ai_tips: (p as any).ai_tips ?? null,
       }));
@@ -2322,7 +2328,8 @@ useEffect(() => {
     setViewRef.current = fn;
   }}
   initialView={initialView}
-       showCenterMarker={true}
+  showCenterMarker={true}
+  showMarkerTitles={showMarkerTitles}
   onCenterChange={(c) => setMapCenter(c)}
 />
 
