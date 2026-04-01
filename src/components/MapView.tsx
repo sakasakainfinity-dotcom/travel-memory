@@ -128,6 +128,7 @@ export default function MapView({
   mode,
   onCenterChange,
   showCenterMarker = false,
+  showMarkerTitles = false,
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
@@ -141,6 +142,7 @@ export default function MapView({
 
   onCenterChange?: (c: { lat: number; lng: number }) => void;
   showCenterMarker?: boolean;
+  showMarkerTitles?: boolean;
 }) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -315,20 +317,30 @@ if (!map.getLayer("pin-lock-badge")) {
 
 // 行った（⭐✓）…最前面
 if (!map.getLayer("pin-visited")) {
-  map.addLayer({
-    id: "pin-visited",
-    type: "symbol",
-    source: "places",
-    filter: ["all", ["==", ["get", "visitedByMe"], true]],
-    layout: {
-      "icon-image": "pin-star-check-fill",
-      "icon-size": 1.15,
-      "icon-allow-overlap": true,
-      "icon-ignore-placement": true,
-      "icon-anchor": "center",
-    },
-  });
-}
+        map.addLayer({
+          id: "pin-visited",
+          type: "symbol",
+          source: "places",
+          filter: ["all", ["==", ["get", "visitedByMe"], true]],
+          layout: {
+            "icon-image": "pin-star-check-fill",
+            "icon-size": 1.15,
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "icon-anchor": "center",
+            "text-field": showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "",
+            "text-size": 12,
+            "text-anchor": "top",
+            "text-offset": [0, 1.25],
+            "text-allow-overlap": showMarkerTitles,
+          },
+          paint: {
+            "text-color": "#111827",
+            "text-halo-color": "#ffffff",
+            "text-halo-width": 1.3,
+          },
+        });
+      }
 
 // 行きたい（⭐）…visitedのときは出さない
 if (!map.getLayer("pin-wanted")) {
@@ -354,6 +366,16 @@ if (!map.getLayer("pin-wanted")) {
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
+      "text-field": showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "",
+      "text-size": 12,
+      "text-anchor": "top",
+      "text-offset": [0, 1.25],
+      "text-allow-overlap": showMarkerTitles,
+    },
+    paint: {
+      "text-color": "#111827",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 1.3,
     },
   });
 }
@@ -437,6 +459,17 @@ if (map.getLayer("pin-trip-plan-stop")) map.moveLayer("pin-trip-plan-stop");
 
     applyMode(map, autoMode);
   }, [geojson, autoMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targetLayers = ["pin-wanted", "pin-visited"] as const;
+    for (const layerId of targetLayers) {
+      if (!map.getLayer(layerId)) continue;
+      map.setLayoutProperty(layerId, "text-field", showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "");
+      map.setLayoutProperty(layerId, "text-allow-overlap", showMarkerTitles);
+    }
+  }, [showMarkerTitles]);
 
   // flyTo（必要なら）
   useEffect(() => {
