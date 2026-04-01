@@ -341,16 +341,6 @@ if (!map.getLayer("pin-visited")) {
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
             "icon-anchor": "center",
-            "text-field": showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "",
-            "text-size": 12,
-            "text-anchor": "top",
-            "text-offset": [0, 1.25],
-            "text-allow-overlap": showMarkerTitles,
-          },
-          paint: {
-            "text-color": "#111827",
-            "text-halo-color": "#ffffff",
-            "text-halo-width": 1.3,
           },
         });
       }
@@ -368,16 +358,6 @@ if (!map.getLayer("pin-wanted")) {
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
       "icon-anchor": "center",
-      "text-field": showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "",
-      "text-size": 12,
-      "text-anchor": "top",
-      "text-offset": [0, 1.25],
-      "text-allow-overlap": showMarkerTitles,
-    },
-    paint: {
-      "text-color": "#111827",
-      "text-halo-color": "#ffffff",
-      "text-halo-width": 1.3,
     },
   });
 }
@@ -393,17 +373,6 @@ if (!map.getLayer("pin-trip-plan-stop")) {
       "icon-size": 0.78,
       "icon-allow-overlap": true,
       "icon-anchor": "bottom",
-      "text-field": ["get", "markerLabel"],
-      "text-size": 11,
-      "text-anchor": "top",
-      "text-offset": [0, 0.4],
-      "text-max-width": 10,
-      "text-allow-overlap": false,
-    },
-    paint: {
-      "text-color": "#92400e",
-      "text-halo-color": "#fffbeb",
-      "text-halo-width": 1.2,
     },
   });
 }
@@ -461,17 +430,6 @@ if (map.getLayer("pin-trip-plan-stop")) map.moveLayer("pin-trip-plan-stop");
 
     applyMode(map, autoMode);
   }, [geojson, autoMode]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const targetLayers = ["pin-wanted", "pin-visited"] as const;
-    for (const layerId of targetLayers) {
-      if (!map.getLayer(layerId)) continue;
-      map.setLayoutProperty(layerId, "text-field", showMarkerTitles ? ["coalesce", ["get", "title"], ""] : "");
-      map.setLayoutProperty(layerId, "text-allow-overlap", showMarkerTitles);
-    }
-  }, [showMarkerTitles]);
 
   // flyTo（必要なら）
   useEffect(() => {
