@@ -174,7 +174,7 @@ export default function MapView({
           visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
           wantedByMe: !!p.wantedByMe,
           visitedByMe: !!p.visitedByMe,
-          status: p.status ?? "visited",
+          status: p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist"),
         },
       })),
     } as GeoJSON.FeatureCollection;
@@ -321,7 +321,11 @@ if (!map.getLayer("pin-visited")) {
           id: "pin-visited",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visitedByMe"], true]],
+          filter: [
+            "any",
+            ["==", ["get", "visitedByMe"], true],
+            ["all", ["==", ["get", "visibility"], "private"], ["==", ["get", "status"], "visited"]],
+          ],
           layout: {
             "icon-image": "pin-star-check-fill",
             "icon-size": 1.15,
@@ -358,7 +362,14 @@ if (!map.getLayer("pin-wanted")) {
           ["==", ["get", "status"], "wishlist"],
         ],
       ],
-      ["!=", ["get", "visitedByMe"], true],
+      [
+        "!",
+        [
+          "any",
+          ["==", ["get", "visitedByMe"], true],
+          ["all", ["==", ["get", "visibility"], "private"], ["==", ["get", "status"], "visited"]],
+        ],
+      ],
     ],
     layout: {
       "icon-image": "pin-star-fill",
