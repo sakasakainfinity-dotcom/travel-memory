@@ -402,11 +402,11 @@ useEffect(() => {
   async function saveToPrivateWishlist(placeKey: string) {
     try {
       const marker = places.find((p) => p.id === placeKey);
-      if (!marker) return;
+      if (!marker) return false;
       const uid = await ensureSignedInOrPrompt("保存するにはログインが必要です", "自分のPrivateマップへ保存できます。", "このまま見る");
-      if (!uid) return;
+      if (!uid) return false;
       const mySpace = await ensureMySpace();
-      if (!mySpace?.id) return;
+      if (!mySpace?.id) return false;
 
       const sourcePlaceId = (marker as PublicMarkerPlace).sourcePlaceId ?? null;
       let existing: { id: string } | null = null;
@@ -434,8 +434,7 @@ useEffect(() => {
       }
 
       if (existing?.id) {
-        alert("すでに保存済みです");
-        return;
+        return true;
       }
 
       const payload: Record<string, unknown> = {
@@ -465,16 +464,17 @@ useEffect(() => {
         }),
       }).catch(() => undefined);
 
-      alert("Privateの行きたいリストに保存しました");
+      return true;
     } catch (e) {
       console.error(e);
-      alert("行きたいリストへの保存に失敗しました");
+      return false;
     }
   }
 
   // ✅ want/visited トグル（場所単位）
   async function togglePlaceFlag(placeKey: string, kind: "want" | "visited") {
     const busyKey = `${placeKey}:${kind}`;
+    const before = places.find((p) => p.id === placeKey) ?? null;
     try {
       setReactBusyId(busyKey);
 
@@ -528,8 +528,15 @@ useEffect(() => {
       } else {
         const { error } = await supabase.from("place_flags").insert({ place_key: placeKey, user_id: uid, kind });
         if (error) throw error;
+        if (kind === "want") {
+          const saved = await saveToPrivateWishlist(placeKey);
+          if (!saved) throw new Error("Private wishlist sync failed");
+        }
       }
     } catch (e) {
+      if (before) {
+        setPlaces((prev) => prev.map((p) => (p.id === placeKey ? before : p)));
+      }
       console.error(e);
       alert("場所フラグ更新に失敗したかも…");
     } finally {
@@ -738,14 +745,7 @@ useEffect(() => {
                     <button
                       type="button"
                       disabled={reactBusyId === `${selectedId}:want`}
-                      onClick={async () => {
-                        try {
-                          await saveToPrivateWishlist(selectedId!);
-                        } catch (e) {
-                          console.error(e);
-                          alert("保存に失敗しました");
-                        }
-                      }}
+                      onClick={() => togglePlaceFlag(selectedId!, "want")}
                       style={{
                         padding: "7px 12px",
                         borderRadius: 999,

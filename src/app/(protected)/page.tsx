@@ -912,6 +912,82 @@ function PostModal({
   );
 }
 
+function WishlistModal({
+  open,
+  place,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  place: { lat: number; lng: number };
+  onClose: () => void;
+  onSubmit: (d: { title: string; memo: string; lat: number; lng: number; visibility: "private" }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [memo, setMemo] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle("");
+    setMemo("");
+    setSaving(false);
+  }, [open, place.lat, place.lng]);
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.45)", display: "grid", placeItems: "center" }} onMouseDown={onClose}>
+      <div
+        style={{
+          width: "min(560px, 92vw)",
+          maxHeight: "88vh",
+          overflow: "auto",
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid #e5e7eb",
+          padding: 14,
+          boxShadow: "0 20px 50px rgba(0,0,0,.25)",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>⭐ 行きたい場所を記録</h2>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#475569" }}>写真なしで保存できます。タイトルとメモだけ入力してください。</div>
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#334155" }}>タイトル（必須）</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例: 次の旅行で行きたいカフェ" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: "10px 12px" }} />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#334155" }}>メモ</span>
+            <textarea rows={4} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="気になった理由、行く時期、やりたいことなど" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: "10px 12px", resize: "vertical" }} />
+          </label>
+        </div>
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", gap: 8 }}>
+          <button onClick={onClose} disabled={saving} style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, background: "#fff", cursor: "pointer" }}>
+            閉じる
+          </button>
+          <button
+            onClick={async () => {
+              if (!title.trim()) return;
+              try {
+                setSaving(true);
+                await onSubmit({ title: title.trim(), memo: memo.trim(), lat: place.lat, lng: place.lng, visibility: "private" });
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving || !title.trim()}
+            style={{ padding: "10px 14px", borderRadius: 10, background: "#111827", color: "#fff", fontWeight: 800, opacity: saving || !title.trim() ? 0.6 : 1, cursor: saving || !title.trim() ? "not-allowed" : "pointer" }}
+          >
+            {saving ? "保存中…" : "wishlist保存"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ================== 編集モーダル（カメラ重視・memoにまとめて保存） ================== */
 function EditModal({
   open,
@@ -1671,7 +1747,7 @@ export default function Page() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [createMode, setCreateMode] = useState(false);
+  const [wishlistMode, setWishlistMode] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showInstallTip, setShowInstallTip] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
@@ -2010,11 +2086,18 @@ useEffect(() => {
   }) => {
     const snap = getViewRef.current();
     setInitialView(snap);
-    setAutoDraft(null);
-    setAutoDraftQueue([]);
-    setAutoBatchTotal(0);
+    if (!wishlistMode) {
+      setAutoDraft(null);
+      setAutoDraftQueue([]);
+      setAutoBatchTotal(0);
+    }
     setNewAt(p);
     setSelectedId(null);
+    if (wishlistMode) {
+      setAutoDraft(null);
+      setAutoDraftQueue([]);
+      setAutoBatchTotal(0);
+    }
     setTimeout(() => setViewRef.current(snap), 0);
   };
 
@@ -2235,14 +2318,12 @@ useEffect(() => {
             <SearchBox
   places={places}
   onPickPost={(p) => {
-    setCreateMode(false); // ←投稿選んだときは作成モード解除
+    setWishlistMode(false);
     setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 15 });
-    // もし投稿詳細を開くならここで router.push 等
   }}
   onPickLocation={(p) => {
-    setCreateMode(true);  // ←場所を選んだら作成モードON
+    setWishlistMode(false);
     setFlyTo({ lat: p.lat, lng: p.lng, zoom: p.zoom ?? 16 });
-    // ここでは投稿画面は開かない（地図で微調整させる）
   }}
 />
           </div>
@@ -2395,23 +2476,22 @@ useEffect(() => {
       {/* ➕ 行きたい場所を記録 */}
       <button
         onClick={() => {
-  if (!mapCenter) return;
-   openModalAt({ lat: mapCenter.lat, lng: mapCenter.lng, mode: "normal" });
-}}
+          setWishlistMode((prev) => !prev);
+        }}
         style={{
           position: "fixed",
           right: 20,
           bottom: 90,
           zIndex: 10000,
-          background: "#000",
-          color: "#fff",
+          background: wishlistMode ? "#f59e0b" : "#000",
+          color: wishlistMode ? "#111827" : "#fff",
           borderRadius: 999,
           padding: "12px 16px",
           boxShadow: "0 8px 24px rgba(0,0,0,.25)",
           cursor: "pointer",
         }}
       >
-        ⭐ 行きたい記録
+        {wishlistMode ? "⭐ 行きたい記録中（地図をダブルタップ）" : "⭐ 行きたい記録"}
       </button>
 
       {/* 下プレビュー（タイトル→メモ→写真） */}
@@ -2553,7 +2633,55 @@ useEffect(() => {
       )}
 
 {/* 📝 投稿モーダル */}
-      {newAt && (
+      {newAt && (wishlistMode ? (
+        <WishlistModal
+          open={true}
+          place={{ lat: newAt.lat, lng: newAt.lng }}
+          onClose={() => {
+            setNewAt(null);
+            setWishlistMode(false);
+            const snap = initialView ?? getViewRef.current();
+            setTimeout(() => setViewRef.current(snap), 0);
+          }}
+          onSubmit={async (d) => {
+            try {
+              const created = await insertPlace({
+                clientRequestId: createBrowserSafeId(),
+                lat: d.lat,
+                lng: d.lng,
+                title: d.title,
+                memo: d.memo,
+                files: [],
+                visibility: "private",
+                hasGps: true,
+              });
+
+              setPlaces((prev) => [
+                {
+                  id: created.id,
+                  name: created.title ?? "無題",
+                  memo: created.memo ?? "",
+                  lat: created.lat,
+                  lng: created.lng,
+                  photos: [],
+                  visibility: "private",
+                  status: "wishlist",
+                  ai_summary: (created as any).ai_summary ?? null,
+                  ai_tips: (created as any).ai_tips ?? null,
+                },
+                ...prev,
+              ]);
+              setSelectedId(created.id);
+              setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
+              setNewAt(null);
+              setWishlistMode(false);
+            } catch (e: any) {
+              alert(`wishlist保存に失敗しました: ${e?.message ?? e}`);
+              console.error(e);
+            }
+          }}
+        />
+      ) : (
         <PostModal
           open={true}
           place={{ lat: newAt.lat, lng: newAt.lng }}
@@ -2677,7 +2805,7 @@ useEffect(() => {
             }
           }} 
         />
-      )}
+      ))}
 
       {/* ✏️ 編集モーダル */}
       {selected && !selectedIsTripStop && (
