@@ -340,6 +340,21 @@ useEffect(() => {
   const selectedMarker = useMemo(() => (selectedId ? places.find((x) => x.id === selectedId) ?? null : null), [places, selectedId]);
   const selectedIsTripStop = selectedMarker?.markerType === "trip_plan_stop";
 
+  useEffect(() => {
+    if (!selectedId) return;
+    const marker = places.find((x) => x.id === selectedId) ?? null;
+    console.info("[public] selected panel render snapshot", {
+      selectedId,
+      placeKey: marker?.id ?? null,
+      postId: (marker as PublicMarkerPlace | null)?.sourcePlaceId ?? null,
+      wantedByMe: marker?.wantedByMe ?? null,
+      visitedByMe: marker?.visitedByMe ?? null,
+      wantCount: marker?.wantCount ?? null,
+      visitedCount: marker?.visitedCount ?? null,
+      reactBusyId,
+    });
+  }, [places, selectedId, reactBusyId]);
+
   const selectedTitle = useMemo(() => {
     if (!selectedId) return "";
     const marker = places.find((x) => x.id === selectedId);
@@ -449,7 +464,20 @@ useEffect(() => {
       };
       if (sourcePlaceId) payload.source_place_id = sourcePlaceId;
 
+      console.info("[public] saveToPrivateWishlist insert payload", {
+        uid,
+        placeKey,
+        sourcePlaceId,
+        payload,
+      });
+
       const { data: inserted, error } = await supabase.from("places").insert(payload).select("id").single();
+      console.info("[public] saveToPrivateWishlist insert result", {
+        table: "places",
+        error,
+        data: inserted,
+        affected: inserted ? { id: inserted.id, placeKey } : null,
+      });
       if (error) throw error;
 
       fetch("/api/enrich-wishlist", {
@@ -487,6 +515,17 @@ useEffect(() => {
       const marker = places.find((p) => p.id === placeKey);
       if (!marker) return;
       const already = kind === "want" ? !!marker.wantedByMe : !!marker.visitedByMe;
+      console.info("[public] togglePlaceFlag click", {
+        action: kind,
+        selectedId,
+        placeKey,
+        postId: (marker as PublicMarkerPlace).sourcePlaceId ?? null,
+        wantedByMe: marker.wantedByMe ?? false,
+        visitedByMe: marker.visitedByMe ?? false,
+        wantCount: marker.wantCount ?? 0,
+        visitedCount: marker.visitedCount ?? 0,
+        reactBusyId,
+      });
 
       if (!already) {
         if (!premiumLoaded) return;
@@ -502,8 +541,9 @@ useEffect(() => {
       }
 
       // UI先に反映
-      setPlaces((prev) =>
-        prev.map((p) => {
+      setPlaces((prev) => {
+        const prevTarget = prev.find((p) => p.id === placeKey) ?? null;
+        const next = prev.map((p) => {
           if (p.id !== placeKey) return p;
 
           const wantCount = p.wantCount ?? 0;
@@ -513,20 +553,72 @@ useEffect(() => {
             return { ...p, wantedByMe: !already, wantCount: wantCount + (already ? -1 : 1) };
           }
           return { ...p, visitedByMe: !already, visitedCount: visitedCount + (already ? -1 : 1) };
-        })
-      );
+        });
+        const nextTarget = next.find((p) => p.id === placeKey) ?? null;
+        const selectedMarkerAfter = selectedId ? next.find((p) => p.id === selectedId) ?? null : null;
+        console.info("[public] togglePlaceFlag state update", {
+          action: kind,
+          selectedId,
+          placeKey,
+          matchedPlaceKey: prevTarget?.id === placeKey,
+          before: prevTarget,
+          after: nextTarget,
+          selectedMarkerAfter: selectedMarkerAfter
+            ? {
+                id: selectedMarkerAfter.id,
+                wantedByMe: selectedMarkerAfter.wantedByMe ?? false,
+                visitedByMe: selectedMarkerAfter.visitedByMe ?? false,
+              }
+            : null,
+        });
+        return next;
+      });
 
       // DB反映
       if (already) {
+        console.info("[public] place_flags write before", {
+          table: "place_flags",
+          userId: uid,
+          placeKey,
+          kind,
+          operation: "delete",
+          payload: { place_key: placeKey, user_id: uid, kind },
+        });
         const { error } = await supabase
           .from("place_flags")
           .delete()
           .eq("place_key", placeKey)
           .eq("user_id", uid)
           .eq("kind", kind);
+        console.info("[public] place_flags write after", {
+          table: "place_flags",
+          operation: "delete",
+          error,
+          data: null,
+          affected: { place_key: placeKey, user_id: uid, kind },
+        });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("place_flags").insert({ place_key: placeKey, user_id: uid, kind });
+        console.info("[public] place_flags write before", {
+          table: "place_flags",
+          userId: uid,
+          placeKey,
+          kind,
+          operation: "insert",
+          payload: { place_key: placeKey, user_id: uid, kind },
+        });
+        const { data, error } = await supabase
+          .from("place_flags")
+          .insert({ place_key: placeKey, user_id: uid, kind })
+          .select("id, place_key, user_id, kind")
+          .single();
+        console.info("[public] place_flags write after", {
+          table: "place_flags",
+          operation: "insert",
+          error,
+          data,
+          affected: data ? { id: data.id, place_key: data.place_key, user_id: data.user_id, kind: data.kind } : null,
+        });
         if (error) throw error;
         if (kind === "want") {
           const saved = await saveToPrivateWishlist(placeKey);

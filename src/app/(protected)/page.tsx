@@ -1694,7 +1694,7 @@ async function insertPlace({
     focal_length: focalLength ?? null,
     has_gps: !!hasGps,
   };
-  console.info("[insertPlace] payload", placePayload);
+  console.info("[insertPlace] payload", { uid, space_id: sp.id, payload: placePayload });
 
   const { data: placeRow, error: ePlace } = await supabase
   .from("places")
@@ -1705,7 +1705,18 @@ async function insertPlace({
   .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, created_by_name, created_at")
   .single();
 
-  console.info("[insertPlace] result", { data: placeRow, error: ePlace });
+  console.info("[insertPlace] result", {
+    data: placeRow,
+    error: ePlace,
+    errorMessage: ePlace?.message ?? null,
+    created: placeRow
+      ? {
+          id: placeRow.id,
+          status: (placeRow as any).status ?? null,
+          visibility: (placeRow as any).visibility ?? null,
+        }
+      : null,
+  });
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
    if (spotId) {
@@ -1984,6 +1995,23 @@ const mergedPlaces = useMemo(() => {
     ? [...categoryFilteredPlaces, ...layerPlaces]
     : categoryFilteredPlaces;
 }, [places, layerPlacesBySlug, enabledLayerSlugs.length, effectiveCategoryId]);
+
+useEffect(() => {
+  console.info("[private] mergedPlaces before MapView", {
+    total: mergedPlaces.length,
+    wishlistCount: mergedPlaces.filter((p: any) => (p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist")) === "wishlist").length,
+    visitedCount: mergedPlaces.filter((p: any) => (p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist")) === "visited").length,
+    places: mergedPlaces.map((p: any) => ({
+      id: p.id,
+      title: p.name ?? p.title ?? null,
+      status: p.status ?? null,
+      visibility: p.visibility ?? null,
+      photoCount: p.photos?.length ?? 0,
+      lat: p.lat,
+      lng: p.lng,
+    })),
+  });
+}, [mergedPlaces]);
   
 
   // 1) 座標が来てたら先にジャンプ
@@ -2649,6 +2677,19 @@ useEffect(() => {
           }}
           onSubmit={async (d) => {
             try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const submitUid = sessionData.session?.user.id ?? null;
+              const submitSpace = await ensureMySpace();
+              console.info("[private:wishlist] submit payload", {
+                title: d.title,
+                memo: d.memo,
+                lat: d.lat,
+                lng: d.lng,
+                visibility: "private",
+                status: "wishlist",
+                space_id: submitSpace?.id ?? null,
+                uid: submitUid,
+              });
               const created = await insertPlace({
                 clientRequestId: createBrowserSafeId(),
                 lat: d.lat,
@@ -2667,21 +2708,29 @@ useEffect(() => {
                 lng: created.lng,
               });
 
-              setPlaces((prev) => [
-                {
+              setPlaces((prev) => {
+                const nextPlace = {
                   id: created.id,
                   name: created.title ?? "無題",
                   memo: created.memo ?? "",
                   lat: created.lat,
                   lng: created.lng,
                   photos: [],
-                  visibility: "private",
-                  status: "wishlist",
+                  visibility: "private" as const,
+                  status: "wishlist" as const,
                   ai_summary: (created as any).ai_summary ?? null,
                   ai_tips: (created as any).ai_tips ?? null,
-                },
-                ...prev.filter((p) => p.id !== created.id),
-              ]);
+                } as any;
+                const next = [nextPlace, ...prev.filter((p) => p.id !== created.id)];
+                console.info("[private:wishlist] state append", {
+                  beforeLength: prev.length,
+                  appendPlace: nextPlace,
+                  afterLength: next.length,
+                  containsCreatedId: next.some((p) => p.id === created.id),
+                  selectedIdWillSetTo: created.id,
+                });
+                return next;
+              });
               setSelectedId(created.id);
               setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
               setNewAt(null);
