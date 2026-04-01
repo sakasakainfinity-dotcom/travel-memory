@@ -161,24 +161,37 @@ export default function MapView({
       
 
   const geojson = useMemo(() => {
+    const resolvedMode: "private" | "public" = mode ?? ((places ?? []).some(isPublicModeCandidate) ? "public" : "private");
     return {
       type: "FeatureCollection",
-      features: places.map((p) => ({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-        properties: {
-          id: p.id,
-          title: p.name ?? "",
-          markerType: p.markerType ?? "place",
-          markerLabel: p.markerLabel ?? "",
-          visibility: p.visibility ?? (mode === "public" ? "public" : "private"),
-          wantedByMe: !!p.wantedByMe,
-          visitedByMe: !!p.visitedByMe,
-          status: p.status ?? "visited",
-        },
-      })),
+      features: places.map((p) => {
+        const status = p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist");
+        const showVisitedBadge = resolvedMode === "public"
+          ? !!p.visitedByMe
+          : (!!p.visitedByMe || status === "visited");
+        const showWantedBadge = resolvedMode === "public"
+          ? (!!p.wantedByMe && !showVisitedBadge)
+          : ((!!p.wantedByMe || status === "wishlist") && !showVisitedBadge);
+
+        return {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+          properties: {
+            id: p.id,
+            title: p.name ?? "",
+            markerType: p.markerType ?? "place",
+            markerLabel: p.markerLabel ?? "",
+            visibility: p.visibility ?? (resolvedMode === "public" ? "public" : "private"),
+            wantedByMe: !!p.wantedByMe,
+            visitedByMe: !!p.visitedByMe,
+            status,
+            showWantedBadge,
+            showVisitedBadge,
+          },
+        };
+      }),
     } as GeoJSON.FeatureCollection;
-  }, [places]);
+  }, [mode, places]);
 
   function applyMode(map: Map, m: "private" | "public") {
     // ⭐/✓ は public / private どちらでも見せる
@@ -321,7 +334,7 @@ if (!map.getLayer("pin-visited")) {
           id: "pin-visited",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visitedByMe"], true]],
+          filter: ["==", ["get", "showVisitedBadge"], true],
           layout: {
             "icon-image": "pin-star-check-fill",
             "icon-size": 1.15,
@@ -348,18 +361,7 @@ if (!map.getLayer("pin-wanted")) {
     id: "pin-wanted",
     type: "symbol",
     source: "places",
-    filter: ["all",
-      [
-        "any",
-        ["==", ["get", "wantedByMe"], true],
-        [
-          "all",
-          ["==", ["get", "visibility"], "private"],
-          ["==", ["get", "status"], "wishlist"],
-        ],
-      ],
-      ["!=", ["get", "visitedByMe"], true],
-    ],
+    filter: ["==", ["get", "showWantedBadge"], true],
     layout: {
       "icon-image": "pin-star-fill",
       "icon-size": 1.05,
