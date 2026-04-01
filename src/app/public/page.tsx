@@ -477,6 +477,7 @@ useEffect(() => {
         created_by: uid,
         visibility: "private",
         status: "wishlist",
+        source_visibility: "public",
       };
       if (sourcePlaceId) payload.source_place_id = sourcePlaceId;
 

@@ -58,30 +58,9 @@ const CAMERA_PUBLIC_SVG = `
 const CAMERA_PRIVATE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <path d="M18 24h8l4-6h12l4 6h8c3 0 6 3 6 6v18c0 3-3 6-6 6H18c-3 0-6-3-6-6V30c0-3 3-6 6-6z"
-        fill="#6b7280" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+        fill="#111827" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
   <circle cx="32" cy="39" r="8" fill="#ffffff"/>
-  <circle cx="32" cy="39" r="4.5" fill="#6b7280"/>
-</svg>
-`;
-
-
-const LOCK_BADGE_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- shackle -->
-  <path d="M22 30v-6c0-8 6-14 14-14s14 6 14 14v6"
-        fill="none" stroke="#fde68a" stroke-width="8" stroke-linecap="round"/>
-  <path d="M22 30v-6c0-8 6-14 14-14s14 6 14 14v6"
-        fill="none" stroke="#92400e" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
-  <!-- body -->
-  <rect x="16" y="28" width="40" height="30" rx="8"
-        fill="#f59e0b" stroke="#92400e" stroke-width="5"/>
-  <rect x="20" y="32" width="32" height="22" rx="6"
-        fill="#fcd34d" opacity="0.9"/>
-  <!-- keyhole -->
-  <circle cx="36" cy="43" r="4" fill="#92400e"/>
-  <rect x="34.5" y="46" width="3" height="7" rx="1.5" fill="#92400e"/>
-  <!-- highlight -->
-  <path d="M24 36c0-5 3-8 8-8" fill="none" stroke="#fff7ed" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="32" cy="39" r="4.5" fill="#111827"/>
 </svg>
 `;
 
@@ -288,8 +267,6 @@ export default function MapView({
       // 2) 画像登録
      await loadSvgAsImage(map, "pin-camera-public", CAMERA_PUBLIC_SVG);
 await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
-await loadSvgAsImage(map, "pin-lock", LOCK_BADGE_SVG);
-
 await loadSvgAsImage(map, "pin-star-fill", STAR_FILLED_SVG);
 await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
 await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
@@ -302,7 +279,7 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           source: "places",
           filter: [
             "all",
-            ["==", ["get", "mapMode"], "public"],
+            ["==", ["get", "visibility"], "public"],
             ["==", ["get", "resolvedMarkerType"], "camera"],
             ["!=", ["get", "markerType"], "trip_plan_stop"],
           ],
@@ -324,7 +301,7 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           source: "places",
           filter: [
             "all",
-            ["==", ["get", "mapMode"], "private"],
+            ["==", ["get", "visibility"], "private"],
             ["==", ["get", "resolvedMarkerType"], "camera"],
             ["!=", ["get", "markerType"], "trip_plan_stop"],
           ],
@@ -336,29 +313,6 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           },
         });
       }
-
-      // 🔒 バッジ（privateのときだけ、右上に重ねる）
-if (!map.getLayer("pin-lock-badge")) {
-  map.addLayer({
-    id: "pin-lock-badge",
-    type: "symbol",
-    source: "places",
-    filter: [
-      "all",
-      ["==", ["get", "mapMode"], "private"],
-      ["==", ["get", "resolvedMarkerType"], "camera"],
-      ["!=", ["get", "markerType"], "trip_plan_stop"],
-    ],
-    layout: {
-      "icon-image": "pin-lock",
-      "icon-size": 0.75,
-      "icon-allow-overlap": true,
-      "icon-ignore-placement": true,
-      "icon-anchor": "center",
-      "icon-offset": [1.25, -1.35],
-    },
-  });
-}
 
 // 行った（⭐✓）…最前面
 if (!map.getLayer("pin-visited")) {
@@ -421,7 +375,6 @@ if (!map.getLayer("pin-trip-plan-stop")) {
 // 下：カメラ → 上：鍵 → 上：星 → 最上：行った
 if (map.getLayer("pin-camera-public")) map.moveLayer("pin-camera-public");
 if (map.getLayer("pin-camera-private")) map.moveLayer("pin-camera-private");
-if (map.getLayer("pin-lock-badge")) map.moveLayer("pin-lock-badge");
 if (map.getLayer("pin-wanted")) map.moveLayer("pin-wanted");
 if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
 if (map.getLayer("pin-trip-plan-stop")) map.moveLayer("pin-trip-plan-stop");
