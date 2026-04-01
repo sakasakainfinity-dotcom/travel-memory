@@ -341,6 +341,22 @@ useEffect(() => {
   const selectedIsTripStop = selectedMarker?.markerType === "trip_plan_stop";
 
   useEffect(() => {
+    console.info("[public] places before MapView", {
+      mode: "public",
+      total: places.length,
+      places: places.map((p) => ({
+        id: p.id,
+        title: p.name ?? "",
+        status: (p as any).status ?? null,
+        visibility: p.visibility ?? "public",
+        photoCount: p.photos?.length ?? 0,
+        wantedByMe: !!p.wantedByMe,
+        visitedByMe: !!p.visitedByMe,
+      })),
+    });
+  }, [places]);
+
+  useEffect(() => {
     if (!selectedId) return;
     const marker = places.find((x) => x.id === selectedId) ?? null;
     console.info("[public] selected panel render snapshot", {

@@ -26,6 +26,8 @@ function isPublicModeCandidate(p: Place) {
   return typeof p.wantedByMe === "boolean" || typeof p.visitedByMe === "boolean";
 }
 
+type MarkerVisualType = "camera" | "wishlist" | "visited";
+
 function svgToDataUrl(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -166,12 +168,36 @@ export default function MapView({
       type: "FeatureCollection",
       features: places.map((p) => {
         const status = p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist");
-        const showVisitedBadge = resolvedMode === "public"
-          ? !!p.visitedByMe
-          : (!!p.visitedByMe || status === "visited");
-        const showWantedBadge = resolvedMode === "public"
-          ? (!!p.wantedByMe && !showVisitedBadge)
-          : ((!!p.wantedByMe || status === "wishlist") && !showVisitedBadge);
+        const photoCount = p.photos?.length ?? 0;
+        let resolvedMarkerType: MarkerVisualType = "camera";
+        let markerReason = `${resolvedMode} + default camera`;
+
+        if (resolvedMode === "public") {
+          resolvedMarkerType = "camera";
+          markerReason = "public + fixed camera";
+        } else if (status === "wishlist") {
+          resolvedMarkerType = "wishlist";
+          markerReason = "private + wishlist";
+        } else if (p.visitedByMe) {
+          resolvedMarkerType = "visited";
+          markerReason = "private + visitedFlag";
+        }
+
+        console.info("[MapView] place before marker resolve", {
+          mode: resolvedMode,
+          id: p.id,
+          title: p.name ?? "",
+          status,
+          visibility: p.visibility ?? null,
+          photoCount,
+          wantedByMe: !!p.wantedByMe,
+          visitedByMe: !!p.visitedByMe,
+        });
+        console.info("[MapView] marker resolved", {
+          id: p.id,
+          resolvedMarkerType,
+          reason: markerReason,
+        });
 
         return {
           type: "Feature",
@@ -185,8 +211,9 @@ export default function MapView({
             wantedByMe: !!p.wantedByMe,
             visitedByMe: !!p.visitedByMe,
             status,
-            showWantedBadge,
-            showVisitedBadge,
+            resolvedMarkerType,
+            markerReason,
+            mapMode: resolvedMode,
           },
         };
       }),
@@ -194,13 +221,13 @@ export default function MapView({
   }, [mode, places]);
 
   function applyMode(map: Map, m: "private" | "public") {
-    // ⭐/✓ は public / private どちらでも見せる
     const setSymbolVisible = (id: string, visible: boolean) => {
       if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     };
-    setSymbolVisible("pin-wanted", true);
-    setSymbolVisible("pin-visited", true);
+    const showPrivateBadges = m === "private";
+    setSymbolVisible("pin-wanted", showPrivateBadges);
+    setSymbolVisible("pin-visited", showPrivateBadges);
   }
 
   useEffect(() => {
@@ -273,7 +300,12 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           id: "pin-camera-public",
           type: "symbol",
           source: "places",
-          filter: ["all", ["==", ["get", "visibility"], "public"], ["!=", ["get", "markerType"], "trip_plan_stop"]],
+          filter: [
+            "all",
+            ["==", ["get", "mapMode"], "public"],
+            ["==", ["get", "resolvedMarkerType"], "camera"],
+            ["!=", ["get", "markerType"], "trip_plan_stop"],
+          ],
 
           layout: {
             "icon-image": "pin-camera-public",
@@ -292,8 +324,8 @@ await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
           source: "places",
           filter: [
             "all",
-            ["==", ["get", "visibility"], "private"],
-            ["==", ["get", "status"], "visited"],
+            ["==", ["get", "mapMode"], "private"],
+            ["==", ["get", "resolvedMarkerType"], "camera"],
             ["!=", ["get", "markerType"], "trip_plan_stop"],
           ],
           layout: {
@@ -313,8 +345,8 @@ if (!map.getLayer("pin-lock-badge")) {
     source: "places",
     filter: [
       "all",
-      ["==", ["get", "visibility"], "private"],
-      ["==", ["get", "status"], "visited"],
+      ["==", ["get", "mapMode"], "private"],
+      ["==", ["get", "resolvedMarkerType"], "camera"],
       ["!=", ["get", "markerType"], "trip_plan_stop"],
     ],
     layout: {
@@ -334,7 +366,11 @@ if (!map.getLayer("pin-visited")) {
           id: "pin-visited",
           type: "symbol",
           source: "places",
-          filter: ["==", ["get", "showVisitedBadge"], true],
+          filter: [
+            "all",
+            ["==", ["get", "mapMode"], "private"],
+            ["==", ["get", "resolvedMarkerType"], "visited"],
+          ],
           layout: {
             "icon-image": "pin-star-check-fill",
             "icon-size": 1.15,
@@ -351,7 +387,11 @@ if (!map.getLayer("pin-wanted")) {
     id: "pin-wanted",
     type: "symbol",
     source: "places",
-    filter: ["==", ["get", "showWantedBadge"], true],
+    filter: [
+      "all",
+      ["==", ["get", "mapMode"], "private"],
+      ["==", ["get", "resolvedMarkerType"], "wishlist"],
+    ],
     layout: {
       "icon-image": "pin-star-fill",
       "icon-size": 1.05,
