@@ -179,18 +179,13 @@ export default function MapView({
   }, [places]);
 
   function applyMode(map: Map, m: "private" | "public") {
-    // publicでだけ⭐/✓を見せる
+    // ⭐/✓ は public / private どちらでも見せる
     const setSymbolVisible = (id: string, visible: boolean) => {
       if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     };
-    if (m === "private") {
-      setSymbolVisible("pin-wanted", false);
-      setSymbolVisible("pin-visited", false);
-    } else {
-      setSymbolVisible("pin-wanted", true);
-      setSymbolVisible("pin-visited", true);
-    }
+    setSymbolVisible("pin-wanted", true);
+    setSymbolVisible("pin-visited", true);
   }
 
   useEffect(() => {

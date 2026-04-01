@@ -1934,7 +1934,6 @@ useEffect(() => {
         .from("places")
         .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips")
         .eq("space_id", mySpace.id)
-        .eq("visibility", "private")
         .order("created_at", { ascending: false });
 
       const ids = (ps ?? []).map((p) => p.id);
@@ -2336,7 +2335,7 @@ useEffect(() => {
         onChange={(e) => void onPickAutoPhoto(e.target.files)}
       />
 
-       {/* 🤖 自動投稿 */}
+       {/* 📷 思い出写真を投稿 */}
       <button
       onClick={() => {
   if (autoReading) return;
@@ -2361,13 +2360,13 @@ useEffect(() => {
           fontWeight: 700,
            opacity: (!autoPostFreeForAll && !premiumLoaded) || autoReading ? 0.7 : 1,
         }}
-        title="写真を複数選ぶと、最大10件まで順番に自動投稿できます"
+        title="写真から最大10件まで順番に投稿できます"
       >
-        {autoReading ? "読み取り中…" : autoPostFreeForAll ? "🤖自動投稿（今だけ無料）" : "🤖自動投稿（プレミアム）"}
+        {autoReading ? "読み取り中…" : "📷 思い出投稿"}
       </button>
 
 
-      {/* ➕ 投稿フローティングボタン */}
+      {/* ➕ 行きたい場所を記録 */}
       <button
         onClick={() => {
   if (!mapCenter) return;
@@ -2386,7 +2385,7 @@ useEffect(() => {
           cursor: "pointer",
         }}
       >
-        📷この場所で投稿
+        ⭐ 行きたい記録
       </button>
 
       {/* 下プレビュー（タイトル→メモ→写真） */}
