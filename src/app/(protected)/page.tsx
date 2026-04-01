@@ -1998,6 +1998,7 @@ const mergedPlaces = useMemo(() => {
 
 useEffect(() => {
   console.info("[private] mergedPlaces before MapView", {
+    mode: "private",
     total: mergedPlaces.length,
     wishlistCount: mergedPlaces.filter((p: any) => (p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist")) === "wishlist").length,
     visitedCount: mergedPlaces.filter((p: any) => (p.status ?? ((p.photos?.length ?? 0) > 0 ? "visited" : "wishlist")) === "visited").length,
@@ -2007,6 +2008,8 @@ useEffect(() => {
       status: p.status ?? null,
       visibility: p.visibility ?? null,
       photoCount: p.photos?.length ?? 0,
+      wantedByMe: !!p.wantedByMe,
+      visitedByMe: !!p.visitedByMe,
       lat: p.lat,
       lng: p.lng,
     })),
