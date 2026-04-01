@@ -18,6 +18,7 @@ import InstallToHomeModal from "@/components/InstallToHomeModal";
 import { parseExifFromFile } from "@/lib/exif";
 import { AUTO_POST_FREE_DAILY_LIMIT, isAutoPostFreeForAll } from "@/lib/autoPostPolicy";
 import { createBrowserSafeId } from "@/lib/browserSafeId";
+import { isMissingSchemaError } from "@/lib/supabaseSchemaFallback";
 
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -1700,6 +1701,7 @@ export default function Page() {
 
   const loadedSlugsRef = useRef<Set<string>>(new Set());
   const [booting, setBooting] = useState(true);
+  const [categoryFeatureReady, setCategoryFeatureReady] = useState(true);
 
   const [newAt, setNewAt] = useState<{
   lat: number;
@@ -1888,19 +1890,20 @@ useEffect(() => {
   const qLat = sp.get("lat");
   const qLng = sp.get("lng");
   const categoryId = sp.get("category");
+  const effectiveCategoryId = categoryFeatureReady ? categoryId : null;
   const showMarkerTitles = sp.get("titles") === "1";
   const didApplyRef = useRef(false);
 
   // ▼▼ ④ 地図に渡すplacesを合体（ここに追加） ▼▼
 const mergedPlaces = useMemo(() => {
-  const categoryFilteredPlaces = categoryId
-    ? places.filter((p: any) => (p.place_category_id ?? null) === categoryId)
+  const categoryFilteredPlaces = effectiveCategoryId
+    ? places.filter((p: any) => (p.place_category_id ?? null) === effectiveCategoryId)
     : places;
   const layerPlaces = Object.values(layerPlacesBySlug).flat();
   return enabledLayerSlugs.length > 0
     ? [...categoryFilteredPlaces, ...layerPlaces]
     : categoryFilteredPlaces;
-}, [places, layerPlacesBySlug, enabledLayerSlugs.length, categoryId]);
+}, [places, layerPlacesBySlug, enabledLayerSlugs.length, effectiveCategoryId]);
   
 
   // 1) 座標が来てたら先にジャンプ
@@ -1935,11 +1938,27 @@ useEffect(() => {
       const mySpace = await ensureMySpace();
       if (!mySpace?.id) return;
 
-      const { data: ps } = await supabase
+      let ps: any[] | null = null;
+      const categorySelect = "id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, place_category_id";
+      const baseSelect = "id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips";
+      const { data: placesWithCategory, error: placesError } = await supabase
         .from("places")
-        .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, place_category_id")
+        .select(categorySelect)
         .eq("space_id", mySpace.id)
         .order("created_at", { ascending: false });
+      if (placesError) {
+        if (!isMissingSchemaError(placesError)) throw placesError;
+        setCategoryFeatureReady(false);
+        const { data: fallbackPlaces, error: fallbackError } = await supabase
+          .from("places")
+          .select(baseSelect)
+          .eq("space_id", mySpace.id)
+          .order("created_at", { ascending: false });
+        if (fallbackError) throw fallbackError;
+        ps = (fallbackPlaces ?? []).map((p) => ({ ...p, place_category_id: null }));
+      } else {
+        ps = placesWithCategory as any[];
+      }
 
       const ids = (ps ?? []).map((p) => p.id);
       let photosBy: Record<string, string[]> = {};
