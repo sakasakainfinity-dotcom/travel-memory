@@ -4,6 +4,7 @@ import { useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
+import { isMissingSchemaError } from "@/lib/supabaseSchemaFallback";
 
 type ListRow = {
   id: string;
@@ -32,6 +33,7 @@ export default function WishlistListPage() {
   const [tab, setTab] = useState<"wishlist" | "visited">("wishlist");
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryFeatureReady, setCategoryFeatureReady] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -44,17 +46,36 @@ export default function WishlistListPage() {
         .select("id,name")
         .eq("space_id", mySpace.id)
         .order("created_at", { ascending: true });
-      if (categoryError) throw categoryError;
-      setCategories((categoryRows ?? []) as CategoryRow[]);
+      if (categoryError && !isMissingSchemaError(categoryError)) throw categoryError;
+      const canUseCategoryFeature = !categoryError;
+      setCategoryFeatureReady(canUseCategoryFeature);
+      setCategories(((canUseCategoryFeature ? categoryRows : []) ?? []) as CategoryRow[]);
 
-      const { data: places, error } = await supabase
+      let places: any[] | null = null;
+      const categorySelect = "id,title,memo,ai_summary,status,lat,lng,created_at,place_category_id";
+      const baseSelect = "id,title,memo,ai_summary,status,lat,lng,created_at";
+      const { data: placesWithCategory, error } = await supabase
         .from("places")
-        .select("id,title,memo,ai_summary,status,lat,lng,created_at,place_category_id")
+        .select(categorySelect)
         .eq("space_id", mySpace.id)
         .eq("visibility", "private")
         .in("status", ["wishlist", "visited"])
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        if (!isMissingSchemaError(error)) throw error;
+        setCategoryFeatureReady(false);
+        const { data: fallbackPlaces, error: fallbackError } = await supabase
+          .from("places")
+          .select(baseSelect)
+          .eq("space_id", mySpace.id)
+          .eq("visibility", "private")
+          .in("status", ["wishlist", "visited"])
+          .order("created_at", { ascending: false });
+        if (fallbackError) throw fallbackError;
+        places = (fallbackPlaces ?? []).map((p) => ({ ...p, place_category_id: null }));
+      } else {
+        places = placesWithCategory as any[];
+      }
 
       const ids = (places ?? []).map((p: any) => p.id);
       const photosBy: Record<string, string[]> = {};
@@ -91,7 +112,7 @@ export default function WishlistListPage() {
   }, [categories, rows]);
 
   const createCategory = async () => {
-    if (!spaceId) return;
+    if (!spaceId || !categoryFeatureReady) return;
     if (categories.length >= MAX_CATEGORY_COUNT) {
       alert(`カテゴリーは最大${MAX_CATEGORY_COUNT}件までです。`);
       return;
@@ -124,6 +145,7 @@ export default function WishlistListPage() {
   const updatePlaceCategory = async (placeId: string, placeCategoryId: string | null) => {
     const previous = rows;
     setRows((prev) => prev.map((r) => (r.id === placeId ? { ...r, place_category_id: placeCategoryId } : r)));
+    if (!categoryFeatureReady) return;
     const { error } = await supabase.from("places").update({ place_category_id: placeCategoryId }).eq("id", placeId);
     if (error) {
       setRows(previous);
@@ -137,7 +159,7 @@ export default function WishlistListPage() {
       <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
           onClick={createCategory}
-          disabled={creatingCategory || categories.length >= MAX_CATEGORY_COUNT}
+          disabled={!categoryFeatureReady || creatingCategory || categories.length >= MAX_CATEGORY_COUNT}
           style={{ border: "1px solid #111827", borderRadius: 999, padding: "8px 12px", background: "#fff", cursor: "pointer", fontWeight: 700 }}
         >
           カテゴリーをつくる
@@ -145,6 +167,11 @@ export default function WishlistListPage() {
         <span style={{ fontSize: 12, color: "#6b7280" }}>
           {categories.length}/{MAX_CATEGORY_COUNT}
         </span>
+        {!categoryFeatureReady && (
+          <span style={{ fontSize: 12, color: "#b45309" }}>
+            カテゴリー機能はDBマイグレーション適用後に有効になります
+          </span>
+        )}
       </div>
 
       {rowsByCategory.length > 0 && (
@@ -181,6 +208,7 @@ export default function WishlistListPage() {
                 <select
                   value={r.place_category_id ?? ""}
                   onChange={(e) => updatePlaceCategory(r.id, e.target.value || null)}
+                  disabled={!categoryFeatureReady}
                   style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 8px", background: "#fff" }}
                 >
                   <option value="">カテゴリー未設定</option>
