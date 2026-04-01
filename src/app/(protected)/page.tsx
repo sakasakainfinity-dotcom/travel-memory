@@ -1673,35 +1673,39 @@ async function insertPlace({
   if (!sp?.id) throw new Error("スペースが取得できませんでした");
 
   // 1) places 行を先に作る（★ created_by_name を保存）
+  const placePayload = {
+    space_id: sp.id,
+    client_request_id: clientRequestId,
+    title: title ?? null,
+    memo: memo ?? null,
+    lat,
+    lng,
+    visited_at: visitedAt ?? null,
+    created_by: uid,
+    created_by_name: displayName,
+    visibility,
+    status: (files?.length ?? 0) > 0 ? "visited" : "wishlist",
+    taken_at: takenAt ?? null,
+    camera_make: cameraMake ?? null,
+    camera_model: cameraModel ?? null,
+    f_number: fNumber ?? null,
+    exposure_time: exposureTime ?? null,
+    iso: iso ?? null,
+    focal_length: focalLength ?? null,
+    has_gps: !!hasGps,
+  };
+  console.info("[insertPlace] payload", placePayload);
+
   const { data: placeRow, error: ePlace } = await supabase
   .from("places")
   .upsert(
-    {
-      space_id: sp.id,
-      client_request_id: clientRequestId,
-      title: title ?? null,
-      memo: memo ?? null,
-      lat,
-      lng,
-      visited_at: visitedAt ?? null,
-      created_by: uid,
-      created_by_name: displayName,
-      visibility,
-      status: (files?.length ?? 0) > 0 ? "visited" : "wishlist",
-      taken_at: takenAt ?? null,
-      camera_make: cameraMake ?? null,
-      camera_model: cameraModel ?? null,
-      f_number: fNumber ?? null,
-      exposure_time: exposureTime ?? null,
-      iso: iso ?? null,
-      focal_length: focalLength ?? null,
-      has_gps: !!hasGps,
-    },
+    placePayload,
     { onConflict: "space_id,client_request_id" }
   )
   .select("id, title, memo, lat, lng, visibility, status, ai_summary, ai_tips, created_by_name, created_at")
   .single();
 
+  console.info("[insertPlace] result", { data: placeRow, error: ePlace });
   if (ePlace) throw new Error(`[PLACES] ${ePlace.message || ePlace.code}`);
 
    if (spotId) {
@@ -2655,6 +2659,13 @@ useEffect(() => {
                 visibility: "private",
                 hasGps: true,
               });
+              console.info("[wishlist] created", {
+                id: created.id,
+                status: (created as any).status,
+                visibility: created.visibility,
+                lat: created.lat,
+                lng: created.lng,
+              });
 
               setPlaces((prev) => [
                 {
@@ -2669,12 +2680,13 @@ useEffect(() => {
                   ai_summary: (created as any).ai_summary ?? null,
                   ai_tips: (created as any).ai_tips ?? null,
                 },
-                ...prev,
+                ...prev.filter((p) => p.id !== created.id),
               ]);
               setSelectedId(created.id);
               setFlyTo({ lat: created.lat, lng: created.lng, zoom: 15 });
               setNewAt(null);
               setWishlistMode(false);
+              router.refresh();
             } catch (e: any) {
               alert(`wishlist保存に失敗しました: ${e?.message ?? e}`);
               console.error(e);
