@@ -38,9 +38,18 @@ export default function WishlistListPage() {
 
   useEffect(() => {
     (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData.session?.user.id ?? null;
+      console.info("[/list] session", { uid });
+      if (!uid) {
+        console.warn("[/list] uid not found, skip fetch");
+        return;
+      }
+
       const mySpace = await ensureMySpace();
       if (!mySpace?.id) return;
       setSpaceId(mySpace.id);
+      console.info("[/list] resolved space", { uid, space_id: mySpace.id });
 
       const { data: categoryRows, error: categoryError } = await supabase
         .from("place_categories")
@@ -60,7 +69,8 @@ export default function WishlistListPage() {
         .select(categorySelect)
         .eq("space_id", mySpace.id)
         .eq("visibility", "private")
-        .in("status", ["wishlist", "visited"])
+        .eq("created_by", uid)
+        .or("status.in.(wishlist,visited),status.is.null")
         .order("created_at", { ascending: false });
       if (error) {
         if (!isMissingSchemaError(error)) throw error;
@@ -70,6 +80,7 @@ export default function WishlistListPage() {
           .select(baseSelect)
           .eq("space_id", mySpace.id)
           .eq("visibility", "private")
+          .eq("created_by", uid)
           .order("created_at", { ascending: false });
         if (fallbackError) {
           if (!isMissingSchemaError(fallbackError)) throw fallbackError;
@@ -87,6 +98,12 @@ export default function WishlistListPage() {
       } else {
         places = placesWithCategory as any[];
       }
+      console.info("[/list] places query raw", {
+        uid,
+        space_id: mySpace.id,
+        count: places?.length ?? 0,
+        places: places ?? [],
+      });
 
       const ids = (places ?? []).map((p: any) => p.id);
       const photosBy: Record<string, string[]> = {};
@@ -98,6 +115,15 @@ export default function WishlistListPage() {
           (photosBy[pid] ||= []).push(url);
         }
       }
+      console.info(
+        "[/list] places status/visibility/photos",
+        (places ?? []).map((p: any) => ({
+          id: p.id,
+          status: p.status ?? null,
+          visibility: p.visibility ?? "private",
+          photoCount: (photosBy[p.id] ?? []).length,
+        }))
+      );
 
       setRows(
         ((places ?? []) as any[]).map((p) => ({
