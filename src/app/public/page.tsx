@@ -400,31 +400,45 @@ useEffect(() => {
   }
 
   async function saveToPrivateWishlist(placeKey: string) {
-    const marker = places.find((p) => p.id === placeKey);
-    if (!marker) return;
-    const uid = await ensureSignedInOrPrompt("保存するにはログインが必要です", "自分のPrivateマップへ保存できます。", "このまま見る");
-    if (!uid) return;
-    const mySpace = await ensureMySpace();
-    if (!mySpace?.id) return;
+    try {
+      const marker = places.find((p) => p.id === placeKey);
+      if (!marker) return;
+      const uid = await ensureSignedInOrPrompt("保存するにはログインが必要です", "自分のPrivateマップへ保存できます。", "このまま見る");
+      if (!uid) return;
+      const mySpace = await ensureMySpace();
+      if (!mySpace?.id) return;
 
-    const sourcePlaceId = (marker as PublicMarkerPlace).sourcePlaceId ?? null;
-    if (!sourcePlaceId) return;
+      const sourcePlaceId = (marker as PublicMarkerPlace).sourcePlaceId ?? null;
+      let existing: { id: string } | null = null;
 
-    const { data: existing } = await supabase
-      .from("places")
-      .select("id, lat, lng")
-      .eq("space_id", mySpace.id)
-      .eq("visibility", "private")
-      .eq("source_place_id", sourcePlaceId)
-      .maybeSingle();
-    if (existing?.id) {
-      alert("すでに保存済みです");
-      return;
-    }
+      if (sourcePlaceId) {
+        const { data } = await supabase
+          .from("places")
+          .select("id")
+          .eq("space_id", mySpace.id)
+          .eq("visibility", "private")
+          .eq("source_place_id", sourcePlaceId)
+          .maybeSingle();
+        existing = (data as { id: string } | null) ?? null;
+      } else {
+        const { data } = await supabase
+          .from("places")
+          .select("id")
+          .eq("space_id", mySpace.id)
+          .eq("visibility", "private")
+          .eq("title", marker.name ?? "行きたい場所")
+          .eq("lat", marker.lat)
+          .eq("lng", marker.lng)
+          .maybeSingle();
+        existing = (data as { id: string } | null) ?? null;
+      }
 
-    const { data: inserted, error } = await supabase
-      .from("places")
-      .insert({
+      if (existing?.id) {
+        alert("すでに保存済みです");
+        return;
+      }
+
+      const payload: Record<string, unknown> = {
         space_id: mySpace.id,
         title: marker.name ?? "行きたい場所",
         memo: marker.memo ?? null,
@@ -433,25 +447,29 @@ useEffect(() => {
         created_by: uid,
         visibility: "private",
         status: "wishlist",
-        source_place_id: sourcePlaceId,
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
+      };
+      if (sourcePlaceId) payload.source_place_id = sourcePlaceId;
 
-    fetch("/api/enrich-wishlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        placeId: inserted.id,
-        lat: marker.lat,
-        lng: marker.lng,
-        title: marker.name ?? "",
-        memo: marker.memo ?? "",
-      }),
-    }).catch(() => undefined);
+      const { data: inserted, error } = await supabase.from("places").insert(payload).select("id").single();
+      if (error) throw error;
 
-    alert("Privateの行きたいリストに保存しました");
+      fetch("/api/enrich-wishlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placeId: inserted.id,
+          lat: marker.lat,
+          lng: marker.lng,
+          title: marker.name ?? "",
+          memo: marker.memo ?? "",
+        }),
+      }).catch(() => undefined);
+
+      alert("Privateの行きたいリストに保存しました");
+    } catch (e) {
+      console.error(e);
+      alert("行きたいリストへの保存に失敗しました");
+    }
   }
 
   // ✅ want/visited トグル（場所単位）

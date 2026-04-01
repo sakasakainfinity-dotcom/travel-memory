@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureMySpace } from "@/lib/ensureMySpace";
 import { isMissingSchemaError } from "@/lib/supabaseSchemaFallback";
+import BackToMapButton from "@/components/BackToMapButton";
 
 type ListRow = {
   id: string;
@@ -69,10 +70,20 @@ export default function WishlistListPage() {
           .select(baseSelect)
           .eq("space_id", mySpace.id)
           .eq("visibility", "private")
-          .in("status", ["wishlist", "visited"])
           .order("created_at", { ascending: false });
-        if (fallbackError) throw fallbackError;
-        places = (fallbackPlaces ?? []).map((p) => ({ ...p, place_category_id: null }));
+        if (fallbackError) {
+          if (!isMissingSchemaError(fallbackError)) throw fallbackError;
+          const { data: oldestFallback, error: oldestFallbackError } = await supabase
+            .from("places")
+            .select("id,title,memo,ai_summary,lat,lng,created_at")
+            .eq("space_id", mySpace.id)
+            .eq("visibility", "private")
+            .order("created_at", { ascending: false });
+          if (oldestFallbackError) throw oldestFallbackError;
+          places = (oldestFallback ?? []).map((p) => ({ ...p, place_category_id: null, status: null }));
+        } else {
+          places = (fallbackPlaces ?? []).map((p) => ({ ...p, place_category_id: null }));
+        }
       } else {
         places = placesWithCategory as any[];
       }
@@ -154,17 +165,18 @@ export default function WishlistListPage() {
   };
 
   return (
-    <main style={{ maxWidth: 860, margin: "0 auto", padding: "18px 14px 100px" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900 }}>行きたい場所リスト</h1>
+    <main style={{ maxWidth: 860, margin: "0 auto", padding: "18px 14px 100px", color: "#e2e8f0" }}>
+      <div style={{ border: "1px solid #1e293b", background: "linear-gradient(180deg, #020617 0%, #0f172a 100%)", borderRadius: 18, padding: 14 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#f8fafc" }}>行きたい場所リスト</h1>
       <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
           onClick={createCategory}
           disabled={!categoryFeatureReady || creatingCategory || categories.length >= MAX_CATEGORY_COUNT}
-          style={{ border: "1px solid #111827", borderRadius: 999, padding: "8px 12px", background: "#fff", cursor: "pointer", fontWeight: 700 }}
+          style={{ border: "1px solid #334155", borderRadius: 999, padding: "8px 12px", background: "#0f172a", color: "#f8fafc", cursor: "pointer", fontWeight: 700 }}
         >
           カテゴリーをつくる
         </button>
-        <span style={{ fontSize: 12, color: "#6b7280" }}>
+        <span style={{ fontSize: 12, color: "#94a3b8" }}>
           {categories.length}/{MAX_CATEGORY_COUNT}
         </span>
         {!categoryFeatureReady && (
@@ -175,14 +187,14 @@ export default function WishlistListPage() {
       </div>
 
       {rowsByCategory.length > 0 && (
-        <section style={{ marginTop: 12, border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+        <section style={{ marginTop: 12, border: "1px solid #334155", borderRadius: 12, padding: 10, background: "#020617" }}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>カテゴリー別マップURL</div>
           <div style={{ display: "grid", gap: 6 }}>
             {rowsByCategory.map(({ category, count }) => (
               <button
                 key={category.id}
                 onClick={() => router.push(`/?category=${category.id}&titles=1`)}
-                style={{ border: "1px solid #d1d5db", borderRadius: 10, background: "#fff", textAlign: "left", padding: "8px 10px", cursor: "pointer" }}
+                style={{ border: "1px solid #334155", borderRadius: 10, background: "#0f172a", color: "#e2e8f0", textAlign: "left", padding: "8px 10px", cursor: "pointer" }}
               >
                 ⭐ {category.name}（{count}件）だけを地図で表示
               </button>
@@ -197,19 +209,19 @@ export default function WishlistListPage() {
 
       <div style={{ display: "grid", gap: 10 }}>
         {filtered.map((r) => (
-          <article key={r.id} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, display: "grid", gridTemplateColumns: "84px 1fr", gap: 10 }}>
-            <div style={{ width: 84, height: 84, borderRadius: 8, overflow: "hidden", background: "#f3f4f6", display: "grid", placeItems: "center" }}>
+          <article key={r.id} style={{ border: "1px solid #334155", borderRadius: 12, padding: 10, display: "grid", gridTemplateColumns: "84px 1fr", gap: 10, background: "#0b1220" }}>
+            <div style={{ width: 84, height: 84, borderRadius: 8, overflow: "hidden", background: "#1e293b", display: "grid", placeItems: "center" }}>
               {r.photos[0] ? <img src={r.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span>{r.status === "wishlist" ? "⭐" : "📷"}</span>}
             </div>
             <div>
-              <div style={{ fontWeight: 800 }}>{r.title || "無題"}</div>
-              <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{r.ai_summary || r.memo || "（メモなし）"}</div>
+              <div style={{ fontWeight: 800, color: "#f8fafc" }}>{r.title || "無題"}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{r.ai_summary || r.memo || "（メモなし）"}</div>
               <div style={{ marginTop: 8 }}>
                 <select
                   value={r.place_category_id ?? ""}
                   onChange={(e) => updatePlaceCategory(r.id, e.target.value || null)}
                   disabled={!categoryFeatureReady}
-                  style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 8px", background: "#fff" }}
+                  style={{ border: "1px solid #334155", borderRadius: 8, padding: "6px 8px", background: "#0f172a", color: "#e2e8f0" }}
                 >
                   <option value="">カテゴリー未設定</option>
                   {categories.map((c) => (
@@ -222,7 +234,7 @@ export default function WishlistListPage() {
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                 <span style={{ fontSize: 12 }}>{r.status === "wishlist" ? "⭐ wishlist" : "📷 visited"}</span>
                 <button
-                  style={{ border: "1px solid #d1d5db", borderRadius: 999, padding: "6px 10px", background: "#fff", cursor: "pointer" }}
+                  style={{ border: "1px solid #334155", borderRadius: 999, padding: "6px 10px", background: "#020617", color: "#e2e8f0", cursor: "pointer" }}
                   onClick={() => router.push(`/?focus=${r.id}&open=1&lat=${r.lat}&lng=${r.lng}`)}
                 >
                   地図へ飛ぶ
@@ -231,17 +243,19 @@ export default function WishlistListPage() {
             </div>
           </article>
         ))}
-        {filtered.length === 0 && <div style={{ color: "#6b7280" }}>まだありません。</div>}
+        {filtered.length === 0 && <div style={{ color: "#94a3b8" }}>まだありません。</div>}
       </div>
+      </div>
+      <BackToMapButton />
     </main>
   );
 }
 
 function chip(active: boolean): React.CSSProperties {
   return {
-    border: active ? "1px solid #111827" : "1px solid #d1d5db",
-    background: active ? "#111827" : "#fff",
-    color: active ? "#fff" : "#111827",
+    border: active ? "1px solid #64748b" : "1px solid #334155",
+    background: active ? "#334155" : "#0f172a",
+    color: "#f8fafc",
     borderRadius: 999,
     padding: "8px 12px",
     fontWeight: 800,
