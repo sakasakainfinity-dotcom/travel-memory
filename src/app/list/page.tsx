@@ -102,7 +102,14 @@ export default function WishlistListPage() {
         uid,
         space_id: mySpace.id,
         count: places?.length ?? 0,
-        places: places ?? [],
+        rows: (places ?? []).map((p: any) => ({
+          id: p.id,
+          title: p.title ?? null,
+          memo: p.memo ?? null,
+          status: p.status ?? null,
+          visibility: p.visibility ?? "private",
+          created_at: p.created_at ?? null,
+        })),
       });
 
       const ids = (places ?? []).map((p: any) => p.id);
@@ -125,13 +132,19 @@ export default function WishlistListPage() {
         }))
       );
 
-      setRows(
-        ((places ?? []) as any[]).map((p) => ({
+      const normalizedRows = ((places ?? []) as any[]).map((p) => ({
           ...p,
           status: (p.status ?? ((photosBy[p.id] ?? []).length > 0 ? "visited" : "wishlist")) as "wishlist" | "visited",
           photos: photosBy[p.id] ?? [],
-        }))
-      );
+        }));
+      console.info("[/list] normalized rows before render", {
+        total: normalizedRows.length,
+        wishlistCount: normalizedRows.filter((r) => r.status === "wishlist").length,
+        visitedCount: normalizedRows.filter((r) => r.status === "visited").length,
+        noPhotoWishlistCount: normalizedRows.filter((r) => r.status === "wishlist" && (r.photos?.length ?? 0) === 0).length,
+        privateCount: normalizedRows.filter((r) => (r.visibility ?? "private") === "private").length,
+      });
+      setRows(normalizedRows);
     })().catch((e) => {
       console.error(e);
       alert("一覧の読み込みに失敗しました");
@@ -139,6 +152,22 @@ export default function WishlistListPage() {
   }, []);
 
   const filtered = useMemo(() => rows.filter((r) => r.status === tab), [rows, tab]);
+  useEffect(() => {
+    console.info("[/list] final filtered rows", {
+      tab,
+      totalRows: rows.length,
+      filteredCount: filtered.length,
+      wishlistCount: rows.filter((r) => r.status === "wishlist").length,
+      visitedCount: rows.filter((r) => r.status === "visited").length,
+      filteredSample: filtered.slice(0, 20).map((r) => ({
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        visibility: (r as any).visibility ?? "private",
+        photoCount: r.photos?.length ?? 0,
+      })),
+    });
+  }, [filtered, rows, tab]);
   const rowsByCategory = useMemo(() => {
     return categories
       .map((category) => ({
