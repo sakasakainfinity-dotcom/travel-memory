@@ -6,11 +6,15 @@ import AppMenu from "@/components/AppMenu";
 import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { MUNICIPALITIES, searchMunicipalities } from "@/lib/municipalities";
 
+const SEARCH_MIN_LENGTH = 2;
+const MAX_RESULTS = 30;
+
 export default function MunicipalitiesPage() {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
-  const results = useMemo(() => searchMunicipalities(MUNICIPALITIES, query), [query]);
+  const trimmedQuery = query.trim();
+  const results = useMemo(() => searchMunicipalities(MUNICIPALITIES, trimmedQuery, MAX_RESULTS), [trimmedQuery]);
 
   return (
     <main style={styles.main}>
@@ -18,20 +22,24 @@ export default function MunicipalitiesPage() {
 
       <section style={styles.content}>
         <h1 style={styles.title}>市町村検索</h1>
-        <p style={styles.description}>市町村を探して、その場所の開拓状況を見たり、地図へ移動できます</p>
+        <p style={styles.description}>日本全国の市町村を検索して、そのまま地図へ移動できます</p>
 
         <div>
           <MunicipalitySearchBox
             items={MUNICIPALITIES}
-            maxResults={10}
-            placeholder="市町村名で検索（例：大子町、渋谷区、札幌市）"
+            maxResults={MAX_RESULTS}
+            placeholder="市町村名・都道府県名で検索（2文字以上）"
             query={query}
             onQueryChange={setQuery}
             onPick={(item) => setQuery(item.fullName)}
           />
         </div>
 
-        <div style={styles.countText}>検索結果: {results.length}件</div>
+        <div style={styles.countText}>
+          {trimmedQuery.length < SEARCH_MIN_LENGTH
+            ? `${SEARCH_MIN_LENGTH}文字以上で検索できます`
+            : `検索結果: ${results.length}件（最大${MAX_RESULTS}件表示）`}
+        </div>
 
         <div style={styles.resultList}>
           {results.map((item) => (
