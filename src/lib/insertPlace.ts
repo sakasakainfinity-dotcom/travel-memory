@@ -1,9 +1,8 @@
-// src/lib/insertPlace.ts
 "use client";
 
 import { supabase } from "./supabaseClient";
-import { ensureMySpace } from "./ensureMySpace";
 import { createBrowserSafeId } from "./browserSafeId";
+import { reverseGeocodeMunicipality } from "./municipality";
 
 export type NewPlaceInput = {
   title?: string;
@@ -11,8 +10,8 @@ export type NewPlaceInput = {
   lat: number;
   lng: number;
   visitedAt?: string;
-  files: File[]; // 写真
-  visibility?: "public" | "private" | "pair"; // ★追加
+  files: File[];
+  tags?: string[];
 };
 
 export type InsertedPlace = {
@@ -22,43 +21,43 @@ export type InsertedPlace = {
   lat: number;
   lng: number;
   visited_at: string | null;
-  photos: string[]; // 公開URL（地図プレビュー用）
-  visibility: "public" | "private" | "pair"; // ★追加
+  photos: string[];
+  municipality_key: string;
+  municipality_name: string;
+  prefecture_name: string;
+  is_first_explorer: boolean;
 };
 
 export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> {
-  // 0) visibility が来てなかったら private 扱い
-  const visibility: "public" | "private" | "pair" =
-    input.visibility ?? "private";
-
-  // 1) セッション & space
   const { data: ses, error: eSess } = await supabase.auth.getSession();
   if (eSess) throw eSess;
   const uid = ses.session?.user.id;
   if (!uid) throw new Error("ログインが必要です");
 
-  const mySpace = await ensureMySpace();
-  if (!mySpace?.id) throw new Error("スペースが取得できませんでした");
+  const geo = await reverseGeocodeMunicipality(input.lat, input.lng);
 
-  // 2) places 挿入
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
-      space_id: mySpace.id,
       title: input.title ?? null,
       memo: input.memo ?? null,
       lat: input.lat,
       lng: input.lng,
       visited_at: input.visitedAt ?? null,
       created_by: uid,
-      visibility, // ★追加
+      visibility: "public",
+      prefecture_name: geo.prefectureName,
+      municipality_name: geo.municipalityName,
+      municipality_key: geo.municipalityKey,
+      municipality_code: geo.municipalityCode,
+      tags: input.tags ?? [],
+      status: "active",
     })
-    .select("id, title, memo, lat, lng, visited_at, visibility") // ★追加
+    .select("id, title, memo, lat, lng, visited_at, municipality_key, municipality_name, prefecture_name")
     .single();
 
   if (ePlace) throw ePlace;
 
-  // 3) 画像アップロード（Storage 'photos'）→ 公開URL取得 → photos テーブルへ
   const urls: string[] = [];
   for (const f of input.files ?? []) {
     const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
@@ -75,9 +74,16 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
 
     const { error: ePhoto } = await supabase
       .from("photos")
-      .insert({ place_id: placeRow.id, url: publicUrl, storage_path: fileName });
+      .insert({ place_id: placeRow.id, file_url: publicUrl, storage_path: fileName });
     if (ePhoto) throw ePhoto;
   }
+
+  const { data: progress } = await supabase
+    .from("municipality_progress")
+    .select("is_first_explorer")
+    .eq("user_id", uid)
+    .eq("municipality_key", geo.municipalityKey)
+    .maybeSingle();
 
   return {
     id: placeRow.id,
@@ -87,7 +93,9 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
     lng: placeRow.lng,
     visited_at: placeRow.visited_at,
     photos: urls,
-    visibility: placeRow.visibility, // ★追加
+    municipality_key: placeRow.municipality_key,
+    municipality_name: placeRow.municipality_name,
+    prefecture_name: placeRow.prefecture_name,
+    is_first_explorer: !!progress?.is_first_explorer,
   };
 }
-

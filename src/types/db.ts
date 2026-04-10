@@ -6,16 +6,44 @@ export type Place = {
   lat: number;
   lng: number;
   visited_at: string | null;
-  space_id: string;
   created_by: string;
   created_at: string;
   visibility: "public" | "private" | "pair";
-  status?: "wishlist" | "visited";
+  prefecture_name?: string | null;
+  municipality_name?: string | null;
+  municipality_key?: string | null;
+  municipality_code?: string | null;
+  tags?: string[] | null;
+  status?: string | null;
+  first_explorer_user_id?: string | null;
+  status_legacy?: "wishlist" | "visited";
   source_place_id?: string | null;
   source_visibility?: "public" | "private" | null;
   ai_summary?: string | null;
   ai_tips?: string | null;
   ai_generated_at?: string | null;
+};
+
+export type Profile = {
+  id: string;
+  total_points: number;
+  rank_key?: string | null;
+  opened_municipality_count?: number | null;
+  opened_prefecture_count?: number | null;
+};
+
+export type MunicipalityProgress = {
+  id: string;
+  user_id: string;
+  municipality_key: string;
+  prefecture_name: string;
+  municipality_name: string;
+  first_post_id: string;
+  post_count_in_municipality: number;
+  municipality_rank_key: "starter" | "supporter" | "expert" | "legend";
+  is_first_explorer: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Photo = {
