@@ -1,0 +1,60 @@
+-- Manual cleanup instructions for optional table removal
+-- NOTE: run only after confirming corresponding feature code has been removed.
+
+-- =====================================================
+-- 0) Pre-check: list row counts before deletion
+-- =====================================================
+-- select 'spaces' as table_name, count(*) from public.spaces
+-- union all select 'space_members', count(*) from public.space_members
+-- union all select 'space_shares', count(*) from public.space_shares
+-- union all select 'pair_invites', count(*) from public.pair_invites
+-- union all select 'pair_members', count(*) from public.pair_members
+-- union all select 'pairs', count(*) from public.pairs
+-- union all select 'memories', count(*) from public.memories
+-- union all select 'pilgrimage_missions', count(*) from public.pilgrimage_missions
+-- union all select 'pilgrimage_spots', count(*) from public.pilgrimage_spots
+-- union all select 'pilgrimage_progress', count(*) from public.pilgrimage_progress
+-- union all select 'spot_collections', count(*) from public.spot_collections
+-- union all select 'spot_collection_items', count(*) from public.spot_collection_items
+-- union all select 'trip_plans', count(*) from public.trip_plans
+-- union all select 'trip_plan_stops', count(*) from public.trip_plan_stops
+-- union all select 'purchases', count(*) from public.purchases;
+
+-- =====================================================
+-- 1) If you want pure municipality-game mode, drop old feature tables
+--    (execute as one transaction in maintenance window)
+-- =====================================================
+-- begin;
+--
+-- -- pair / share / legacy private space world
+-- drop table if exists public.space_shares;
+-- drop table if exists public.pair_invites;
+-- drop table if exists public.pair_members;
+-- drop table if exists public.pairs;
+-- drop table if exists public.space_members;
+-- drop table if exists public.spaces;
+-- drop table if exists public.memories;
+--
+-- -- pilgrimage mode
+-- drop table if exists public.pilgrimage_progress;
+-- drop table if exists public.pilgrimage_spots;
+-- drop table if exists public.pilgrimage_missions;
+--
+-- -- spot collection / history sub-feature
+-- drop table if exists public.spot_collection_items;
+-- drop table if exists public.spot_collections;
+--
+-- -- trip planning sub-feature
+-- drop table if exists public.trip_plan_stops;
+-- drop table if exists public.trip_plans;
+--
+-- -- billing history table (optional; keep if needed for audits)
+-- drop table if exists public.purchases;
+--
+-- commit;
+
+-- =====================================================
+-- 2) After drops: regenerate types and run app checks
+-- =====================================================
+-- npx tsc --noEmit
+-- npm run build
