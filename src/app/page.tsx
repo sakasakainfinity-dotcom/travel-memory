@@ -135,7 +135,8 @@ export default function UnifiedTopPage() {
       >
         <MunicipalitySearchBox
           items={MUNICIPALITIES}
-          placeholder="市町村を探す（例：大子町、渋谷区）"
+          maxResults={30}
+          placeholder="市町村・都道府県を検索（2文字以上）"
           onPick={(item) => {
             setCenter({ lat: item.lat, lng: item.lng });
             setFlyTo({ lat: item.lat, lng: item.lng, zoom: 11, label: item.fullName });
