@@ -8,7 +8,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { insertPlace } from "@/lib/insertPlace";
 import { fetchPlaces, type PlaceWithPhotos } from "@/lib/fetchPlaces";
 import SearchBox from "@/components/SearchBox";
+import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { pointsToNextRank, resolveRank } from "@/lib/rank";
+import { MUNICIPALITIES } from "@/lib/municipalities";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -36,6 +38,7 @@ export default function UnifiedTopPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: 35.68, lng: 139.76 });
   const [loginPrompt, setLoginPrompt] = useState(false);
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number; label?: string } | null>(null);
 
   const load = async () => {
     const [posts, sessionRes] = await Promise.all([fetchPlaces(), supabase.auth.getSession()]);
@@ -51,6 +54,25 @@ export default function UnifiedTopPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const latParam = params.get("lat");
+    const lngParam = params.get("lng");
+    if (!latParam || !lngParam) return;
+
+    const lat = Number(latParam);
+    const lng = Number(lngParam);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const zoomParam = Number(params.get("zoom") ?? "11");
+    const municipality = params.get("municipality") ?? undefined;
+    const nextZoom = Number.isNaN(zoomParam) ? 11 : zoomParam;
+
+    setCenter({ lat, lng });
+    setFlyTo({ lat, lng, zoom: nextZoom, label: municipality });
+  }, []);
+
 
   const municipalityMarkers = useMemo<Marker[]>(() => {
     const map = new Map<string, Marker>();
@@ -102,6 +124,25 @@ export default function UnifiedTopPage() {
         </div>
       </section>
 
+      <div
+        style={{
+          position: "fixed",
+          top: "calc(env(safe-area-inset-top, 0px) + 56px)",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          zIndex: 60,
+          width: "clamp(220px, 60vw, 340px)",
+        }}
+      >
+        <MunicipalitySearchBox
+          items={MUNICIPALITIES}
+          placeholder="市町村を探す（例：大子町、渋谷区）"
+          onPick={(item) => {
+            setCenter({ lat: item.lat, lng: item.lng });
+            setFlyTo({ lat: item.lat, lng: item.lng, zoom: 11, label: item.fullName });
+          }}
+        />
+      </div>
+
       <section style={{ padding: "0 12px 12px" }}>
         <SearchBox
           places={municipalityMarkers}
@@ -124,6 +165,7 @@ export default function UnifiedTopPage() {
           selectedId={selectedMunicipalityKey}
           onCenterChange={setCenter}
           showCenterMarker
+          flyTo={flyTo}
         />
       </section>
 

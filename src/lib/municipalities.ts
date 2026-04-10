@@ -1,0 +1,57 @@
+export type Municipality = {
+  id: string;
+  prefecture: string;
+  city: string;
+  fullName: string;
+  lat: number;
+  lng: number;
+};
+
+export const MUNICIPALITIES: Municipality[] = [
+  { id: "hokkaido-sapporo-chuo", prefecture: "北海道", city: "札幌市中央区", fullName: "北海道札幌市中央区", lat: 43.0621, lng: 141.3544 },
+  { id: "hokkaido-hakodate", prefecture: "北海道", city: "函館市", fullName: "北海道函館市", lat: 41.7687, lng: 140.7288 },
+  { id: "aomori-aomori", prefecture: "青森県", city: "青森市", fullName: "青森県青森市", lat: 40.8222, lng: 140.7474 },
+  { id: "miyagi-sendai-aoba", prefecture: "宮城県", city: "仙台市青葉区", fullName: "宮城県仙台市青葉区", lat: 38.2682, lng: 140.8694 },
+  { id: "akita-akita", prefecture: "秋田県", city: "秋田市", fullName: "秋田県秋田市", lat: 39.7186, lng: 140.1024 },
+  { id: "ibaraki-daigo", prefecture: "茨城県", city: "大子町", fullName: "茨城県大子町", lat: 36.7681, lng: 140.3552 },
+  { id: "ibaraki-mito", prefecture: "茨城県", city: "水戸市", fullName: "茨城県水戸市", lat: 36.3658, lng: 140.4712 },
+  { id: "tochigi-utsunomiya", prefecture: "栃木県", city: "宇都宮市", fullName: "栃木県宇都宮市", lat: 36.5551, lng: 139.8828 },
+  { id: "gunma-maebashi", prefecture: "群馬県", city: "前橋市", fullName: "群馬県前橋市", lat: 36.3895, lng: 139.0634 },
+  { id: "saitama-saitama-omiya", prefecture: "埼玉県", city: "さいたま市大宮区", fullName: "埼玉県さいたま市大宮区", lat: 35.9067, lng: 139.6243 },
+  { id: "chiba-chiba-chuo", prefecture: "千葉県", city: "千葉市中央区", fullName: "千葉県千葉市中央区", lat: 35.6074, lng: 140.1065 },
+  { id: "tokyo-shibuya", prefecture: "東京都", city: "渋谷区", fullName: "東京都渋谷区", lat: 35.6618, lng: 139.7041 },
+  { id: "tokyo-shinjuku", prefecture: "東京都", city: "新宿区", fullName: "東京都新宿区", lat: 35.6938, lng: 139.7034 },
+  { id: "kanagawa-yokohama-naka", prefecture: "神奈川県", city: "横浜市中区", fullName: "神奈川県横浜市中区", lat: 35.4437, lng: 139.638 },
+  { id: "niigata-niigata-chuo", prefecture: "新潟県", city: "新潟市中央区", fullName: "新潟県新潟市中央区", lat: 37.9162, lng: 139.0364 },
+  { id: "ishikawa-kanazawa", prefecture: "石川県", city: "金沢市", fullName: "石川県金沢市", lat: 36.5613, lng: 136.6562 },
+  { id: "nagano-matsumoto", prefecture: "長野県", city: "松本市", fullName: "長野県松本市", lat: 36.2381, lng: 137.9719 },
+  { id: "gifu-takayama", prefecture: "岐阜県", city: "高山市", fullName: "岐阜県高山市", lat: 36.1461, lng: 137.2522 },
+  { id: "shizuoka-shizuoka-aoi", prefecture: "静岡県", city: "静岡市葵区", fullName: "静岡県静岡市葵区", lat: 34.9769, lng: 138.3831 },
+  { id: "aichi-nagoya-naka", prefecture: "愛知県", city: "名古屋市中区", fullName: "愛知県名古屋市中区", lat: 35.1709, lng: 136.9066 },
+  { id: "kyoto-kyoto-sakyo", prefecture: "京都府", city: "京都市左京区", fullName: "京都府京都市左京区", lat: 35.0394, lng: 135.7808 },
+  { id: "osaka-osaka-kita", prefecture: "大阪府", city: "大阪市北区", fullName: "大阪府大阪市北区", lat: 34.7055, lng: 135.4983 },
+  { id: "hyogo-kobe-chuo", prefecture: "兵庫県", city: "神戸市中央区", fullName: "兵庫県神戸市中央区", lat: 34.6901, lng: 135.1955 },
+  { id: "nara-nara", prefecture: "奈良県", city: "奈良市", fullName: "奈良県奈良市", lat: 34.6851, lng: 135.8048 },
+  { id: "okayama-okayama-kita", prefecture: "岡山県", city: "岡山市北区", fullName: "岡山県岡山市北区", lat: 34.6618, lng: 133.9347 },
+  { id: "hiroshima-hiroshima-naka", prefecture: "広島県", city: "広島市中区", fullName: "広島県広島市中区", lat: 34.3919, lng: 132.4518 },
+  { id: "kagawa-takamatsu", prefecture: "香川県", city: "高松市", fullName: "香川県高松市", lat: 34.3428, lng: 134.0466 },
+  { id: "ehime-matsuyama", prefecture: "愛媛県", city: "松山市", fullName: "愛媛県松山市", lat: 33.8392, lng: 132.7657 },
+  { id: "fukuoka-fukuoka-hakata", prefecture: "福岡県", city: "福岡市博多区", fullName: "福岡県福岡市博多区", lat: 33.5904, lng: 130.4017 },
+  { id: "kumamoto-kumamoto-chuo", prefecture: "熊本県", city: "熊本市中央区", fullName: "熊本県熊本市中央区", lat: 32.8031, lng: 130.7079 },
+  { id: "kagoshima-kagoshima", prefecture: "鹿児島県", city: "鹿児島市", fullName: "鹿児島県鹿児島市", lat: 31.5966, lng: 130.5571 },
+  { id: "okinawa-naha", prefecture: "沖縄県", city: "那覇市", fullName: "沖縄県那覇市", lat: 26.2124, lng: 127.6809 },
+];
+
+export function searchMunicipalities(items: Municipality[], query: string, limit = items.length): Municipality[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return items.slice(0, Math.min(limit, items.length));
+  }
+
+  return items
+    .filter((item) => {
+      const candidates = [item.fullName, item.prefecture, item.city].map((value) => value.toLowerCase());
+      return candidates.some((value) => value.includes(normalizedQuery));
+    })
+    .slice(0, Math.min(limit, items.length));
+}
