@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import AppMenu from "@/components/AppMenu";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { insertPlace } from "@/lib/insertPlace";
@@ -90,6 +91,7 @@ export default function UnifiedTopPage() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", paddingBottom: 96 }}>
+      <AppMenu current="map" />
       <section style={{ padding: 12, display: "grid", gap: 8 }}>
         <h1 style={{ fontSize: 20, fontWeight: 900 }}>photoMapper | 全国・開拓マップ</h1>
         <div style={{ display: "grid", gap: 6, border: "1px solid #dbeafe", borderRadius: 12, background: "#fff", padding: 10 }}>
