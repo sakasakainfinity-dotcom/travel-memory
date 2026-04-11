@@ -16,7 +16,7 @@ export default function MunicipalitySearchBox({
   items,
   onPick,
   placeholder = "市町村名で検索",
-  maxResults = 8,
+  maxResults = 30,
   query: controlledQuery,
   onQueryChange,
 }: MunicipalitySearchBoxProps) {
@@ -66,7 +66,7 @@ export default function MunicipalitySearchBox({
         style={styles.input}
       />
 
-      {open && filtered.length > 0 && (
+      {open && actualQuery.trim().length >= 2 && filtered.length > 0 && (
         <div style={styles.dropdown}>
           {filtered.map((item) => (
             <button

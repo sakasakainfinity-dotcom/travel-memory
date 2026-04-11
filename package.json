@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "vercel-build": "next build"
+    "vercel-build": "next build",
+    "sync:municipalities": "node scripts/sync-municipalities.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
