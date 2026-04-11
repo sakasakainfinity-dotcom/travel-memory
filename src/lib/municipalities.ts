@@ -9,6 +9,10 @@ export type Municipality = {
   lng: number;
 };
 
+type MunicipalityInput = Partial<Municipality> & {
+  pref?: string;
+};
+
 // NOTE:
 // 将来的に世界対応する時は `GeoUnit` のような上位型に拡張し、
 // kind: "country" | "state" | "prefecture" | "municipality" を持たせる想定。
@@ -20,8 +24,41 @@ type MunicipalitySearchIndex = {
 };
 
 const normalizeSearchText = (value: string): string => value.trim().toLowerCase();
+const normalizeSlug = (value: string): string =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
-export const MUNICIPALITIES: Municipality[] = rawMunicipalities;
+function toMunicipality(input: MunicipalityInput, index: number): Municipality | null {
+  const prefecture = String(input.prefecture ?? input.pref ?? "").trim();
+  const city = String(input.city ?? "").replace(/\s+/g, "").trim();
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+
+  if (!prefecture || !city || Number.isNaN(lat) || Number.isNaN(lng)) {
+    return null;
+  }
+
+  return {
+    id: String(input.id ?? `${normalizeSlug(prefecture)}-${normalizeSlug(city)}-${index}`),
+    prefecture,
+    city,
+    fullName: String(input.fullName ?? `${prefecture}${city}`),
+    lat,
+    lng,
+  };
+}
+
+function normalizeMunicipalities(input: MunicipalityInput[]): Municipality[] {
+  const normalized = input.map(toMunicipality).filter((item): item is Municipality => item !== null);
+  const deduped = Array.from(new Map(normalized.map((item) => [item.id, item])).values());
+  return deduped;
+}
+
+export const MUNICIPALITIES: Municipality[] = normalizeMunicipalities(rawMunicipalities as MunicipalityInput[]);
 
 
 const EXPECTED_MIN_MUNICIPALITIES = 1700;
