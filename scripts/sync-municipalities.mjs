@@ -25,26 +25,62 @@ const PREF_ROMAJI = {
   "福岡県": "fukuoka", "佐賀県": "saga", "長崎県": "nagasaki", "熊本県": "kumamoto", "大分県": "oita", "宮崎県": "miyazaki", "鹿児島県": "kagoshima", "沖縄県": "okinawa",
 };
 
-const sourceRaw = await readFile(sourcePath, "utf8");
-const source = JSON.parse(sourceRaw);
+function parseJsonFromBuffer(buffer) {
+  const candidates = [
+    { label: "utf-8", text: buffer.toString("utf8") },
+    { label: "shift_jis", text: new TextDecoder("shift_jis").decode(buffer) },
+  ];
 
-const municipalities = source.map((row) => {
-  const prefecture = String(row.pref).trim();
-  const city = String(row.city).replace(/\s+/g, "").trim();
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate.text);
+      if (Array.isArray(parsed)) {
+        return { parsed, encoding: candidate.label };
+      }
+    } catch {
+      // try next encoding
+    }
+  }
+
+  throw new Error("Failed to parse JSON. The source file may be malformed or encoded with an unsupported charset.");
+}
+
+function normalizeInputRow(row) {
+  const prefectureRaw = row.prefecture ?? row.pref;
+  const cityRaw = row.city;
+  const latRaw = row.lat;
+  const lngRaw = row.lng;
+
+  if (!prefectureRaw || !cityRaw || latRaw == null || lngRaw == null) {
+    return null;
+  }
+
+  const prefecture = String(prefectureRaw).trim();
+  const city = String(cityRaw).replace(/\s+/g, "").trim();
   const prefSlug = PREF_ROMAJI[prefecture] ?? toSlug(prefecture);
   const citySlug = toSlug(city);
 
   return {
-    id: `${prefSlug}-${citySlug}`,
+    id: String(row.id ?? `${prefSlug}-${citySlug}`),
     prefecture,
     city,
-    fullName: `${prefecture}${city}`,
-    lat: Number(row.lat),
-    lng: Number(row.lng),
+    fullName: String(row.fullName ?? `${prefecture}${city}`),
+    lat: Number(latRaw),
+    lng: Number(lngRaw),
   };
-});
+}
 
+const sourceBuffer = await readFile(sourcePath);
+const { parsed: source, encoding } = parseJsonFromBuffer(sourceBuffer);
+const municipalities = source.map(normalizeInputRow).filter(Boolean);
 const deduped = Array.from(new Map(municipalities.map((m) => [m.id, m])).values());
 
+if (deduped.length < 1000) {
+  console.warn(
+    `[warn] Output count is ${deduped.length}. This looks smaller than nationwide data. ` +
+      `Please confirm the source file contains all municipalities.`
+  );
+}
+
 await writeFile("src/lib/municipalities.json", `${JSON.stringify(deduped, null, 2)}\n`, "utf8");
-console.log(`Wrote ${deduped.length} municipalities to src/lib/municipalities.json`);
+console.log(`Wrote ${deduped.length} municipalities to src/lib/municipalities.json (decoded as ${encoding})`);
