@@ -123,28 +123,23 @@ export default function UnifiedTopPage() {
   }, []);
 
   const municipalityMarkers = useMemo<Marker[]>(() => {
-    const municipalityMaster = new Map(MUNICIPALITIES.map((m) => [m.id, m]));
-    const map = new Map<string, Marker>();
+    const countMap = new Map<string, number>();
     for (const post of rawPosts) {
       const key = post.municipalityKey;
-      const master = municipalityMaster.get(key);
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          name: `${post.municipalityName}`,
-          memo: post.prefectureName,
-          lat: master?.lat ?? post.lat,
-          lng: master?.lng ?? post.lng,
-          postCount: 1,
-          municipalityKey: key,
-          municipalityName: master?.city ?? post.municipalityName,
-          prefectureName: master?.prefecture ?? post.prefectureName,
-        });
-      } else {
-        map.get(key)!.postCount += 1;
-      }
+      countMap.set(key, (countMap.get(key) ?? 0) + 1);
     }
-    return Array.from(map.values());
+
+    return MUNICIPALITIES.map((m) => ({
+      id: m.id,
+      name: m.city,
+      memo: m.prefecture,
+      lat: m.lat,
+      lng: m.lng,
+      postCount: countMap.get(m.id) ?? 0,
+      municipalityKey: m.id,
+      municipalityName: m.city,
+      prefectureName: m.prefecture,
+    }));
   }, [rawPosts]);
 
   const selectedPosts = useMemo(
@@ -161,8 +156,10 @@ export default function UnifiedTopPage() {
     [municipalityMarkers, composeMunicipalityKey]
   );
 
-  const openedMunicipalityCount = municipalityMarkers.length;
-  const openedPrefectureCount = new Set(municipalityMarkers.map((x) => x.prefectureName)).size;
+  const openedMunicipalityCount = municipalityMarkers.filter((m) => m.postCount > 0).length;
+  const openedPrefectureCount = new Set(
+    municipalityMarkers.filter((m) => m.postCount > 0).map((x) => x.prefectureName)
+  ).size;
   const rank = resolveRank(profilePoints);
 
   const contributors = useMemo(() => {
@@ -193,9 +190,9 @@ export default function UnifiedTopPage() {
   }, [contributors]);
 
   const nearestUnexploredHint = useMemo(() => {
-    if (!municipalityMarkers.length) return "近くの未踏の地を計算中…";
+    if (!openedMunicipalityCount) return "近くの未踏の地を計算中…";
     return `地図中心(${center.lat.toFixed(2)}, ${center.lng.toFixed(2)})付近の未踏地探索を準備中`;
-  }, [municipalityMarkers.length, center]);
+  }, [openedMunicipalityCount, center]);
 
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", paddingBottom: 96 }}>
