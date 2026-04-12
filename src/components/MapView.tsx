@@ -244,9 +244,7 @@ export default function MapView({
 
  map.on("dblclick", (e) => {
   e.preventDefault(); // ダブルタップズームを防ぐ（スマホ事故防止）
-
-  const c = map.getCenter(); // 中央固定
-  onRequestNew({ lat: c.lat, lng: c.lng });
+  onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
 });
 
 

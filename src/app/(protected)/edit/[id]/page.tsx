@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { Place } from "@/types/db";
+import { ensureMySpace } from "@/lib/ensureMySpace";
+import { fetchPlacePhotos, replacePlacePhotos } from "@/lib/placePhotoManager";
+
+const CATEGORIES = ["食事", "宿泊", "体験", "お土産", "店舗", "娯楽", "マニアック", "その他"];
 
 export default function EditPlacePage() {
   const params = useParams() as { id?: string | string[] };
@@ -15,12 +19,21 @@ export default function EditPlacePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState("名無しの旅人");
 
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">(
-    "private"
-  );
+  const [category, setCategory] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((p) => URL.revokeObjectURL(p));
+    };
+  }, [previews]);
 
   useEffect(() => {
     if (!placeId) return;
@@ -30,11 +43,11 @@ export default function EditPlacePage() {
         setLoading(true);
         setErr(null);
 
-        const { data, error } = await supabase
-          .from("places")
-          .select("*")
-          .eq("id", placeId)
-          .single();
+        const [{ data, error }, photosRes, userRes] = await Promise.all([
+          supabase.from("places").select("*").eq("id", placeId).single(),
+          fetchPlacePhotos(placeId),
+          supabase.auth.getUser(),
+        ]);
 
         if (error) throw error;
         const p = data as Place;
@@ -42,8 +55,15 @@ export default function EditPlacePage() {
 
         setTitle(p.title ?? "");
         setMemo(p.memo ?? "");
-        setVisibility((p as any).visibility ?? "private");
+        setCategory(p.tags?.[0] ?? "");
+        setExistingPhotos(photosRes.map((photo) => photo.file_url).filter(Boolean));
 
+        const user = userRes.data.user;
+        const displayName =
+          (user?.user_metadata as any)?.display_name ||
+          (user?.user_metadata as any)?.name ||
+          (user?.email?.split("@")[0] ?? "名無しの旅人");
+        setAccountName(displayName);
       } catch (e: any) {
         setErr(e?.message ?? String(e));
       } finally {
@@ -57,17 +77,22 @@ export default function EditPlacePage() {
 
     try {
       setSaving(true);
-
       const { error } = await supabase
         .from("places")
         .update({
-          title,
-          memo,
-          visibility,
+          title: title || null,
+          memo: memo || null,
+          tags: category ? [category] : [],
         })
         .eq("id", placeId);
 
       if (error) throw error;
+
+      if (files.length > 0) {
+        const mySpace = await ensureMySpace();
+        if (!mySpace?.id) throw new Error("スペース情報を取得できませんでした");
+        await replacePlacePhotos({ placeId, spaceId: mySpace.id, files });
+      }
 
       alert("保存したよ！");
       router.push(`/place/${placeId}`);
@@ -113,9 +138,13 @@ export default function EditPlacePage() {
         <h1 style={{ margin: 0 }}>投稿を編集</h1>
       </div>
 
+      <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#f8fafc", padding: 10 }}>
+        投稿者: {accountName}
+      </div>
+
       <div style={{ display: "grid", gap: 12 }}>
         <label>
-          タイトル
+          ① タイトル（任意）
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -124,7 +153,34 @@ export default function EditPlacePage() {
         </label>
 
         <label>
-          メモ
+          ② 画像アップロード（選ぶと既存画像を置き換え）
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            style={{ display: "block", marginTop: 6 }}
+          />
+        </label>
+
+        {files.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            {previews.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={`${src}-${i}`} src={src} alt={`new-${i + 1}`} style={{ width: "100%", borderRadius: 8, height: 90, objectFit: "cover" }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            {existingPhotos.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={`${src}-${i}`} src={src} alt={`old-${i + 1}`} style={{ width: "100%", borderRadius: 8, height: 90, objectFit: "cover" }} />
+            ))}
+          </div>
+        )}
+
+        <label>
+          ③ ひとこと（任意）
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
@@ -132,31 +188,13 @@ export default function EditPlacePage() {
           />
         </label>
 
-        <div>
-          <label className="mb-1 block text-sm">公開範囲</label>
-          <div style={{ display: "grid", gap: 6 }}>
-            <label>
-              <input
-                type="radio"
-                name="vis"
-                value="public"
-                checked={visibility === "public"}
-                onChange={() => setVisibility("public")}
-              />
-              公開（青ピン）
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="vis"
-                value="private"
-                checked={visibility === "private"}
-                onChange={() => setVisibility("private")}
-              />
-              非公開（赤ピン）
-            </label>
-          </div>
-        </div>
+        <label>
+          ④ カテゴリー（任意）
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: "100%", padding: 8, border: "1px solid #ddd", borderRadius: 8 }}>
+            <option value="">選択しない</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
 
         <button
           onClick={save}
@@ -169,7 +207,7 @@ export default function EditPlacePage() {
             fontWeight: 700,
           }}
         >
-          保存する
+          {saving ? "保存中..." : "保存する"}
         </button>
       </div>
     </main>
