@@ -110,6 +110,9 @@ export default function MapView({
   onCenterChange,
   showCenterMarker = false,
   showMarkerTitles = false,
+  markerStyle = "default",
+  minZoomToShowMarkers = 0,
+  enableDoubleClickCreate = true,
 }: {
   places: Place[];
   onRequestNew: (p: { lat: number; lng: number }) => void;
@@ -124,6 +127,9 @@ export default function MapView({
   onCenterChange?: (c: { lat: number; lng: number }) => void;
   showCenterMarker?: boolean;
   showMarkerTitles?: boolean;
+  markerStyle?: "default" | "count-box";
+  minZoomToShowMarkers?: number;
+  enableDoubleClickCreate?: boolean;
 }) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -184,6 +190,7 @@ export default function MapView({
           properties: {
             id: p.id,
             title: p.name ?? "",
+            postCount: p.postCount ?? 0,
             markerType: p.markerType ?? "place",
             markerLabel: p.markerLabel ?? "",
             visibility: p.visibility ?? (resolvedMode === "public" ? "public" : "private"),
@@ -242,10 +249,12 @@ export default function MapView({
 
     mapRef.current = map;
 
- map.on("dblclick", (e) => {
-  e.preventDefault(); // ダブルタップズームを防ぐ（スマホ事故防止）
-  onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
-});
+    if (enableDoubleClickCreate) {
+      map.on("dblclick", (e) => {
+        e.preventDefault(); // ダブルタップズームを防ぐ（スマホ事故防止）
+        onRequestNew({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      });
+    }
 
 
     const pickPlaceFromFeature = (f: any) => {
@@ -268,6 +277,37 @@ await loadSvgAsImage(map, "pin-camera-private", CAMERA_PRIVATE_SVG);
 await loadSvgAsImage(map, "pin-star-fill", STAR_FILLED_SVG);
 await loadSvgAsImage(map, "pin-star-check-fill", VISITED_STAR_CHECK_FILLED_SVG);
 await loadSvgAsImage(map, "pin-sticky-note", STICKY_NOTE_SVG);
+await loadSvgAsImage(
+  map,
+  "pin-count-box",
+  `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="84" viewBox="0 0 180 84">
+    <rect x="4" y="4" width="172" height="76" rx="12" fill="#ffffff" stroke="#1d4ed8" stroke-width="8"/>
+  </svg>`
+);
+
+      if (markerStyle === "count-box") {
+        if (!map.getLayer("pin-count-box")) {
+          map.addLayer({
+            id: "pin-count-box",
+            type: "symbol",
+            source: "places",
+            minzoom: minZoomToShowMarkers,
+            layout: {
+              "icon-image": "pin-count-box",
+              "icon-size": 0.35,
+              "icon-allow-overlap": true,
+              "text-field": ["concat", ["to-string", ["get", "postCount"]], "件"],
+              "text-size": 12,
+              "text-font": ["Open Sans Bold"],
+              "text-allow-overlap": true,
+              "text-anchor": "center",
+            },
+            paint: {
+              "text-color": "#1e293b",
+            },
+          });
+        }
+      } else {
 
       // 3) レイヤー（public📷）
       if (!map.getLayer("pin-camera-public")) {
@@ -376,11 +416,14 @@ if (map.getLayer("pin-camera-private")) map.moveLayer("pin-camera-private");
 if (map.getLayer("pin-wanted")) map.moveLayer("pin-wanted");
 if (map.getLayer("pin-visited")) map.moveLayer("pin-visited");
 if (map.getLayer("pin-trip-plan-stop")) map.moveLayer("pin-trip-plan-stop");
+      }
 
 
 
       // 7) クリック（📷/📷🔒/⭐/✓ 全部同じ挙動にしとく）
-      const clickableLayers = ["pin-camera-public", "pin-camera-private", "pin-wanted", "pin-visited", "pin-trip-plan-stop"] as const;
+      const clickableLayers = markerStyle === "count-box"
+        ? (["pin-count-box"] as const)
+        : (["pin-camera-public", "pin-camera-private", "pin-wanted", "pin-visited", "pin-trip-plan-stop"] as const);
       for (const layerId of clickableLayers) {
         if (!map.getLayer(layerId)) continue;
         map.on("click", layerId, (e) => {
