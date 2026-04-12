@@ -12,7 +12,6 @@ import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { pointsToNextRank, resolveRank } from "@/lib/rank";
 import { MUNICIPALITIES } from "@/lib/municipalities";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
-import { reverseGeocodeMunicipality, type MunicipalityInfo } from "@/lib/municipality";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -35,8 +34,7 @@ export default function UnifiedTopPage() {
   const [rawPosts, setRawPosts] = useState<PlaceWithPhotos[]>([]);
   const [selectedMunicipalityKey, setSelectedMunicipalityKey] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<PlaceWithPhotos | null>(null);
-  const [newPoint, setNewPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [pointMunicipality, setPointMunicipality] = useState<MunicipalityInfo | null>(null);
+  const [composeMunicipalityKey, setComposeMunicipalityKey] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [category, setCategory] = useState("");
@@ -125,26 +123,23 @@ export default function UnifiedTopPage() {
   }, []);
 
   const municipalityMarkers = useMemo<Marker[]>(() => {
-    const map = new Map<string, Marker>();
+    const countMap = new Map<string, number>();
     for (const post of rawPosts) {
       const key = post.municipalityKey;
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          name: `${post.municipalityName}`,
-          memo: post.prefectureName,
-          lat: post.lat,
-          lng: post.lng,
-          postCount: 1,
-          municipalityKey: key,
-          municipalityName: post.municipalityName,
-          prefectureName: post.prefectureName,
-        });
-      } else {
-        map.get(key)!.postCount += 1;
-      }
+      countMap.set(key, (countMap.get(key) ?? 0) + 1);
     }
-    return Array.from(map.values());
+
+    return MUNICIPALITIES.map((m) => ({
+      id: m.id,
+      name: m.city,
+      memo: m.prefecture,
+      lat: m.lat,
+      lng: m.lng,
+      postCount: countMap.get(m.id) ?? 0,
+      municipalityKey: m.id,
+      municipalityName: m.city,
+      prefectureName: m.prefecture,
+    }));
   }, [rawPosts]);
 
   const selectedPosts = useMemo(
@@ -156,9 +151,15 @@ export default function UnifiedTopPage() {
     () => municipalityMarkers.find((m) => m.id === selectedMunicipalityKey) ?? null,
     [municipalityMarkers, selectedMunicipalityKey]
   );
+  const composeMunicipality = useMemo(
+    () => municipalityMarkers.find((m) => m.id === composeMunicipalityKey) ?? null,
+    [municipalityMarkers, composeMunicipalityKey]
+  );
 
-  const openedMunicipalityCount = municipalityMarkers.length;
-  const openedPrefectureCount = new Set(municipalityMarkers.map((x) => x.prefectureName)).size;
+  const openedMunicipalityCount = municipalityMarkers.filter((m) => m.postCount > 0).length;
+  const openedPrefectureCount = new Set(
+    municipalityMarkers.filter((m) => m.postCount > 0).map((x) => x.prefectureName)
+  ).size;
   const rank = resolveRank(profilePoints);
 
   const contributors = useMemo(() => {
@@ -189,9 +190,9 @@ export default function UnifiedTopPage() {
   }, [contributors]);
 
   const nearestUnexploredHint = useMemo(() => {
-    if (!municipalityMarkers.length) return "近くの未踏の地を計算中…";
+    if (!openedMunicipalityCount) return "近くの未踏の地を計算中…";
     return `地図中心(${center.lat.toFixed(2)}, ${center.lng.toFixed(2)})付近の未踏地探索を準備中`;
-  }, [municipalityMarkers.length, center]);
+  }, [openedMunicipalityCount, center]);
 
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", paddingBottom: 96 }}>
@@ -237,22 +238,15 @@ export default function UnifiedTopPage() {
       <section style={{ height: 380, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb" }}>
         <MapView
           places={municipalityMarkers}
-          onRequestNew={async (p) => {
-            const uid = await syncAuthState();
-            if (!uid) {
-              setLoginPrompt(true);
-              return;
-            }
-            setNewPoint(p);
-            const municipality = await reverseGeocodeMunicipality(p.lat, p.lng).catch(() => null);
-            setPointMunicipality(municipality);
-            if (municipality?.municipalityKey) setSelectedMunicipalityKey(municipality.municipalityKey);
-          }}
+          onRequestNew={() => {}}
           onSelect={(p) => setSelectedMunicipalityKey(p.id)}
           selectedId={selectedMunicipalityKey}
           onCenterChange={setCenter}
           showCenterMarker
           flyTo={flyTo}
+          markerStyle="count-box"
+          minZoomToShowMarkers={8.2}
+          enableDoubleClickCreate={false}
         />
       </section>
 
@@ -268,6 +262,28 @@ export default function UnifiedTopPage() {
             <div>
               <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedMunicipality.municipalityName}</div>
               <div style={{ color: "#64748b", fontSize: 13 }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={async () => {
+                  const uid = await syncAuthState();
+                  if (!uid) {
+                    setLoginPrompt(true);
+                    return;
+                  }
+                  setComposeMunicipalityKey(selectedMunicipality.id);
+                }}
+                style={{
+                  border: "1px solid #1d4ed8",
+                  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                  color: "white",
+                  borderRadius: 999,
+                  padding: "8px 14px",
+                  fontWeight: 800,
+                }}
+              >
+                この市町村に投稿する
+              </button>
             </div>
 
             <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
@@ -310,7 +326,7 @@ export default function UnifiedTopPage() {
         )}
       </section>
 
-      {newPoint && (
+      {composeMunicipality && (
         <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 40 }}>
           <form
             onSubmit={async (e) => {
@@ -320,13 +336,12 @@ export default function UnifiedTopPage() {
                 await insertPlace({
                   title,
                   memo,
-                  lat: newPoint.lat,
-                  lng: newPoint.lng,
+                  lat: composeMunicipality.lat,
+                  lng: composeMunicipality.lng,
                   files,
                   tags: category ? [category] : [],
                 });
-                setNewPoint(null);
-                setPointMunicipality(null);
+                setComposeMunicipalityKey(null);
                 setTitle("");
                 setMemo("");
                 setCategory("");
@@ -336,15 +351,24 @@ export default function UnifiedTopPage() {
                 setPosting(false);
               }
             }}
-            style={{ width: "min(92vw, 540px)", background: "white", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}
+            style={{
+              width: "min(92vw, 600px)",
+              background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 42%)",
+              borderRadius: 20,
+              padding: 18,
+              display: "grid",
+              gap: 10,
+              border: "1px solid #bfdbfe",
+              boxShadow: "0 24px 60px rgba(30, 64, 175, 0.24)",
+            }}
           >
-            <h2 style={{ fontWeight: 900 }}>投稿ページ</h2>
-            <div style={{ fontSize: 13, color: "#475569" }}>
-              ダブルタップ地点: {pointMunicipality ? `${pointMunicipality.prefectureName} ${pointMunicipality.municipalityName}` : "取得中..."}
+            <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0 }}>✍️ 旅の投稿フォーム</h2>
+            <div style={{ fontSize: 13, color: "#475569", border: "1px solid #dbeafe", borderRadius: 12, padding: 8, background: "#eff6ff" }}>
+              投稿先: {composeMunicipality.prefectureName} {composeMunicipality.municipalityName}（登録地点）
             </div>
             <label style={{ display: "grid", gap: 4 }}>
               <span>① タイトル（任意）</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8 }} />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10, background: "#fff" }} />
             </label>
             <label style={{ display: "grid", gap: 4 }}>
               <span>② 画像アップロード（圧縮して投稿）</span>
@@ -352,19 +376,32 @@ export default function UnifiedTopPage() {
             </label>
             <label style={{ display: "grid", gap: 4 }}>
               <span>③ ひとこと（任意）</span>
-              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8, minHeight: 80 }} />
+              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10, minHeight: 90 }} />
             </label>
             <label style={{ display: "grid", gap: 4 }}>
               <span>④ カテゴリー（任意）</span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8 }}>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10 }}>
                 <option value="">選択しない</option>
                 {CATEGORIES.map((c) => <option value={c} key={c}>{c}</option>)}
               </select>
             </label>
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 8, background: "#f8fafc" }}>⑤ 投稿者: {accountName}</div>
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, background: "#f8fafc" }}>⑤ 投稿者: {accountName}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setNewPoint(null)} disabled={posting}>閉じる</button>
-              <button type="submit" disabled={posting}>{posting ? "投稿中..." : "投稿する"}</button>
+              <button type="button" onClick={() => setComposeMunicipalityKey(null)} disabled={posting}>閉じる</button>
+              <button
+                type="submit"
+                disabled={posting}
+                style={{
+                  border: "1px solid #1d4ed8",
+                  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                  color: "white",
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  fontWeight: 800,
+                }}
+              >
+                {posting ? "投稿中..." : "投稿する"}
+              </button>
             </div>
           </form>
         </section>
