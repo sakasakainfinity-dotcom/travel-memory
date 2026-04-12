@@ -78,7 +78,16 @@ export default function UnifiedTopPage() {
 
   const load = async () => {
     try {
-      const posts = await fetchPlaces();
+      let posts: PlaceWithPhotos[] = [];
+      try {
+        posts = await fetchPlaces();
+      } catch (e: any) {
+        if (e?.code === "42501") {
+          console.warn("[page] placesの参照権限がないため、投稿一覧は空で表示します。");
+        } else {
+          throw e;
+        }
+      }
       setRawPosts(posts);
       await syncAuthState();
     } finally {
