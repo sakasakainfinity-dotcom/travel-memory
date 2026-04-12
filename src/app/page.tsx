@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AppMenu from "@/components/AppMenu";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -50,26 +50,46 @@ export default function UnifiedTopPage() {
   const [booting, setBooting] = useState(true);
   const [posting, setPosting] = useState(false);
 
+  const syncAuthState = useCallback(async () => {
+    const [sessionRes, userRes] = await Promise.all([
+      supabase.auth.getSession(),
+      supabase.auth.getUser(),
+    ]);
+
+    const uid = sessionRes.data.session?.user.id ?? null;
+    setUserId(uid);
+
+    const user = userRes.data.user;
+    const displayName =
+      (user?.user_metadata as any)?.display_name ||
+      (user?.user_metadata as any)?.name ||
+      (user?.email?.split("@")[0] ?? "ゲスト");
+    setAccountName(displayName);
+
+    if (uid) {
+      const { data: prof } = await supabase.from("profiles").select("total_points").eq("id", uid).maybeSingle();
+      setProfilePoints(prof?.total_points ?? 0);
+      return uid;
+    }
+
+    setProfilePoints(0);
+    return null;
+  }, []);
+
   const load = async () => {
     try {
-      const [posts, sessionRes, userRes] = await Promise.all([
-        fetchPlaces(),
-        supabase.auth.getSession(),
-        supabase.auth.getUser(),
-      ]);
-      setRawPosts(posts);
-      const uid = sessionRes.data.session?.user.id ?? null;
-      setUserId(uid);
-      const user = userRes.data.user;
-      const displayName =
-        (user?.user_metadata as any)?.display_name ||
-        (user?.user_metadata as any)?.name ||
-        (user?.email?.split("@")[0] ?? "ゲスト");
-      setAccountName(displayName);
-      if (uid) {
-        const { data: prof } = await supabase.from("profiles").select("total_points").eq("id", uid).maybeSingle();
-        setProfilePoints(prof?.total_points ?? 0);
+      let posts: PlaceWithPhotos[] = [];
+      try {
+        posts = await fetchPlaces();
+      } catch (e: any) {
+        if (e?.code === "42501") {
+          console.warn("[page] placesの参照権限がないため、投稿一覧は空で表示します。");
+        } else {
+          throw e;
+        }
       }
+      setRawPosts(posts);
+      await syncAuthState();
     } finally {
       setBooting(false);
     }
@@ -77,7 +97,14 @@ export default function UnifiedTopPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [syncAuthState]);
+
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      void syncAuthState();
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [syncAuthState]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -211,7 +238,8 @@ export default function UnifiedTopPage() {
         <MapView
           places={municipalityMarkers}
           onRequestNew={async (p) => {
-            if (!userId) {
+            const uid = await syncAuthState();
+            if (!uid) {
               setLoginPrompt(true);
               return;
             }

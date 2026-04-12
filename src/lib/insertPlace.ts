@@ -4,6 +4,7 @@ import { supabase } from "./supabaseClient";
 import { createBrowserSafeId } from "./browserSafeId";
 import { reverseGeocodeMunicipality } from "./municipality";
 import { compressImage } from "./image";
+import { ensureMySpace } from "./ensureMySpace";
 
 export type NewPlaceInput = {
   title?: string;
@@ -34,6 +35,8 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
   if (eSess) throw eSess;
   const uid = ses.session?.user.id;
   if (!uid) throw new Error("ログインが必要です");
+  const mySpace = await ensureMySpace();
+  if (!mySpace?.id) throw new Error("スペースが取得できませんでした");
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes.user;
   const displayName =
@@ -46,6 +49,7 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
   const { data: placeRow, error: ePlace } = await supabase
     .from("places")
     .insert({
+      space_id: mySpace.id,
       title: input.title ?? null,
       memo: input.memo ?? null,
       lat: input.lat,
