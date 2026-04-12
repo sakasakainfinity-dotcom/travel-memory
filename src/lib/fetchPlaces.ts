@@ -4,11 +4,15 @@ import { supabase } from "./supabaseClient";
 
 export type PlaceWithPhotos = {
   id: string;
+  title?: string | null;
   name?: string | null;
   lat: number;
   lng: number;
   memo?: string | null;
   photos?: string[] | null;
+  createdBy?: string | null;
+  createdById?: string | null;
+  tags?: string[] | null;
   municipalityKey: string;
   municipalityName: string;
   prefectureName: string;
@@ -18,7 +22,7 @@ export type PlaceWithPhotos = {
 export async function fetchPlaces(): Promise<PlaceWithPhotos[]> {
   const { data: places, error: e1 } = await supabase
     .from("places")
-    .select("id, title, memo, lat, lng, municipality_key, municipality_name, prefecture_name, first_explorer_user_id")
+    .select("id, title, memo, lat, lng, created_by, created_by_name, tags, municipality_key, municipality_name, prefecture_name, first_explorer_user_id")
     .eq("visibility", "public")
     .order("created_at", { ascending: false });
 
@@ -43,11 +47,15 @@ export async function fetchPlaces(): Promise<PlaceWithPhotos[]> {
 
   return (places ?? []).map((p) => ({
     id: p.id,
+    title: p.title,
     name: p.title,
     memo: p.memo,
     lat: p.lat,
     lng: p.lng,
     photos: photosByPlace[p.id] ?? [],
+    createdBy: p.created_by_name ?? "名無しの旅人",
+    createdById: p.created_by,
+    tags: p.tags ?? [],
     municipalityKey: p.municipality_key ?? "unknown",
     municipalityName: p.municipality_name ?? "不明",
     prefectureName: p.prefecture_name ?? "不明",

@@ -12,8 +12,11 @@ import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { pointsToNextRank, resolveRank } from "@/lib/rank";
 import { MUNICIPALITIES } from "@/lib/municipalities";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
+import { reverseGeocodeMunicipality, type MunicipalityInfo } from "@/lib/municipality";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+
+const CATEGORIES = ["食事", "宿泊", "体験", "お土産", "店舗", "娯楽", "マニアック", "その他"];
 
 type Marker = {
   id: string;
@@ -31,23 +34,38 @@ export default function UnifiedTopPage() {
   const router = useRouter();
   const [rawPosts, setRawPosts] = useState<PlaceWithPhotos[]>([]);
   const [selectedMunicipalityKey, setSelectedMunicipalityKey] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<PlaceWithPhotos | null>(null);
   const [newPoint, setNewPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [pointMunicipality, setPointMunicipality] = useState<MunicipalityInfo | null>(null);
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
+  const [category, setCategory] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [profilePoints, setProfilePoints] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState("ゲスト");
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: 35.68, lng: 139.76 });
   const [loginPrompt, setLoginPrompt] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number; label?: string } | null>(null);
   const [booting, setBooting] = useState(true);
+  const [posting, setPosting] = useState(false);
 
   const load = async () => {
     try {
-      const [posts, sessionRes] = await Promise.all([fetchPlaces(), supabase.auth.getSession()]);
+      const [posts, sessionRes, userRes] = await Promise.all([
+        fetchPlaces(),
+        supabase.auth.getSession(),
+        supabase.auth.getUser(),
+      ]);
       setRawPosts(posts);
       const uid = sessionRes.data.session?.user.id ?? null;
       setUserId(uid);
+      const user = userRes.data.user;
+      const displayName =
+        (user?.user_metadata as any)?.display_name ||
+        (user?.user_metadata as any)?.name ||
+        (user?.email?.split("@")[0] ?? "ゲスト");
+      setAccountName(displayName);
       if (uid) {
         const { data: prof } = await supabase.from("profiles").select("total_points").eq("id", uid).maybeSingle();
         setProfilePoints(prof?.total_points ?? 0);
@@ -79,7 +97,6 @@ export default function UnifiedTopPage() {
     setFlyTo({ lat, lng, zoom: nextZoom, label: municipality });
   }, []);
 
-
   const municipalityMarkers = useMemo<Marker[]>(() => {
     const map = new Map<string, Marker>();
     for (const post of rawPosts) {
@@ -104,17 +121,49 @@ export default function UnifiedTopPage() {
   }, [rawPosts]);
 
   const selectedPosts = useMemo(
-    () => rawPosts.filter((p) => p.municipalityKey === selectedMunicipalityKey).slice(0, 20),
+    () => rawPosts.filter((p) => p.municipalityKey === selectedMunicipalityKey),
     [rawPosts, selectedMunicipalityKey]
+  );
+
+  const selectedMunicipality = useMemo(
+    () => municipalityMarkers.find((m) => m.id === selectedMunicipalityKey) ?? null,
+    [municipalityMarkers, selectedMunicipalityKey]
   );
 
   const openedMunicipalityCount = municipalityMarkers.length;
   const openedPrefectureCount = new Set(municipalityMarkers.map((x) => x.prefectureName)).size;
   const rank = resolveRank(profilePoints);
 
+  const contributors = useMemo(() => {
+    const total = selectedPosts.length;
+    const map = new Map<string, number>();
+    selectedPosts.forEach((post) => {
+      const name = post.createdBy || "名無しの旅人";
+      map.set(name, (map.get(name) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count, ratio: total > 0 ? Math.round((count / total) * 100) : 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [selectedPosts]);
+
+  const pieGradient = useMemo(() => {
+    const colors = ["#2563eb", "#f97316", "#10b981", "#a855f7", "#ef4444"];
+    let start = 0;
+    const parts = contributors.map((c, i) => {
+      const end = start + c.ratio;
+      const s = `${colors[i % colors.length]} ${start}% ${end}%`;
+      start = end;
+      return s;
+    });
+    if (!parts.length) return "#e2e8f0 0 100%";
+    if (start < 100) parts.push(`#e2e8f0 ${start}% 100%`);
+    return parts.join(", ");
+  }, [contributors]);
+
   const nearestUnexploredHint = useMemo(() => {
     if (!municipalityMarkers.length) return "近くの未踏の地を計算中…";
-    return `地図中心(${center.lat.toFixed(2)}, ${center.lng.toFixed(2)})付近の未踏地探索を準備中`; 
+    return `地図中心(${center.lat.toFixed(2)}, ${center.lng.toFixed(2)})付近の未踏地探索を準備中`;
   }, [municipalityMarkers.length, center]);
 
   return (
@@ -161,12 +210,15 @@ export default function UnifiedTopPage() {
       <section style={{ height: 380, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb" }}>
         <MapView
           places={municipalityMarkers}
-          onRequestNew={(p) => {
+          onRequestNew={async (p) => {
             if (!userId) {
               setLoginPrompt(true);
               return;
             }
             setNewPoint(p);
+            const municipality = await reverseGeocodeMunicipality(p.lat, p.lng).catch(() => null);
+            setPointMunicipality(municipality);
+            if (municipality?.municipalityKey) setSelectedMunicipalityKey(municipality.municipalityKey);
           }}
           onSelect={(p) => setSelectedMunicipalityKey(p.id)}
           selectedId={selectedMunicipalityKey}
@@ -183,18 +235,48 @@ export default function UnifiedTopPage() {
           <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>つばめが待つ未開拓エリアを順次表示予定です。</div>
         </div>
 
-        {selectedMunicipalityKey && (
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 10 }}>
-            <div style={{ fontWeight: 900 }}>市町村投稿パネル</div>
-            <div style={{ marginTop: 6 }}>総投稿数: {selectedPosts.length}</div>
-            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+        {selectedMunicipality && (
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 12, display: "grid", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedMunicipality.municipalityName}</div>
+              <div style={{ color: "#64748b", fontSize: 13 }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
               {selectedPosts.map((post) => (
-                <article key={post.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 8 }}>
-                  <div style={{ fontWeight: 800 }}>{post.name ?? "無題"}</div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{post.prefectureName} / {post.municipalityName}</div>
-                  {post.memo && <p style={{ fontSize: 13 }}>{post.memo}</p>}
-                </article>
+                <button
+                  key={post.id}
+                  style={{ minWidth: 180, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", textAlign: "left", padding: 0, overflow: "hidden" }}
+                  onClick={() => setSelectedPost(post)}
+                >
+                  {post.photos?.[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={post.photos[0]} alt={post.title ?? "投稿画像"} style={{ width: "100%", height: 110, objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: 110, display: "grid", placeItems: "center", background: "#f1f5f9", color: "#64748b" }}>No Image</div>
+                  )}
+                  <div style={{ padding: 8 }}>
+                    <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title?.trim() || "無題"}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{post.createdBy || "名無しの旅人"}</div>
+                  </div>
+                </button>
               ))}
+              {selectedPosts.length === 0 && <div style={{ color: "#64748b" }}>まだ投稿がありません。</div>}
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontWeight: 800 }}>投稿アカウント比率</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 110, height: 110, borderRadius: "50%", background: `conic-gradient(${pieGradient})`, border: "1px solid #cbd5e1" }} />
+                <div style={{ display: "grid", gap: 4 }}>
+                  {contributors.length === 0 && <div style={{ color: "#64748b" }}>投稿者データなし</div>}
+                  {contributors.map((c, i) => (
+                    <div key={c.name} style={{ fontSize: 13 }}>
+                      {i + 1}. {c.name}（{c.count}件 / {c.ratio}%）
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -205,24 +287,79 @@ export default function UnifiedTopPage() {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              await insertPlace({ title, memo, lat: newPoint.lat, lng: newPoint.lng, files });
-              setNewPoint(null);
-              setTitle("");
-              setMemo("");
-              setFiles([]);
-              await load();
+              try {
+                setPosting(true);
+                await insertPlace({
+                  title,
+                  memo,
+                  lat: newPoint.lat,
+                  lng: newPoint.lng,
+                  files,
+                  tags: category ? [category] : [],
+                });
+                setNewPoint(null);
+                setPointMunicipality(null);
+                setTitle("");
+                setMemo("");
+                setCategory("");
+                setFiles([]);
+                await load();
+              } finally {
+                setPosting(false);
+              }
             }}
-            style={{ width: "min(92vw, 480px)", background: "white", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}
+            style={{ width: "min(92vw, 540px)", background: "white", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}
           >
-            <h2 style={{ fontWeight: 900 }}>新規投稿（ログイン必須）</h2>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" required style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8 }} />
-            <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="メモ" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8, minHeight: 80 }} />
-            <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+            <h2 style={{ fontWeight: 900 }}>投稿ページ</h2>
+            <div style={{ fontSize: 13, color: "#475569" }}>
+              ダブルタップ地点: {pointMunicipality ? `${pointMunicipality.prefectureName} ${pointMunicipality.municipalityName}` : "取得中..."}
+            </div>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span>① タイトル（任意）</span>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8 }} />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span>② 画像アップロード（圧縮して投稿）</span>
+              <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} required />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span>③ ひとこと（任意）</span>
+              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8, minHeight: 80 }} />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span>④ カテゴリー（任意）</span>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: 8 }}>
+                <option value="">選択しない</option>
+                {CATEGORIES.map((c) => <option value={c} key={c}>{c}</option>)}
+              </select>
+            </label>
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 8, background: "#f8fafc" }}>⑤ 投稿者: {accountName}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setNewPoint(null)}>閉じる</button>
-              <button type="submit">投稿する</button>
+              <button type="button" onClick={() => setNewPoint(null)} disabled={posting}>閉じる</button>
+              <button type="submit" disabled={posting}>{posting ? "投稿中..." : "投稿する"}</button>
             </div>
           </form>
+        </section>
+      )}
+
+      {selectedPost && (
+        <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 45 }} onClick={() => setSelectedPost(null)}>
+          <article style={{ width: "min(92vw, 560px)", maxHeight: "86vh", overflow: "auto", background: "white", borderRadius: 12, padding: 12, display: "grid", gap: 8 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: 0 }}>{selectedPost.title?.trim() || "無題"}</h3>
+            <div style={{ fontSize: 13, color: "#64748b" }}>{selectedPost.createdBy || "名無しの旅人"}</div>
+            {selectedPost.photos?.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={`${src}-${i}`} src={src} alt={`photo-${i + 1}`} style={{ width: "100%", borderRadius: 10, maxHeight: 280, objectFit: "cover" }} />
+            ))}
+            {selectedPost.memo && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{selectedPost.memo}</p>}
+            {selectedPost.tags?.[0] && <div style={{ fontSize: 12, color: "#334155" }}>カテゴリー: {selectedPost.tags[0]}</div>}
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              {selectedPost.createdById === userId ? (
+                <button onClick={() => router.push(`/edit/${selectedPost.id}`)}>編集する</button>
+              ) : <span />}
+              <button onClick={() => setSelectedPost(null)}>閉じる</button>
+            </div>
+          </article>
         </section>
       )}
 

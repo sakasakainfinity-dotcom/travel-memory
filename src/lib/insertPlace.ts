@@ -3,6 +3,7 @@
 import { supabase } from "./supabaseClient";
 import { createBrowserSafeId } from "./browserSafeId";
 import { reverseGeocodeMunicipality } from "./municipality";
+import { compressImage } from "./image";
 
 export type NewPlaceInput = {
   title?: string;
@@ -33,6 +34,12 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
   if (eSess) throw eSess;
   const uid = ses.session?.user.id;
   if (!uid) throw new Error("ログインが必要です");
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes.user;
+  const displayName =
+    (user?.user_metadata as any)?.display_name ||
+    (user?.user_metadata as any)?.name ||
+    (user?.email?.split("@")[0] ?? "名無しの旅人");
 
   const geo = await reverseGeocodeMunicipality(input.lat, input.lng);
 
@@ -45,6 +52,7 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
       lng: input.lng,
       visited_at: input.visitedAt ?? null,
       created_by: uid,
+      created_by_name: displayName,
       visibility: "public",
       prefecture_name: geo.prefectureName,
       municipality_name: geo.municipalityName,
@@ -60,11 +68,17 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
 
   const urls: string[] = [];
   for (const f of input.files ?? []) {
-    const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+    const compressed = await compressImage(f, {
+      maxSide: 1280,
+      quality: 0.68,
+      targetMaxBytes: Math.min(350 * 1024, Math.max(120 * 1024, Math.floor(f.size * 0.1))),
+    });
+    const ext = compressed.type === "image/webp" ? "webp" : compressed.type === "image/png" ? "png" : "jpg";
     const fileName = `${placeRow.id}/${createBrowserSafeId()}.${ext}`;
-    const { error: eUp } = await supabase.storage.from("photos").upload(fileName, f, {
+    const { error: eUp } = await supabase.storage.from("photos").upload(fileName, compressed, {
       upsert: false,
       cacheControl: "3600",
+      contentType: compressed.type || "image/jpeg",
     });
     if (eUp) throw eUp;
 
