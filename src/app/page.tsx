@@ -11,6 +11,7 @@ import SearchBox from "@/components/SearchBox";
 import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { pointsToNextRank, resolveRank } from "@/lib/rank";
 import { MUNICIPALITIES } from "@/lib/municipalities";
+import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -39,15 +40,20 @@ export default function UnifiedTopPage() {
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: 35.68, lng: 139.76 });
   const [loginPrompt, setLoginPrompt] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number; label?: string } | null>(null);
+  const [booting, setBooting] = useState(true);
 
   const load = async () => {
-    const [posts, sessionRes] = await Promise.all([fetchPlaces(), supabase.auth.getSession()]);
-    setRawPosts(posts);
-    const uid = sessionRes.data.session?.user.id ?? null;
-    setUserId(uid);
-    if (uid) {
-      const { data: prof } = await supabase.from("profiles").select("total_points").eq("id", uid).maybeSingle();
-      setProfilePoints(prof?.total_points ?? 0);
+    try {
+      const [posts, sessionRes] = await Promise.all([fetchPlaces(), supabase.auth.getSession()]);
+      setRawPosts(posts);
+      const uid = sessionRes.data.session?.user.id ?? null;
+      setUserId(uid);
+      if (uid) {
+        const { data: prof } = await supabase.from("profiles").select("total_points").eq("id", uid).maybeSingle();
+        setProfilePoints(prof?.total_points ?? 0);
+      }
+    } finally {
+      setBooting(false);
     }
   };
 
@@ -232,6 +238,8 @@ export default function UnifiedTopPage() {
           </div>
         </section>
       )}
+
+      {booting && <PhotoMapperSplash />}
     </main>
   );
 }

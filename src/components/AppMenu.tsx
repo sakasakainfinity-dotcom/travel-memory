@@ -21,7 +21,7 @@ const MENU_ITEMS: MenuItem[] = [
   { key: "municipality-search", label: "市町村検索", href: "/municipalities" },
   { key: "adventure-book", label: "自分の称号・特典メーター（冒険の書）", href: "/adventure" },
   { key: "share", label: "シェア", href: "/share" },
-  { key: "settings", label: "アプリ設定", href: "/settings" },
+  { key: "settings", label: "アプリ設定", href: "/about" },
 ];
 
 export default function AppMenu({ current }: AppMenuProps) {
