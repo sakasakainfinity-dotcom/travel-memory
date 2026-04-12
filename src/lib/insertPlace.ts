@@ -63,7 +63,7 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
       municipality_key: geo.municipalityKey,
       municipality_code: geo.municipalityCode,
       tags: input.tags ?? [],
-      status: "active",
+      status: (input.files?.length ?? 0) > 0 ? "visited" : "wishlist",
     })
     .select("id, title, memo, lat, lng, visited_at, municipality_key, municipality_name, prefecture_name")
     .single();
