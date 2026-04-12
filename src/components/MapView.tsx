@@ -135,10 +135,88 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const placesRef = useRef<Place[]>(places);
+  const countBoxMarkersRef = useRef<globalThis.Map<string, maplibregl.Marker>>(new globalThis.Map());
 
   useEffect(() => {
     placesRef.current = places;
   }, [places]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const clearCountBoxMarkers = () => {
+      for (const marker of countBoxMarkersRef.current.values()) {
+        marker.remove();
+      }
+      countBoxMarkersRef.current.clear();
+    };
+
+    const syncCountBoxMarkers = () => {
+      if (markerStyle !== "count-box") {
+        clearCountBoxMarkers();
+        return;
+      }
+
+      const visible = map.getZoom() >= minZoomToShowMarkers;
+      if (!visible) {
+        clearCountBoxMarkers();
+        return;
+      }
+
+      const nextIds = new Set<string>();
+      for (const p of placesRef.current) {
+        nextIds.add(p.id);
+        const label = String(p.postCount ?? 0);
+        const existing = countBoxMarkersRef.current.get(p.id);
+        if (existing) {
+          const el = existing.getElement();
+          if (el.textContent !== label) el.textContent = label;
+          existing.setLngLat([p.lng, p.lat]);
+          continue;
+        }
+
+        const el = document.createElement("button");
+        el.type = "button";
+        el.textContent = label;
+        el.style.width = "36px";
+        el.style.height = "28px";
+        el.style.borderRadius = "8px";
+        el.style.border = "2px solid #1d4ed8";
+        el.style.background = "#ffffff";
+        el.style.color = "#0f172a";
+        el.style.fontWeight = "800";
+        el.style.fontSize = "12px";
+        el.style.cursor = "pointer";
+        el.style.boxShadow = "0 3px 8px rgba(15, 23, 42, 0.18)";
+        el.style.padding = "0";
+        el.title = `${p.memo ?? ""}${p.name ?? ""} ${label}件`;
+        el.onclick = (event) => {
+          event.stopPropagation();
+          onSelect?.(p);
+        };
+
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([p.lng, p.lat])
+          .addTo(map);
+        countBoxMarkersRef.current.set(p.id, marker);
+      }
+
+      for (const [id, marker] of countBoxMarkersRef.current.entries()) {
+        if (nextIds.has(id)) continue;
+        marker.remove();
+        countBoxMarkersRef.current.delete(id);
+      }
+    };
+
+    map.on("zoomend", syncCountBoxMarkers);
+    syncCountBoxMarkers();
+
+    return () => {
+      map.off("zoomend", syncCountBoxMarkers);
+      clearCountBoxMarkers();
+    };
+  }, [markerStyle, minZoomToShowMarkers, onSelect, places]);
 
   const autoMode = useMemo<"private" | "public">(() => {
     if (mode) return mode;
