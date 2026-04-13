@@ -13,6 +13,7 @@ import { pointsToNextRank, resolveRank } from "@/lib/rank";
 import { MUNICIPALITIES } from "@/lib/municipalities";
 import { buildMunicipalityKey } from "@/lib/municipality";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
+import PhotoLightbox from "@/components/PhotoLightbox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -34,9 +35,9 @@ export default function UnifiedTopPage() {
   const router = useRouter();
   const [rawPosts, setRawPosts] = useState<PlaceWithPhotos[]>([]);
   const [selectedMunicipalityKey, setSelectedMunicipalityKey] = useState<string | null>(null);
-  const [isMunicipalityPanelOpen, setIsMunicipalityPanelOpen] = useState(false);
+  const [uiMode, setUiMode] = useState<"view" | "post" | null>(null);
   const [selectedPost, setSelectedPost] = useState<PlaceWithPhotos | null>(null);
-  const [composeMunicipalityKey, setComposeMunicipalityKey] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ src: string; post: PlaceWithPhotos } | null>(null);
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [category, setCategory] = useState("");
@@ -156,10 +157,7 @@ export default function UnifiedTopPage() {
     () => municipalityMarkers.find((m) => m.id === selectedMunicipalityKey) ?? null,
     [municipalityMarkers, selectedMunicipalityKey]
   );
-  const composeMunicipality = useMemo(
-    () => municipalityMarkers.find((m) => m.id === composeMunicipalityKey) ?? null,
-    [municipalityMarkers, composeMunicipalityKey]
-  );
+  const composeMunicipality = selectedMunicipality;
 
   const openedMunicipalityCount = municipalityMarkers.filter((m) => m.postCount > 0).length;
   const openedPrefectureCount = new Set(
@@ -174,10 +172,20 @@ export default function UnifiedTopPage() {
         setLoginPrompt(true);
         return;
       }
-      setComposeMunicipalityKey(municipalityKey);
+      setSelectedMunicipalityKey(municipalityKey);
+      setUiMode("post");
     },
     [syncAuthState]
   );
+
+  const openMunicipality = useCallback((municipalityKey: string) => {
+    setSelectedMunicipalityKey(municipalityKey);
+    setUiMode("view");
+  }, []);
+
+  const closePanels = useCallback(() => {
+    setUiMode(null);
+  }, []);
 
   const contributors = useMemo(() => {
     const total = selectedPosts.length;
@@ -248,8 +256,7 @@ export default function UnifiedTopPage() {
         <SearchBox
           places={municipalityMarkers}
           onPickPost={({ id }) => {
-            setSelectedMunicipalityKey(id);
-            setIsMunicipalityPanelOpen(true);
+            openMunicipality(id);
           }}
           onPickLocation={({ lat, lng }) => setCenter({ lat, lng })}
         />
@@ -259,10 +266,7 @@ export default function UnifiedTopPage() {
         <MapView
           places={municipalityMarkers}
           onRequestNew={() => {}}
-          onSelect={(p) => {
-            setSelectedMunicipalityKey(p.id);
-            setIsMunicipalityPanelOpen(true);
-          }}
+          onSelect={(p) => openMunicipality(p.id)}
           selectedId={selectedMunicipalityKey}
           onCenterChange={setCenter}
           showCenterMarker
@@ -282,92 +286,79 @@ export default function UnifiedTopPage() {
 
       </section>
 
-      {selectedMunicipality && isMunicipalityPanelOpen && (
+      {selectedMunicipality && uiMode === "view" && (
         <section style={{ position: "fixed", inset: 0, background: "rgba(2, 6, 23, 0.62)", zIndex: 42, display: "grid", placeItems: "center", padding: 12 }}>
-          <div style={{ width: "min(94vw, 760px)", maxHeight: "82vh", overflowY: "auto", border: "1px solid #bfdbfe", borderRadius: 16, background: "#fff", padding: 12, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedMunicipality.municipalityName}</div>
-                <div style={{ color: "#64748b", fontSize: 13 }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
+          <div style={{ width: "min(94vw, 760px)", maxHeight: "82vh", overflowY: "auto", border: "1px solid rgba(191, 219, 254, 0.7)", borderRadius: 22, background: "rgba(255,255,255,0.84)", backdropFilter: "blur(18px)", padding: 14, display: "grid", gap: 14, boxShadow: "0 18px 54px rgba(15, 23, 42, 0.28)" }}>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ position: "relative", minHeight: 34 }}>
+                <button
+                  type="button"
+                  onClick={closePanels}
+                  style={{ position: "absolute", left: 0, top: 0, border: "1px solid #cbd5e1", background: "rgba(255,255,255,0.82)", borderRadius: 999, padding: "6px 12px", fontWeight: 700 }}
+                >
+                  閉じる
+                </button>
+                <div style={{ textAlign: "center", fontWeight: 900, fontSize: 24, letterSpacing: "0.03em", padding: "2px 72px 0" }}>{selectedMunicipality.municipalityName}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsMunicipalityPanelOpen(false)}
-                style={{ border: "1px solid #cbd5e1", background: "#fff", borderRadius: 999, padding: "6px 12px", fontWeight: 700 }}
-              >
-                閉じる
-              </button>
+              <div style={{ color: "#475569", fontSize: 13, textAlign: "center" }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #dbeafe", borderRadius: 10, background: "#eff6ff", padding: "8px 10px" }}>
-              <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 700 }}>□ボタンでこの市町村に新規投稿</div>
-              <button
-                type="button"
-                onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
-                style={{ width: 36, height: 30, borderRadius: 8, border: "2px solid #1d4ed8", background: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer" }}
-                title={`${selectedMunicipality.municipalityName}に新規投稿`}
-                aria-label={`${selectedMunicipality.municipalityName}に新規投稿`}
-              >
-                □
-              </button>
-            </div>
-
-            <div
+            <button
+              type="button"
+              onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
               style={{
-                border: "1px solid #dbeafe",
-                borderRadius: 10,
-                background: "#eff6ff",
-                padding: "8px 10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
+                border: "1px solid rgba(255,255,255,0.7)",
+                background: "linear-gradient(120deg, rgba(255,255,255,0.55), rgba(226,232,255,0.45) 35%, rgba(186,230,253,0.48) 100%)",
+                color: "#0f172a",
+                borderRadius: 16,
+                padding: "12px 18px",
+                fontWeight: 900,
+                fontSize: 16,
+                cursor: "pointer",
+                boxShadow: "0 10px 28px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255,255,255,0.85)",
+                backdropFilter: "blur(10px)",
               }}
             >
-              <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 700 }}>
-                □ 投稿一覧を見たあと、右の□ボタンから新規投稿できます。
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
-                style={{
-                  width: 36,
-                  height: 30,
-                  borderRadius: 8,
-                  border: "2px solid #1d4ed8",
-                  background: "#ffffff",
-                  color: "#0f172a",
-                  fontWeight: 900,
-                  fontSize: 16,
-                  cursor: "pointer",
-                  boxShadow: "0 2px 6px rgba(15, 23, 42, 0.12)",
-                }}
-                title={`${selectedMunicipality.municipalityName}に新規投稿`}
-                aria-label={`${selectedMunicipality.municipalityName}に新規投稿`}
-              >
-                □
-              </button>
-            </div>
+              投稿する
+            </button>
 
             <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-              {selectedPosts.map((post) => (
-                <button
-                  key={post.id}
-                  style={{ minWidth: 180, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", textAlign: "left", padding: 0, overflow: "hidden" }}
-                  onClick={() => setSelectedPost(post)}
-                >
-                  {post.photos?.[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.photos[0]} alt={post.title ?? "投稿画像"} style={{ width: "100%", height: 110, objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: "100%", height: 110, display: "grid", placeItems: "center", background: "#f1f5f9", color: "#64748b" }}>No Image</div>
-                  )}
-                  <div style={{ padding: 8 }}>
-                    <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title?.trim() || "無題"}</div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>{post.createdBy || "名無しの旅人"}</div>
-                  </div>
-                </button>
-              ))}
+              {selectedPosts.map((post) => {
+                const coverPhoto = post.photos?.[0] ?? null;
+                return (
+                  <article
+                    key={post.id}
+                    style={{ minWidth: 214, border: "1px solid rgba(226,232,240,0.9)", borderRadius: 14, background: "rgba(255,255,255,0.86)", textAlign: "left", padding: 0, overflow: "hidden" }}
+                  >
+                    {coverPhoto ? (
+                    <button
+                      type="button"
+                      style={{ border: "none", background: "transparent", padding: 0, width: "100%", cursor: "zoom-in" }}
+                      onClick={() => setSelectedPhoto({ src: coverPhoto, post })}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={coverPhoto}
+                        alt={post.title ?? "投稿画像"}
+                        loading="lazy"
+                        decoding="async"
+                        style={{ width: "100%", height: 132, objectFit: "cover" }}
+                      />
+                    </button>
+                    ) : (
+                      <div style={{ width: "100%", height: 132, display: "grid", placeItems: "center", background: "#f1f5f9", color: "#64748b" }}>No Image</div>
+                    )}
+                    <button
+                      type="button"
+                      style={{ border: "none", background: "transparent", width: "100%", padding: 10, textAlign: "left", cursor: "pointer", display: "grid", gap: 4 }}
+                      onClick={() => setSelectedPost(post)}
+                    >
+                      <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title?.trim() || "無題"}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{post.createdBy || "名無しの旅人"}</div>
+                    </button>
+                  </article>
+                );
+              })}
               {selectedPosts.length === 0 && <div style={{ color: "#64748b" }}>まだ投稿がありません。</div>}
             </div>
 
@@ -389,8 +380,8 @@ export default function UnifiedTopPage() {
         </section>
       )}
 
-      {composeMunicipality && (
-        <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 50 }}>
+      {composeMunicipality && uiMode === "post" && (
+        <section style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.52)", display: "grid", placeItems: "center", zIndex: 50, padding: 12 }}>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -404,63 +395,72 @@ export default function UnifiedTopPage() {
                   files,
                   tags: category ? [category] : [],
                 });
-                setComposeMunicipalityKey(null);
                 setTitle("");
                 setMemo("");
                 setCategory("");
                 setFiles([]);
                 await load();
+                setUiMode("view");
               } finally {
                 setPosting(false);
               }
             }}
             style={{
-              width: "min(92vw, 600px)",
-              background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 42%)",
-              borderRadius: 20,
+              width: "min(92vw, 640px)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.63) 100%)",
+              borderRadius: 24,
               padding: 18,
               display: "grid",
-              gap: 10,
-              border: "1px solid #bfdbfe",
-              boxShadow: "0 24px 60px rgba(30, 64, 175, 0.24)",
+              gap: 12,
+              border: "1px solid rgba(255,255,255,0.8)",
+              backdropFilter: "blur(18px)",
+              boxShadow: "0 28px 80px rgba(15, 23, 42, 0.34)",
             }}
           >
-            <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0 }}>✍️ 旅の投稿フォーム</h2>
-            <div style={{ fontSize: 13, color: "#475569", border: "1px solid #dbeafe", borderRadius: 12, padding: 8, background: "#eff6ff" }}>
-              投稿先: {composeMunicipality.prefectureName} {composeMunicipality.municipalityName}（登録地点）
+            <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0, letterSpacing: "0.01em" }}>✍️ 旅の投稿フォーム</h2>
+            <div style={{ fontSize: 13, color: "#334155", border: "1px solid rgba(186,230,253,0.8)", borderRadius: 14, padding: 10, background: "rgba(239,246,255,0.62)" }}>
+              投稿先: {composeMunicipality.prefectureName} {composeMunicipality.municipalityName}
             </div>
-            <label style={{ display: "grid", gap: 4 }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span>① タイトル（任意）</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10, background: "#fff" }} />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, background: "rgba(255,255,255,0.72)" }} />
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span>② 画像アップロード（圧縮して投稿）</span>
-              <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} required />
+              <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} required style={{ border: "1px dashed rgba(37,99,235,0.5)", borderRadius: 12, padding: 10, background: "rgba(239,246,255,0.65)" }} />
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span>③ ひとこと（任意）</span>
-              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10, minHeight: 90 }} />
+              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, minHeight: 90, background: "rgba(255,255,255,0.72)" }} />
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span>④ カテゴリー（任意）</span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 10 }}>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, background: "rgba(255,255,255,0.72)" }}>
                 <option value="">選択しない</option>
                 {CATEGORIES.map((c) => <option value={c} key={c}>{c}</option>)}
               </select>
             </label>
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, background: "#f8fafc" }}>⑤ 投稿者: {accountName}</div>
+            <div style={{ border: "1px solid rgba(226,232,240,0.95)", borderRadius: 12, padding: 10, background: "rgba(248,250,252,0.8)" }}>⑤ 投稿者: {accountName}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setComposeMunicipalityKey(null)} disabled={posting}>閉じる</button>
+              <button
+                type="button"
+                onClick={() => setUiMode("view")}
+                disabled={posting}
+                style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.8)", background: "rgba(255,255,255,0.75)", padding: "8px 14px" }}
+              >
+                閉じる
+              </button>
               <button
                 type="submit"
                 disabled={posting}
                 style={{
-                  border: "1px solid #1d4ed8",
+                  border: "1px solid rgba(59,130,246,0.95)",
                   background: "linear-gradient(135deg, #2563eb, #7c3aed)",
                   color: "white",
-                  borderRadius: 10,
-                  padding: "8px 16px",
+                  borderRadius: 12,
+                  padding: "10px 20px",
                   fontWeight: 800,
+                  boxShadow: "0 12px 24px rgba(59, 130, 246, 0.35)",
                 }}
               >
                 {posting ? "投稿中..." : "投稿する"}
@@ -468,6 +468,16 @@ export default function UnifiedTopPage() {
             </div>
           </form>
         </section>
+      )}
+
+      {selectedPhoto && (
+        <PhotoLightbox
+          src={selectedPhoto.src}
+          title={selectedPhoto.post.title?.trim() || "無題"}
+          memo={selectedPhoto.post.memo ?? ""}
+          createdBy={selectedPhoto.post.createdBy || "名無しの旅人"}
+          onClose={() => setSelectedPhoto(null)}
+        />
       )}
 
       {selectedPost && (
