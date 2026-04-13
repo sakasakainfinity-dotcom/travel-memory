@@ -308,6 +308,43 @@ export default function UnifiedTopPage() {
               </button>
             </div>
 
+            <div
+              style={{
+                border: "1px solid #dbeafe",
+                borderRadius: 10,
+                background: "#eff6ff",
+                padding: "8px 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 700 }}>
+                □ 投稿一覧を見たあと、右の□ボタンから新規投稿できます。
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
+                style={{
+                  width: 36,
+                  height: 30,
+                  borderRadius: 8,
+                  border: "2px solid #1d4ed8",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontWeight: 900,
+                  fontSize: 16,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(15, 23, 42, 0.12)",
+                }}
+                title={`${selectedMunicipality.municipalityName}に新規投稿`}
+                aria-label={`${selectedMunicipality.municipalityName}に新規投稿`}
+              >
+                □
+              </button>
+            </div>
+
             <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
               {selectedPosts.map((post) => (
                 <button
