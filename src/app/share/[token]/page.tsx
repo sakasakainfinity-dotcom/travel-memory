@@ -222,6 +222,29 @@ const setViewRef = useRef<(v: View) => void>(() => {});
               zIndex: 50,
             }}
           >
+            <button
+              type="button"
+              onClick={() => setOpenPhoto(null)}
+              aria-label="閉じる"
+              style={{
+                position: "absolute",
+                top: "max(12px, env(safe-area-inset-top, 0px) + 4px)",
+                right: "max(12px, env(safe-area-inset-right, 0px) + 4px)",
+                width: 40,
+                height: 40,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.45)",
+                background: "rgba(15,23,42,0.6)",
+                color: "#fff",
+                fontSize: 24,
+                lineHeight: 1,
+                cursor: "pointer",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              ×
+            </button>
             <img
               src={openPhoto}
               alt=""
