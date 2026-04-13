@@ -136,6 +136,7 @@ export default function MapView({
   const mapRef = useRef<Map | null>(null);
   const placesRef = useRef<Place[]>(places);
   const countBoxMarkersRef = useRef<globalThis.Map<string, maplibregl.Marker>>(new globalThis.Map());
+  const syncCountBoxMarkersRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     placesRef.current = places;
@@ -209,6 +210,7 @@ export default function MapView({
       }
     };
 
+    syncCountBoxMarkersRef.current = syncCountBoxMarkers;
     map.on("zoomend", syncCountBoxMarkers);
     syncCountBoxMarkers();
 
@@ -216,7 +218,11 @@ export default function MapView({
       map.off("zoomend", syncCountBoxMarkers);
       clearCountBoxMarkers();
     };
-  }, [markerStyle, minZoomToShowMarkers, onSelect, places]);
+  }, [markerStyle, minZoomToShowMarkers, onSelect]);
+
+  useEffect(() => {
+    syncCountBoxMarkersRef.current();
+  }, [places]);
 
   const autoMode = useMemo<"private" | "public">(() => {
     if (mode) return mode;
@@ -245,22 +251,6 @@ export default function MapView({
           resolvedMarkerType = "visited";
           markerReason = "private + visitedFlag";
         }
-
-        console.info("[MapView] place before marker resolve", {
-          mode: resolvedMode,
-          id: p.id,
-          title: p.name ?? "",
-          status,
-          visibility: p.visibility ?? null,
-          photoCount,
-          wantedByMe: !!p.wantedByMe,
-          visitedByMe: !!p.visitedByMe,
-        });
-        console.info("[MapView] marker resolved", {
-          id: p.id,
-          resolvedMarkerType,
-          reason: markerReason,
-        });
 
         return {
           type: "Feature",
