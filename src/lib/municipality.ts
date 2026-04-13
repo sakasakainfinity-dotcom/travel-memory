@@ -9,7 +9,7 @@ function normalizeName(value: string): string {
   return value.replace(/\s+/g, "").replace(/[\u3000]/g, "").trim();
 }
 
-function stableKey(prefecture: string, municipality: string) {
+export function buildMunicipalityKey(prefecture: string, municipality: string): string {
   return `${normalizeName(prefecture).toLowerCase()}::${normalizeName(municipality).toLowerCase()}`;
 }
 
@@ -48,6 +48,6 @@ export async function reverseGeocodeMunicipality(lat: number, lng: number): Prom
     prefectureName,
     municipalityName,
     municipalityCode,
-    municipalityKey: stableKey(prefectureName, municipalityName),
+    municipalityKey: buildMunicipalityKey(prefectureName, municipalityName),
   };
 }

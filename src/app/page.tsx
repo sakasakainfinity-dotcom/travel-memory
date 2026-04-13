@@ -11,6 +11,7 @@ import SearchBox from "@/components/SearchBox";
 import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
 import { pointsToNextRank, resolveRank } from "@/lib/rank";
 import { MUNICIPALITIES } from "@/lib/municipalities";
+import { buildMunicipalityKey } from "@/lib/municipality";
 import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -130,17 +131,20 @@ export default function UnifiedTopPage() {
       countMap.set(key, (countMap.get(key) ?? 0) + 1);
     }
 
-    return MUNICIPALITIES.map((m) => ({
-      id: m.id,
-      name: m.city,
-      memo: m.prefecture,
-      lat: m.lat,
-      lng: m.lng,
-      postCount: countMap.get(m.id) ?? 0,
-      municipalityKey: m.id,
-      municipalityName: m.city,
-      prefectureName: m.prefecture,
-    }));
+    return MUNICIPALITIES.map((m) => {
+      const municipalityKey = buildMunicipalityKey(m.prefecture, m.city);
+      return {
+        id: municipalityKey,
+        name: m.city,
+        memo: m.prefecture,
+        lat: m.lat,
+        lng: m.lng,
+        postCount: countMap.get(municipalityKey) ?? 0,
+        municipalityKey,
+        municipalityName: m.city,
+        prefectureName: m.prefecture,
+      };
+    });
   }, [rawPosts]);
 
   const selectedPosts = useMemo(
@@ -386,7 +390,7 @@ export default function UnifiedTopPage() {
       )}
 
       {composeMunicipality && (
-        <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 40 }}>
+        <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 50 }}>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
