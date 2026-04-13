@@ -33,6 +33,7 @@ export default function UnifiedTopPage() {
   const router = useRouter();
   const [rawPosts, setRawPosts] = useState<PlaceWithPhotos[]>([]);
   const [selectedMunicipalityKey, setSelectedMunicipalityKey] = useState<string | null>(null);
+  const [isMunicipalityPanelOpen, setIsMunicipalityPanelOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PlaceWithPhotos | null>(null);
   const [composeMunicipalityKey, setComposeMunicipalityKey] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -162,6 +163,18 @@ export default function UnifiedTopPage() {
   ).size;
   const rank = resolveRank(profilePoints);
 
+  const handleStartComposeForMunicipality = useCallback(
+    async (municipalityKey: string) => {
+      const uid = await syncAuthState();
+      if (!uid) {
+        setLoginPrompt(true);
+        return;
+      }
+      setComposeMunicipalityKey(municipalityKey);
+    },
+    [syncAuthState]
+  );
+
   const contributors = useMemo(() => {
     const total = selectedPosts.length;
     const map = new Map<string, number>();
@@ -230,7 +243,10 @@ export default function UnifiedTopPage() {
       <section style={{ padding: "0 12px 12px" }}>
         <SearchBox
           places={municipalityMarkers}
-          onPickPost={({ id }) => setSelectedMunicipalityKey(id)}
+          onPickPost={({ id }) => {
+            setSelectedMunicipalityKey(id);
+            setIsMunicipalityPanelOpen(true);
+          }}
           onPickLocation={({ lat, lng }) => setCenter({ lat, lng })}
         />
       </section>
@@ -239,7 +255,10 @@ export default function UnifiedTopPage() {
         <MapView
           places={municipalityMarkers}
           onRequestNew={() => {}}
-          onSelect={(p) => setSelectedMunicipalityKey(p.id)}
+          onSelect={(p) => {
+            setSelectedMunicipalityKey(p.id);
+            setIsMunicipalityPanelOpen(true);
+          }}
           selectedId={selectedMunicipalityKey}
           onCenterChange={setCenter}
           showCenterMarker
@@ -257,32 +276,35 @@ export default function UnifiedTopPage() {
           <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>つばめが待つ未開拓エリアを順次表示予定です。</div>
         </div>
 
-        {selectedMunicipality && (
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 12, display: "grid", gap: 12 }}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedMunicipality.municipalityName}</div>
-              <div style={{ color: "#64748b", fontSize: 13 }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      </section>
+
+      {selectedMunicipality && isMunicipalityPanelOpen && (
+        <section style={{ position: "fixed", inset: 0, background: "rgba(2, 6, 23, 0.62)", zIndex: 42, display: "grid", placeItems: "center", padding: 12 }}>
+          <div style={{ width: "min(94vw, 760px)", maxHeight: "82vh", overflowY: "auto", border: "1px solid #bfdbfe", borderRadius: 16, background: "#fff", padding: 12, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedMunicipality.municipalityName}</div>
+                <div style={{ color: "#64748b", fontSize: 13 }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
+              </div>
               <button
-                onClick={async () => {
-                  const uid = await syncAuthState();
-                  if (!uid) {
-                    setLoginPrompt(true);
-                    return;
-                  }
-                  setComposeMunicipalityKey(selectedMunicipality.id);
-                }}
-                style={{
-                  border: "1px solid #1d4ed8",
-                  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-                  color: "white",
-                  borderRadius: 999,
-                  padding: "8px 14px",
-                  fontWeight: 800,
-                }}
+                type="button"
+                onClick={() => setIsMunicipalityPanelOpen(false)}
+                style={{ border: "1px solid #cbd5e1", background: "#fff", borderRadius: 999, padding: "6px 12px", fontWeight: 700 }}
               >
-                この市町村に投稿する
+                閉じる
+              </button>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #dbeafe", borderRadius: 10, background: "#eff6ff", padding: "8px 10px" }}>
+              <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 700 }}>□ボタンでこの市町村に新規投稿</div>
+              <button
+                type="button"
+                onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
+                style={{ width: 36, height: 30, borderRadius: 8, border: "2px solid #1d4ed8", background: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer" }}
+                title={`${selectedMunicipality.municipalityName}に新規投稿`}
+                aria-label={`${selectedMunicipality.municipalityName}に新規投稿`}
+              >
+                □
               </button>
             </div>
 
@@ -323,8 +345,8 @@ export default function UnifiedTopPage() {
               </div>
             </div>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {composeMunicipality && (
         <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 40 }}>
