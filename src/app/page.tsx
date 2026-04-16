@@ -370,7 +370,7 @@ export default function UnifiedTopPage() {
                     background: "rgba(248,250,252,0.92)",
                   }}
                 >
-                  つばめ「まだ投稿ないよー！」最初の1枚を投稿して、この街を開拓しよう ✨
+                  つばめ（mascot/tsubame）「ぴよっ、まだ投稿はないみたい！最初の1枚を投稿して、この街を開拓しよう〜 ✨」
                 </div>
               )}
             </div>
