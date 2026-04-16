@@ -241,6 +241,7 @@ const setViewRef = useRef<(v: View) => void>(() => {});
                 cursor: "pointer",
                 display: "grid",
                 placeItems: "center",
+                zIndex: 2,
               }}
             >
               ×
