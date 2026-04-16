@@ -366,11 +366,56 @@ export default function UnifiedTopPage() {
                     border: "1px dashed rgba(148,163,184,0.55)",
                     borderRadius: 12,
                     padding: "12px 14px",
-                    color: "#475569",
                     background: "rgba(248,250,252,0.92)",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
                   }}
                 >
-                  つばめ（mascot/tsubame）「ぴよっ、まだ投稿はないみたい！最初の1枚を投稿して、この街を開拓しよう〜 ✨」
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/mascot/tsubame.png"
+                    alt="つばめ"
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      width: 56,
+                      height: 56,
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      border: "1px solid #cbd5e1",
+                      background: "#fff",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <div
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 12,
+                        background: "#fff",
+                        padding: "10px 12px",
+                        color: "#475569",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      つばめ「ぴよっ、まだ投稿はないみたい！最初の1枚を投稿して、この街を開拓しよう〜 ✨」
+                    </div>
+                    <div
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        left: -7,
+                        top: 18,
+                        width: 12,
+                        height: 12,
+                        background: "#fff",
+                        borderLeft: "1px solid #cbd5e1",
+                        borderBottom: "1px solid #cbd5e1",
+                        transform: "rotate(45deg)",
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
