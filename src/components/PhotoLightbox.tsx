@@ -27,7 +27,7 @@ export default function PhotoLightbox({ src, title, memo, createdBy, onClose }: 
         style={{
           position: "absolute",
           top: "max(16px, env(safe-area-inset-top, 0px) + 8px)",
-          right: "max(16px, env(safe-area-inset-right, 0px) + 8px)",
+          left: "max(16px, env(safe-area-inset-left, 0px) + 8px)",
           width: 40,
           height: 40,
           borderRadius: 999,
