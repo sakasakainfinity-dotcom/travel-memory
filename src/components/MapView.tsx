@@ -168,102 +168,31 @@ export default function MapView({
       const nextIds = new Set<string>();
       for (const p of placesRef.current) {
         nextIds.add(p.id);
-       const postCount = p.postCount ?? 0;
-        const label = String(postCount);
-        const isEmptyPostMarker = postCount === 0;
-        const markerKind = isEmptyPostMarker ? "empty" : "count";
-        const titleWithCount = `${p.memo ?? ""}${p.name ?? ""} ${label}件`;
-        const locationLabel = `${p.memo ?? ""}${p.name ?? ""}`.trim();
-        const titleWithoutPost = `「${locationLabel || "この場所"} はまだ投稿がありません」`;
-        let existing = countBoxMarkersRef.current.get(p.id);
-
-        if (existing) {
-          const existingKind = existing.getElement().dataset.markerKind;
-          if (existingKind !== markerKind) {
-            existing.remove();
-            countBoxMarkersRef.current.delete(p.id);
-            existing = undefined;
-          }
-        }
+        const label = String(p.postCount ?? 0);
+        const existing = countBoxMarkersRef.current.get(p.id);
         
         if (existing) {
-           const el = existing.getElement() as HTMLButtonElement;
-          if (markerKind === "count") {
-            if (el.textContent !== label) el.textContent = label;
-            el.title = titleWithCount;
-          } else {
-            el.title = titleWithoutPost;
-          }
-          existing.setLngLat([p.lng, p.lat]);
+          const el = existing.getElement();
+          if (el.textContent !== label) el.textContent = label;
+           existing.setLngLat([p.lng, p.lat]);
           continue;
         }
 
-         const el = document.createElement("button");
+        const el = document.createElement("button");
         el.type = "button";
-        el.dataset.markerKind = markerKind;
+        el.textContent = label;
+        el.style.width = "36px";
+        el.style.height = "28px";
+        el.style.borderRadius = "8px";
+        el.style.border = "2px solid #1d4ed8";
+        el.style.background = "#ffffff";
+        el.style.color = "#0f172a";
+        el.style.fontWeight = "800";
+        el.style.fontSize = "12px";
         el.style.cursor = "pointer";
+        el.style.boxShadow = "0 3px 8px rgba(15, 23, 42, 0.18)";
         el.style.padding = "0";
-        el.style.border = "none";
-        el.style.background = "transparent";
-        el.style.display = "grid";
-        el.style.placeItems = "center";
-        el.style.gap = "2px";
-
-        if (isEmptyPostMarker) {
-          const bubble = document.createElement("span");
-          bubble.textContent = "投稿ないよーー";
-          bubble.style.position = "relative";
-          bubble.style.display = "inline-flex";
-          bubble.style.alignItems = "center";
-          bubble.style.justifyContent = "center";
-          bubble.style.padding = "4px 8px";
-          bubble.style.borderRadius = "9999px";
-          bubble.style.border = "1px solid rgba(15, 23, 42, 0.2)";
-          bubble.style.background = "#ffffff";
-          bubble.style.color = "#0f172a";
-          bubble.style.fontWeight = "700";
-          bubble.style.fontSize = "11px";
-          bubble.style.whiteSpace = "nowrap";
-          bubble.style.boxShadow = "0 4px 10px rgba(15, 23, 42, 0.16)";
-          
-          const tail = document.createElement("span");
-          tail.style.position = "absolute";
-          tail.style.left = "50%";
-          tail.style.bottom = "-5px";
-          tail.style.width = "10px";
-          tail.style.height = "10px";
-          tail.style.marginLeft = "-5px";
-          tail.style.background = "#ffffff";
-          tail.style.borderRight = "1px solid rgba(15, 23, 42, 0.2)";
-          tail.style.borderBottom = "1px solid rgba(15, 23, 42, 0.2)";
-          tail.style.transform = "rotate(45deg)";
-          bubble.appendChild(tail);
-
-          const mascot = document.createElement("img");
-          mascot.src = "/mascot/tsubame.png";
-          mascot.alt = "ツバメ";
-          mascot.width = 28;
-          mascot.height = 28;
-          mascot.style.width = "28px";
-          mascot.style.height = "28px";
-          mascot.style.objectFit = "contain";
-          mascot.style.filter = "drop-shadow(0 2px 4px rgba(15, 23, 42, 0.2))";
-
-          el.append(bubble, mascot);
-          el.title = titleWithoutPost;
-        } else {
-          el.textContent = label;
-          el.style.width = "36px";
-          el.style.height = "28px";
-          el.style.borderRadius = "8px";
-          el.style.border = "2px solid #1d4ed8";
-          el.style.background = "#ffffff";
-          el.style.color = "#0f172a";
-          el.style.fontWeight = "800";
-          el.style.fontSize = "12px";
-          el.style.boxShadow = "0 3px 8px rgba(15, 23, 42, 0.18)";
-          el.title = titleWithCount;
-        }
+        el.title = `${p.memo ?? ""}${p.name ?? ""} ${label}件`;
         el.onclick = (event) => {
           event.stopPropagation();
           onSelect?.(p);
