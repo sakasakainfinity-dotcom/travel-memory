@@ -359,9 +359,62 @@ export default function UnifiedTopPage() {
                   </article>
                 );
               })}
-              {selectedPosts.length === 0 && <div style={{ color: "#64748b" }}>まだ投稿がありません。</div>}
+               {selectedPosts.length === 0 && (
+                <div
+                  style={{
+                    minWidth: 214,
+                    minHeight: 220,
+                    border: "1px solid rgba(226,232,240,0.9)",
+                    borderRadius: 14,
+                    background: "rgba(255,255,255,0.86)",
+                    display: "grid",
+                    placeItems: "center",
+                    gap: 8,
+                    padding: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "relative",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "6px 12px",
+                      borderRadius: 9999,
+                      border: "1px solid rgba(15, 23, 42, 0.2)",
+                      background: "#ffffff",
+                      color: "#0f172a",
+                      fontWeight: 700,
+                      fontSize: 12,
+                      boxShadow: "0 4px 10px rgba(15, 23, 42, 0.16)",
+                    }}
+                  >
+                    まだ投稿ないよーー
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        bottom: "-5px",
+                        width: 10,
+                        height: 10,
+                        marginLeft: -5,
+                        background: "#ffffff",
+                        borderRight: "1px solid rgba(15, 23, 42, 0.2)",
+                        borderBottom: "1px solid rgba(15, 23, 42, 0.2)",
+                        transform: "rotate(45deg)",
+                      }}
+                    />
+                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/mascot/tsubame.png"
+                    alt="ツバメ"
+                    style={{ width: 58, height: 58, objectFit: "contain", filter: "drop-shadow(0 2px 4px rgba(15,23,42,0.2))" }}
+                  />
+                </div>
+              )}
             </div>
-
+            
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ fontWeight: 800 }}>投稿アカウント比率</div>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
