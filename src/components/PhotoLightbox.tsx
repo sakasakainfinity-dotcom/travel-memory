@@ -36,8 +36,10 @@ export default function PhotoLightbox({ src, title, memo, createdBy, onClose }: 
           color: "#fff",
           fontSize: 20,
           cursor: "pointer",
+          zIndex: 2,
         }}
         aria-label="閉じる"
+        title="閉じる"
       >
         ×
       </button>

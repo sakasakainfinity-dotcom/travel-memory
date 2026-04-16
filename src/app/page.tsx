@@ -359,7 +359,20 @@ export default function UnifiedTopPage() {
                   </article>
                 );
               })}
-              {selectedPosts.length === 0 && <div style={{ color: "#64748b" }}>まだ投稿がありません。</div>}
+              {selectedPosts.length === 0 && (
+                <div
+                  style={{
+                    minWidth: "100%",
+                    border: "1px dashed rgba(148,163,184,0.55)",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    color: "#475569",
+                    background: "rgba(248,250,252,0.92)",
+                  }}
+                >
+                  つばめ「まだ投稿ないよー！」最初の1枚を投稿して、この街を開拓しよう ✨
+                </div>
+              )}
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
