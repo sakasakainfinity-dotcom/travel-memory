@@ -374,7 +374,7 @@ export default function UnifiedTopPage() {
                 </div>
               )}
             </div>
-
+            
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ fontWeight: 800 }}>投稿アカウント比率</div>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
