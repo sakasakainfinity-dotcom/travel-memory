@@ -1,77 +1,378 @@
+// src/app/(public)/login/page.tsx
 "use client";
-import { useEffect, useState } from "react";
-import PairingButtons from "@/components/PairingButtons";
+
+import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
-  const [checking, setChecking] = useState(true);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");        // 6桁コード
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"request" | "verify">("request"); // ステップ管理
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const loginReason = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("reason");
+  }, []);
 
-  useEffect(() => {
-  let mounted = true;
-  (async () => {
-    // 既に入ってたら即TOPへ
-    const { data } = await supabase.auth.getSession();
-    if (!mounted) return;
-    if (data.session?.user) return window.location.replace("/");
-
-    // ここから自動リトライ：理由と意図をチェック
-    const params = new URLSearchParams(location.search);
-    const reason = params.get("reason");   // no-code / exchange / no-session / fatal など
-    const src = params.get("src");         // "google" が来る
-    const intent = sessionStorage.getItem("oauth_intent");     // "google" を期待
-    const retried = sessionStorage.getItem("oauth_retry_once") === "1";
-
-    if (src === "google" && intent === "google" && !retried && reason) {
-      // ★1回だけ自動でクリーン→再挑戦
-      sessionStorage.setItem("oauth_retry_once", "1");
-
-      await supabase.auth.signOut();
-      try {
-        localStorage.removeItem("sb-pkce-code-verifier");
-        sessionStorage.removeItem("sb-pkce-code-verifier");
-        Object.keys(localStorage).filter(k=>k.startsWith("sb-")).forEach(k=>localStorage.removeItem(k));
-        Object.keys(sessionStorage).filter(k=>k.startsWith("sb-")).forEach(k=>sessionStorage.removeItem(k));
-      } catch {}
-
-      await supabase.auth.signInWithOAuth({
+  async function loginWithGoogle() {
+    setBusy(true);
+    setOauthError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?src=google`,
-          queryParams: { prompt: "select_account" },
-          scopes: "openid email profile",
+          redirectTo: `${location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       });
-    } else {
-      // 何もしない（ユーザーにボタンを見せる）
-      setChecking(false);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("google login failed:", err);
+      setOauthError(
+        err?.message ??
+          "Googleログインを開始できませんでした。Google / Supabase のリダイレクト設定を確認してください。"
+      );
+    } finally {
+      setBusy(false);
     }
-  })();
+  }
 
-  const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-    if (s?.user) window.location.replace("/");
-  });
-  return () => { mounted = false; sub.subscription.unsubscribe(); };
-}, []);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
 
+    try {
+      if (mode === "request") {
+        // ① 6桁コードをメールで送る
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: true, // 必要に応じて false に
+          },
+        });
+        if (error) throw error;
 
-  if (checking) {
-    return <main style={{ minHeight:"100vh", display:"grid", placeItems:"center" }}>読み込み中…</main>;
+        alert("6桁の認証コードをメールで送ったよ。届いたコードを入力してね。");
+        setMode("verify");
+      } else {
+        // ② 入力された6桁コードでログイン
+        const { data, error } = await supabase.auth.verifyOtp({
+          email,
+          token: code.trim(),
+          type: "email", // email OTP 用
+        });
+        if (error) throw error;
+
+        // ログイン成功
+        alert("ログインできたよ！");
+        location.href = "/"; // 好きな遷移先に変更
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message ?? "処理に失敗したよ。もう一度試してみて。");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <main className="login-wrap">
-      <div className="login-bg" />
-      <div className="login-card">
-        <div className="login-logo">🌀</div>
-        <h1 className="login-title">サインイン</h1>
-        <p className="login-sub">ログインすると、地図と投稿機能が使えるようになるよ。</p>
-        <div style={{ height: 10 }} />
-        <PairingButtons />
-        <div style={{ height: 8 }} />
-        <p className="login-note">
-          ログインは <b>Google</b> または <b>メール</b> に対応。メールはリンク or 6桁コードでサインインできるよ。
+    <div style={styles.root}>
+      {/* 背景デコ（グラデ＋ノイズ＋発光） */}
+      <div style={styles.bgGradient} />
+      <div style={styles.glowOne} />
+      <div style={styles.glowTwo} />
+      <div style={styles.noise} />
+
+      {/* カード */}
+      <div style={styles.card}>
+        <div style={styles.logoWrap}>
+          {/* シンプルな渦ロゴ */}
+          <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden>
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#7dd3fc" />
+                <stop offset="100%" stopColor="#60a5fa" />
+              </linearGradient>
+            </defs>
+            <circle
+              cx="24"
+              cy="24"
+              r="22"
+              fill="none"
+              stroke="url(#g)"
+              strokeWidth="2.5"
+            />
+            <path
+              d="M24 10c7 0 12 5 12 12s-5 12-12 12S12 29 12 22"
+              fill="none"
+              stroke="url(#g)"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+
+        <h1 style={styles.title}>サインイン</h1>
+        <p style={styles.subtitle}>
+          ログインすると、地図と投稿機能が使えるようになるよ。
+        </p>
+
+        {(oauthError || loginReason) && (
+          <div style={styles.errorBox}>
+            {oauthError ??
+              (loginReason === "no-session"
+                ? "Googleログイン後のセッション確立に失敗しました。もう一度お試しください。"
+                : loginReason === "no-code"
+                ? "Googleから認証コードを受け取れませんでした。"
+                : loginReason === "fatal"
+                ? "Googleログイン中にエラーが発生しました。"
+                : "ログインに失敗しました。")}
+          </div>
+        )}
+
+        <button
+  onClick={loginWithGoogle}
+  disabled={busy}
+  style={{ ...styles.btn, ...styles.btnPrimary }}
+>
+  {busy ? "処理中…" : "Googleでサインイン"}
+</button>
+
+{/* ✅ 追加：ログイン無しで見れる導線 */}
+<div style={styles.publicBox}>
+  <div style={styles.publicTitle}>ログインなしでも見られるよ</div>
+  <div style={styles.publicText}>
+    みんなの旅の投稿（Public）だけ先に覗けます。
+  </div>
+  <a href="/public" style={styles.publicBtn}>
+    🌍 みんなの投稿を見る
+  </a>
+</div>
+
+<div style={styles.divider}>
+  <span style={styles.dividerLine} />
+  <span style={styles.dividerText}>または</span>
+  <span style={styles.dividerLine} />
+</div>
+        
+        {/* メール＋OTP フォーム */}
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
+          <input
+            type="email"
+            placeholder="メールアドレス"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={styles.input}
+            disabled={busy || mode === "verify"} // コード入力ステップではメール変更ロック
+          />
+
+          {mode === "verify" && (
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              placeholder="6桁のコード"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              style={styles.input}
+            />
+          )}
+
+          <button
+            type="submit"
+            disabled={busy || !email}
+            style={{ ...styles.btn, ...styles.btnGhost }}
+          >
+            {busy
+              ? "処理中…"
+              : mode === "request"
+              ? "6桁コードをメールで受け取る"
+              : "6桁コードでログイン"}
+          </button>
+        </form>
+
+        <p style={styles.note}>
+          メールに届いた6桁コードを入力するとサインインできるよ。
         </p>
       </div>
-    </main>
+
+
+      {/* ちょいアニメのCSS */}
+      <style jsx>{`
+        @keyframes floaty {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+            filter: blur(60px);
+          }
+          50% {
+            transform: translate(-48%, -52%) scale(1.05);
+            filter: blur(80px);
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            filter: blur(60px);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
+
+// 以下 styles はそのまま（元コードからコピー）
+const styles: Record<string, React.CSSProperties> = {
+  root: {
+    position: "relative",
+    minHeight: "100svh",
+    overflow: "hidden",
+    background:
+      "linear-gradient(120deg, #0b1020 0%, #0e1733 60%, #0b1b3f 100%)",
+    display: "grid",
+    placeItems: "center",
+    padding: 24,
+  },
+  bgGradient: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(1000px 600px at 20% 20%, rgba(56, 189, 248, 0.25), transparent 60%), radial-gradient(900px 600px at 80% 80%, rgba(99, 102, 241, 0.22), transparent 60%)",
+    pointerEvents: "none",
+  },
+  glowOne: {
+    position: "absolute",
+    top: "40%",
+    left: "30%",
+    width: 520,
+    height: 520,
+    background:
+      "radial-gradient(circle, rgba(56,189,248,0.35) 0%, rgba(56,189,248,0) 70%)",
+    borderRadius: "50%",
+    transform: "translate(-50%, -50%)",
+    animation: "floaty 12s ease-in-out infinite",
+    pointerEvents: "none",
+  },
+  glowTwo: {
+    position: "absolute",
+    top: "65%",
+    left: "70%",
+    width: 520,
+    height: 520,
+    background:
+      "radial-gradient(circle, rgba(99,102,241,0.28) 0%, rgba(99,102,241,0) 70%)",
+    borderRadius: "50%",
+    transform: "translate(-50%, -50%)",
+    animation: "floaty 14s ease-in-out infinite",
+    pointerEvents: "none",
+  },
+  noise: {
+    position: "absolute",
+    inset: 0,
+    background:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"120\\" height=\\"120\\" viewBox=\\"0 0 120 120\\"><filter id=\\"n\\"><feTurbulence type=\\"fractalNoise\\" baseFrequency=\\"0.8\\" numOctaves=\\"2\\" stitchTiles=\\"stitch\\"/></filter><rect width=\\"120\\" height=\\"120\\" filter=\\"url(%23n)\\" opacity=\\"0.035\\"/></svg>")',
+    mixBlendMode: "soft-light",
+    pointerEvents: "none",
+  },
+  card: {
+    position: "relative",
+    width: "min(92vw, 420px)",
+    padding: 28,
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))",
+    boxShadow:
+      "0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
+    color: "#e6eefc",
+  },
+  logoWrap: { display: "grid", placeItems: "center", marginBottom: 10 },
+  title: { fontSize: 24, fontWeight: 800, margin: "4px 0 6px" },
+  subtitle: {
+    color: "rgba(230,238,252,0.7)",
+    margin: "0 0 16px",
+    lineHeight: 1.6,
+    fontSize: 14,
+  },
+  errorBox: {
+    marginBottom: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(248,113,113,0.45)",
+    background: "rgba(127,29,29,0.22)",
+    color: "#fecaca",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+  btn: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.2)",
+    fontWeight: 800,
+    letterSpacing: 0.2,
+    cursor: "pointer",
+  },
+  btnPrimary: {
+    background:
+      "linear-gradient(90deg, rgba(56,189,248,0.16), rgba(99,102,241,0.16))",
+    color: "#eaf2ff",
+  },
+  btnGhost: {
+    background: "rgba(255,255,255,0.06)",
+    color: "#eaf2ff",
+  },
+  input: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.18)",
+    outline: "none",
+    background: "rgba(0,0,0,0.25)",
+    color: "#eaf2ff",
+  },
+  divider: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center",
+    gap: 10,
+    margin: "14px 0",
+  },
+  dividerLine: { height: 1, background: "rgba(255,255,255,0.16)" },
+  dividerText: { fontSize: 12, color: "rgba(230,238,252,0.6)" },
+  note: { marginTop: 10, fontSize: 12, color: "rgba(230,238,252,0.55)" },
+
+        publicBox: {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.06)",
+},
+publicTitle: {
+  fontSize: 13,
+  fontWeight: 900,
+  marginBottom: 4,
+},
+publicText: {
+  fontSize: 12,
+  color: "rgba(230,238,252,0.68)",
+  lineHeight: 1.5,
+},
+publicBtn: {
+  display: "inline-block",
+  marginTop: 10,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(0,0,0,0.22)",
+  color: "#eaf2ff",
+  textDecoration: "none",
+  fontWeight: 900,
+},
+};

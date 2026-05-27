@@ -103,3 +103,29 @@ html, body {
 /* 横スクロール封じ（グローのはみ出し対策） */
 html, body { overflow-x: hidden; }
 
+/* iOSの入力フォーカス自動ズームを止める */
+html { -webkit-text-size-adjust: 100%; }
+
+/* 入力系は最低16pxにしてズーム回避（iOS優先で効かす） */
+input, select, textarea {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+/* 検索ボックス専用（見た目の安定） */
+.tm-search-input {
+  height: 44px;                 /* 固定高さ */
+  padding: 10px 14px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  outline: none;
+}
+.tm-search-input:focus {
+  outline: none;
+  /* 青いグローを控えめに（はみ出し見えを防ぐ） */
+  box-shadow: 0 0 0 3px rgba(59,130,246,.35);
+}
+
+

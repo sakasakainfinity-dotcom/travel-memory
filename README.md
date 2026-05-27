@@ -1,36 +1,28 @@
-```md
+# Travel Memory / PhotoMapper
 
-\# Travel Memory MVP
+新しい Supabase プロジェクトへの移行前提で、接続先・SQL・Vercel 設定を整理したリポジトリです。
 
+## セットアップの入口
 
+詳細は `SETUP.md` を参照してください。
 
+- 新 Supabase の初期化
+- Vercel に入れる env 一覧
+- `photos` bucket 作成方針
+- Stripe / share API の注意点
+- build crash を避けるための env 方針
 
+## クイックスタート
 
-二人でも一人でも、行った場所にピン→写真複数＋メモを残す。将来 “巡礼/100選パック” を拡張可能な基盤。
+1. `npm install`
+2. `.env.example` を元に `.env.local` を作成
+3. Supabase SQL Editor で `supabase/migrations/20260321000000_new_project_bootstrap.sql` を実行
+4. `npx tsc --noEmit`
+5. `npm run build`
+6. `npm run dev`
 
+## 補足
 
-
-
-
-\## セットアップ
-
-1\. `pnpm i` または `npm i`
-
-2\. Supabase プロジェクト作成 → `.env` 設定
-
-3\. Supabase SQL エディタで `supabase/migrations/001\_init.sql` と `supabase/storage\_policies.sql` を順に実行
-
-4\. Supabase Storage に `memories` バケットを \*\*手動作成\*\*（パブリックはOFFのままでOK）
-
-5\. `npm run dev`
-
-
-
-
-
-\## デプロイ
-
-\- GitHub 連携 → Vercel。環境変数（`.env` と同じキー）を \*\*Preview/Production\*\* 両方に設定。
-
-```
-
+- `SUPABASE_SERVICE_ROLE_KEY` は **build 時必須ではありません**。  
+  ただし share / spot / stripe webhook 系 API を実際に使う時点では必要です。
+- 旧 Supabase の `photos_bak` / `places_bak` は、新規プロジェクト移行では再作成していません。

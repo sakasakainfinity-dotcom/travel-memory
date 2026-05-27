@@ -9,10 +9,26 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // 末尾スラッシュ無視して判定（/auth/callback/ でもOK）
-  const isPublic = useMemo(() => {
+  const normalizedPath = useMemo(() => {
     const p = pathname.replace(/\/+$/, "");
-    return p === "/login" || p === "/auth/callback";
+      return p || "/";
   }, [pathname]);
+
+   // allowlist: ここで定義したパスは未ログインでも通す
+  const isPublicPath = useMemo(() => {
+    if (normalizedPath === "/public") return true;
+    if (normalizedPath === "/login") return true;
+    if (normalizedPath === "/auth/callback") return true;
+    if (normalizedPath === "/_offline") return true;
+    if (normalizedPath === "/manifest.webmanifest") return true;
+
+    // Next.js static assets（念のため）
+    if (normalizedPath.startsWith("/_next/")) return true;
+    if (normalizedPath.startsWith("/icons/")) return true;
+    if (normalizedPath === "/favicon.ico") return true;
+    if (normalizedPath === "/apple-touch-icon.png") return true;
+    return false;
+  }, [normalizedPath]);
 
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
@@ -50,8 +66,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ★ /login と /auth/callback は必ず素通り（ここでは絶対リダイレクトしない）
-  if (isPublic) return <>{children}</>;
+ // allowlist 対象は必ず素通り（ここでは絶対リダイレクトしない）
+  if (isPublicPath) return <>{children}</>;
 
   if (checking) {
     return (
