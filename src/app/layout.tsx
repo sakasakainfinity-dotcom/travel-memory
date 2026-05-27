@@ -1,10 +1,7 @@
 // src/app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
-import SWRegister from "./sw-register";
-import InstallCTA from "@/components/InstallCTA";
-import SWUpdater from "@/components/SWUpdater";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -59,18 +56,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {children}
-        {/* SW登録（あるなら残す。無ければこの行は消してOK） */}
-        <SWRegister />
-        {/* SW更新トースト & A2HSボタン */}
-        <SWUpdater />
-        <InstallCTA />
-
-        {/* ← ここが未クローズだった。`/>` で閉じる */}
-        <Script
-          defer
-          data-domain="photomappaer.com"
-          src="https://plausible.io/js/script.js"
-        />
+        {/* 任意：ホーム画面追加の案内（iOSは手動案内） */}
+        <PWAInstallPrompt />
       </body>
     </html>
   );
