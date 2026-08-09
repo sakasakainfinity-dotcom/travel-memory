@@ -1,22 +1,140 @@
 "use client";
-import { useEffect,useMemo,useState } from "react";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
-import { bingoLines,formatElapsed,normalizeAnswer } from "@/lib/bingo/lines";
+import { bingoLines, formatElapsed, normalizeAnswer } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
-type Item={id:string;position:number;type:"photo"|"quiz";title:string;description:string|null;question:string|null;hint:string|null;correct_answers:string[]|null;spot_id:string|null;photo_required:boolean;places?:{lat:number;lng:number;title:string}|null};
-type Game={id:string;title:string;description:string|null;items:Item[]};
-type Session={id:string;start_time:string;completed_at:string|null;status:string};
-export default function TownBingoPlayer({slug}:{slug:string}){
- const [game,setGame]=useState<Game|null>(null),[session,setSession]=useState<Session|null>(null),[done,setDone]=useState<Set<string>>(new Set()),[selected,setSelected]=useState<Item|null>(null),[answer,setAnswer]=useState(""),[message,setMessage]=useState(""),[now,setNow]=useState(Date.now());
- useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
- useEffect(()=>{void (async()=>{const {data}=await supabase.from("bingos").select("id,title,description,items:bingo_items(id,position,type,title,description,question,hint,correct_answers,spot_id,photo_required,places(lat,lng,title))").eq("slug",slug).eq("is_published",true).maybeSingle();if(!data)return;const g={...data,items:[...(data.items??[])].sort((a:any,b:any)=>a.position-b.position).map((item:any)=>({...item,places:Array.isArray(item.places)?item.places[0]??null:item.places}))} as Game;setGame(g);const {data:{user}}=await supabase.auth.getUser();if(!user)return;const {data:s}=await supabase.from("bingo_sessions").select("id,start_time,completed_at,status").eq("bingo_id",g.id).eq("user_id",user.id).in("status",["active","completed"]).order("created_at",{ascending:false}).limit(1).maybeSingle();if(s){setSession(s);const {data:p}=await supabase.from("bingo_progress").select("bingo_item_id").eq("session_id",s.id).eq("is_cleared",true);setDone(new Set((p??[]).map(x=>x.bingo_item_id)));}})()},[slug]);
- const clearedIndexes=useMemo(()=>new Set(game?.items.map((x,i)=>done.has(x.id)?i:-1).filter(i=>i>=0)??[]),[game,done]); const lines=bingoLines(5,clearedIndexes);
- async function start(){const {data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return} if(!game)return;const {data,error}=await supabase.from("bingo_sessions").insert({bingo_id:game.id,user_id:user.id,status:"active",start_time:new Date().toISOString()}).select("id,start_time,completed_at,status").single();if(error)setMessage("開始できませんでした");else setSession(data);}
- async function clear(item:Item,photoUrl?:string){if(!session)return;const {error}=await supabase.from("bingo_progress").upsert({session_id:session.id,bingo_item_id:item.id,is_cleared:true,answer:item.type==="quiz"?answer:null,photo_url:photoUrl??null,cleared_at:new Date().toISOString()},{onConflict:"session_id,bingo_item_id"});if(error){setMessage("記録できませんでした");return}const next=new Set(done).add(item.id);setDone(next);setSelected(null);setAnswer("");if(next.size===25){const completed_at=new Date().toISOString();await supabase.from("bingo_sessions").update({status:"completed",completed_at}).eq("id",session.id);setSession({...session,status:"completed",completed_at});}}
- async function upload(file:File){if(!selected||!session)return;const path=`${session.id}/${selected.id}-${crypto.randomUUID()}`;const {error}=await supabase.storage.from("bingo-photos").upload(path,file);if(error){setMessage("写真を保存できませんでした");return}await clear(selected,path);}
- function checkQuiz(){if(!selected)return;const allowed=selected.correct_answers??[];if(allowed.some(x=>normalizeAnswer(x)===normalizeAnswer(answer)))void clear(selected);else setMessage("もう一度、街をよく観察してみよう！");}
- if(!game)return <main className="bingo-shell"><div className="bingo-wrap">BINGOを読み込み中…</div></main>;
- return <main className="bingo-shell"><div className="bingo-wrap"><Link href="/bingo">← 街を選ぶ</Link><div className="bingo-brand">TOWN BINGO</div><h1 className="bingo-title">{game.title}</h1><div className="bingo-stats"><span>CLEAR {done.size} / 25</span><span>BINGO {lines.length}</span><span>TIME {formatElapsed(session?.start_time??null,session?.completed_at,now)}</span></div>{!session&&<div className="bingo-card" style={{marginTop:16}}><p>{game.description}</p><button className="bingo-action" onClick={start}>BINGOをスタート</button><p className="bingo-note">進捗保存にはログインが必要です。</p></div>}<BingoGrid size={5} cleared={clearedIndexes} onSelect={i=>session&&setSelected(game.items[i])}>{Array.from({length:25},(_,i)=><span key={i}>{done.has(game.items[i]?.id)&&"✓ "}{game.items[i]?.title??"準備中"}</span>)}</BingoGrid>{lines.length>0&&<div className="bingo-card"><b>🎉 {lines.length} BINGO 達成！</b></div>}{message&&<p className="bingo-error">{message}</p>}
- {selected&&<div className="bingo-modal" onClick={()=>setSelected(null)}><div onClick={e=>e.stopPropagation()}><div className="bingo-brand">{selected.type==="photo"?"PHOTO MISSION":"QUIZ"}</div><h2>{selected.title}</h2><p>{selected.description}</p>{selected.question&&<p><b>{selected.question}</b></p>}{selected.hint&&<details><summary>ヒントを見る</summary><p>{selected.hint}</p></details>}{selected.places&&<p><a className="bingo-action bingo-secondary" href={`/?lat=${selected.places.lat}&lng=${selected.places.lng}&zoom=16`}>地図で場所を見る</a></p>}{selected.type==="quiz"?<><input className="bingo-field" value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="答えを入力"/><p><button className="bingo-action" onClick={checkQuiz}>回答する</button></p></>:<><label className="bingo-action">写真を撮る／選ぶ<input hidden type="file" accept="image/*" capture="environment" onChange={e=>e.target.files?.[0]&&void upload(e.target.files[0])}/></label>{!selected.photo_required&&<button className="bingo-action bingo-secondary" onClick={()=>void clear(selected)}>撮影せずCLEAR</button>}</>}<p><button onClick={()=>setSelected(null)}>閉じる</button></p></div></div>}</div></main>;
+
+type Item = {
+  id: string;
+  position: number;
+  type: "photo" | "quiz";
+  title: string;
+  description: string | null;
+  question: string | null;
+  hint: string | null;
+  correct_answers: string[] | null;
+  spot_id: string | null;
+  photo_required: boolean;
+  places?: { lat: number; lng: number; title: string } | null;
+};
+type Game = { id: string; title: string; description: string | null; items: Item[] };
+type GuestProgress = { startTime: string; completedAt: string | null; clearedIds: string[] };
+
+const storageKey = (slug: string) => `town-bingo-progress:${slug}`;
+
+export default function TownBingoPlayer({ slug }: { slug: string }) {
+  const [game, setGame] = useState<Game | null>(null);
+  const [progress, setProgress] = useState<GuestProgress | null>(null);
+  const [selected, setSelected] = useState<Item | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [message, setMessage] = useState("");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey(slug));
+    if (saved) {
+      try {
+        setProgress(JSON.parse(saved) as GuestProgress);
+      } catch {
+        localStorage.removeItem(storageKey(slug));
+      }
+    }
+
+    void (async () => {
+      const { data } = await supabase
+        .from("bingos")
+        .select("id,title,description,items:bingo_items(id,position,type,title,description,question,hint,correct_answers,spot_id,photo_required,places(lat,lng,title))")
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .maybeSingle();
+      if (!data) return;
+      setGame({
+        ...data,
+        items: [...(data.items ?? [])]
+          .sort((a: any, b: any) => a.position - b.position)
+          .map((item: any) => ({
+            ...item,
+            places: Array.isArray(item.places) ? item.places[0] ?? null : item.places,
+          })),
+      } as Game);
+    })();
+  }, [slug]);
+
+  const done = useMemo(() => new Set(progress?.clearedIds ?? []), [progress]);
+  const clearedIndexes = useMemo(
+    () => new Set(game?.items.map((item, index) => (done.has(item.id) ? index : -1)).filter((index) => index >= 0) ?? []),
+    [game, done],
+  );
+  const lines = bingoLines(5, clearedIndexes);
+
+  function save(next: GuestProgress) {
+    setProgress(next);
+    localStorage.setItem(storageKey(slug), JSON.stringify(next));
+  }
+
+  function start() {
+    save({ startTime: new Date().toISOString(), completedAt: null, clearedIds: [] });
+    setMessage("");
+  }
+
+  function clear(item: Item) {
+    if (!progress) return;
+    const clearedIds = Array.from(new Set([...progress.clearedIds, item.id]));
+    const completedAt = clearedIds.length === 25 ? new Date().toISOString() : progress.completedAt;
+    save({ ...progress, clearedIds, completedAt });
+    setSelected(null);
+    setAnswer("");
+    setMessage("");
+  }
+
+  function checkQuiz() {
+    if (!selected) return;
+    if ((selected.correct_answers ?? []).some((value) => normalizeAnswer(value) === normalizeAnswer(answer))) {
+      clear(selected);
+    } else {
+      setMessage("もう一度、街をよく観察してみよう！");
+    }
+  }
+
+  if (!game) return <main className="bingo-shell"><div className="bingo-wrap">BINGOを読み込み中…</div></main>;
+
+  return (
+    <main className="bingo-shell">
+      <div className="bingo-wrap">
+        <Link href="/bingo">← 街を選ぶ</Link>
+        <div className="bingo-brand">TOWN BINGO</div>
+        <h1 className="bingo-title">{game.title}</h1>
+        <div className="bingo-stats">
+          <span>CLEAR {done.size} / 25</span><span>BINGO {lines.length}</span>
+          <span>TIME {formatElapsed(progress?.startTime ?? null, progress?.completedAt ?? null, now)}</span>
+        </div>
+        {!progress && <div className="bingo-card" style={{ marginTop: 16 }}>
+          <p>{game.description}</p>
+          <button className="bingo-action" onClick={start}>BINGOをスタート</button>
+          <p className="bingo-note">ログイン不要。進捗はこの端末に保存されます。</p>
+        </div>}
+        <BingoGrid size={5} cleared={clearedIndexes} onSelect={(index) => progress && setSelected(game.items[index])}>
+          {Array.from({ length: 25 }, (_, index) => <span key={index}>{done.has(game.items[index]?.id) && "✓ "}{game.items[index]?.title ?? "準備中"}</span>)}
+        </BingoGrid>
+        {lines.length > 0 && <div className="bingo-card"><b>🎉 {lines.length} BINGO 達成！</b></div>}
+        {message && <p className="bingo-error">{message}</p>}
+        {selected && <div className="bingo-modal" onClick={() => setSelected(null)}><div onClick={(event) => event.stopPropagation()}>
+          <div className="bingo-brand">{selected.type === "photo" ? "PHOTO MISSION" : "QUIZ"}</div>
+          <h2>{selected.title}</h2><p>{selected.description}</p>
+          {selected.question && <p><b>{selected.question}</b></p>}
+          {selected.hint && <details><summary>ヒントを見る</summary><p>{selected.hint}</p></details>}
+          {selected.places && <p><a className="bingo-action bingo-secondary" href={`/map?lat=${selected.places.lat}&lng=${selected.places.lng}&zoom=16`}>地図で場所を見る</a></p>}
+          {selected.type === "quiz" ? <><input className="bingo-field" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="答えを入力"/><p><button className="bingo-action" onClick={checkQuiz}>回答する</button></p></> : <><label className="bingo-action">写真を撮る／選ぶ<input hidden type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && clear(selected)}/></label>{!selected.photo_required && <button className="bingo-action bingo-secondary" onClick={() => clear(selected)}>撮影せずCLEAR</button>}</>}
+          <p><button onClick={() => setSelected(null)}>閉じる</button></p>
+        </div></div>}
+      </div>
+    </main>
+  );
 }
