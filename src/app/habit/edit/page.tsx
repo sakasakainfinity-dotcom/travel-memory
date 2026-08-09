@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AppMenu from "@/components/AppMenu";
+import { loadGuestHabitData, saveGuestHabitData } from "@/lib/habit/guest";
 import { supabase } from "@/lib/supabaseClient";
 
 type EditableHabit = { id: string; position: number; name: string };
@@ -18,12 +19,14 @@ export default function HabitEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setMessage("編集するにはログインが必要です。");
+        const guest = loadGuestHabitData();
+        setIsGuest(true); setBoardId("guest"); setHabits(guest.habits); setRewards(guest.rewards);
         setLoading(false);
         return;
       }
@@ -63,6 +66,11 @@ export default function HabitEditPage() {
 
     setSaving(true);
     setMessage("");
+    if (isGuest) {
+      const guest = loadGuestHabitData();
+      guest.habits = habits.map((habit) => ({ ...habit, name: habit.name.trim() }));
+      saveGuestHabitData(guest); setHabits(guest.habits); setSaving(false); setMessage("習慣を保存しました。"); return;
+    }
     const results = await Promise.all([
       ...habits.map((habit) => supabase.from("habits").update({ name: habit.name.trim() }).eq("id", habit.id).eq("habit_bingo_id", boardId)),
     ]);
@@ -71,6 +79,7 @@ export default function HabitEditPage() {
   }
 
   async function reloadRewards(id: string) {
+    if (isGuest) { setRewards(loadGuestHabitData().rewards); return null; }
     const { data, error } = await supabase.from("reward_definitions").select("id,description,required_points").eq("habit_bingo_id", id).order("required_points");
     if (!error) setRewards(data ?? []);
     return error;
@@ -83,6 +92,12 @@ export default function HabitEditPage() {
     }
     setSaving(true);
     const payload = { habit_bingo_id: boardId, description: rewardName.trim(), required_points: rewardPoints };
+    if (isGuest) {
+      const guest = loadGuestHabitData();
+      if (editingReward) guest.rewards = guest.rewards.map((reward) => reward.id === editingReward ? { id: reward.id, description: rewardName.trim(), required_points: rewardPoints } : reward);
+      else guest.rewards.push({ id: `guest-reward-${Date.now()}`, description: rewardName.trim(), required_points: rewardPoints });
+      saveGuestHabitData(guest); setRewards(guest.rewards); setRewardName(""); setRewardPoints(3); setEditingReward(null); setSaving(false); setMessage("ごほうびを保存しました。"); return;
+    }
     const result = editingReward
       ? await supabase.from("reward_definitions").update(payload).eq("id", editingReward).eq("habit_bingo_id", boardId)
       : await supabase.from("reward_definitions").insert(payload);
@@ -97,6 +112,9 @@ export default function HabitEditPage() {
   async function removeReward(reward: EditableReward) {
     if (!boardId || !confirm(`「${reward.description}」を削除しますか？`)) return;
     setSaving(true);
+    if (isGuest) {
+      const guest = loadGuestHabitData(); guest.rewards = guest.rewards.filter((item) => item.id !== reward.id); saveGuestHabitData(guest); setRewards(guest.rewards); setSaving(false); setMessage("ごほうびを削除しました。"); return;
+    }
     const { error } = await supabase.from("reward_definitions").delete().eq("id", reward.id).eq("habit_bingo_id", boardId);
     if (!error) await reloadRewards(boardId);
     setSaving(false);
@@ -107,6 +125,7 @@ export default function HabitEditPage() {
     <Link className="bingo-back-link" href="/habit">← HabitBingoに戻る</Link>
     <div className="bingo-brand">HABIT BINGO EDIT</div>
     <h1 className="bingo-title">習慣とごほうびを<br/>編集する。</h1>
+    {isGuest && <p className="habit-guest-note">ログインなしでお試し中です。設定はこの端末に保存されます。</p>}
     {loading ? <div className="bingo-card">読み込み中…</div> : boardId ? <><div className="bingo-card">
       <h2>9個の習慣</h2><p className="bingo-note">変更した名前は過去の記録にも表示されます。</p>
       {habits.map((habit, index) => <div className="habit-edit-row" key={habit.id}>

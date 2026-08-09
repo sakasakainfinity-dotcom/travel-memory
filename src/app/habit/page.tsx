@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppMenu from "@/components/AppMenu";
 import { addDays, formatJapaneseDate, tokyoDate } from "@/lib/habit/date";
+import { guestHabitDefaults, loadGuestHabitData, saveGuestHabitData } from "@/lib/habit/guest";
 import { supabase } from "@/lib/supabaseClient";
 
 type Habit = { id: string; position: number; name: string };
 type Log = { habit_id: string; date: string; completed: boolean };
 type Reward = { id: string; description: string; required_points: number };
-const defaults = ["筋トレ", "読書10分", "水を2L飲む", "散歩", "英語学習", "早起き", "日記", "ストレッチ", "SNS投稿"];
+const defaults = guestHabitDefaults;
 
 export default function HabitPage() {
   const today = useMemo(() => tokyoDate(), []);
@@ -27,7 +28,11 @@ export default function HabitPage() {
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); setMessage("HabitBingoを使うにはログインしてください。"); return; }
+    if (!user) {
+      const guest = loadGuestHabitData();
+      setUserId("guest"); setBoardId("guest"); setHabits(guest.habits); setLogs(guest.logs); setRewards(guest.rewards); setSpent(guest.spent);
+      setLoading(false); return;
+    }
     setUserId(user.id);
     const { data: board, error: boardError } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
     if (boardError) { setMessage("HabitBingoを読み込めませんでした。"); setLoading(false); return; }
@@ -72,6 +77,14 @@ export default function HabitPage() {
     if (busy || !userId) return;
     setBusy(true); setMessage("");
     const done = todayDone.has(habit.id);
+    if (userId === "guest") {
+      if (done && todayDone.size === 9 && balance <= 0) { setMessage("交換済みポイントがあるため、ALL CLEARを取り消せません。"); setBusy(false); return; }
+      const guest = loadGuestHabitData();
+      guest.logs = done
+        ? guest.logs.filter((log) => !(log.habit_id === habit.id && log.date === today))
+        : [...guest.logs, { habit_id: habit.id, date: today, completed: true }];
+      saveGuestHabitData(guest); setLogs(guest.logs); setBusy(false); return;
+    }
     const result = done
       ? await supabase.from("habit_logs").delete().eq("habit_id", habit.id).eq("user_id", userId).eq("date", today)
       : await supabase.from("habit_logs").upsert({ habit_id: habit.id, user_id: userId, date: today, completed: true }, { onConflict: "habit_id,date" });
@@ -82,6 +95,15 @@ export default function HabitPage() {
   async function redeem(reward: Reward) {
     if (!confirm(`「${reward.description}」に ${reward.required_points}pt を使いますか？`)) return;
     setBusy(true);
+    if (userId === "guest") {
+      const guest = loadGuestHabitData();
+      const guestDays = new Map<string, Set<string>>();
+      guest.logs.filter((log) => log.completed).forEach((log) => { if (!guestDays.has(log.date)) guestDays.set(log.date, new Set()); guestDays.get(log.date)!.add(log.habit_id); });
+      const guestEarned = [...guestDays.values()].filter((ids) => ids.size === 9).length;
+      if (guestEarned - guest.spent < reward.required_points) setMessage("ポイントが不足しています。");
+      else { guest.spent += reward.required_points; saveGuestHabitData(guest); setSpent(guest.spent); setMessage(`「${reward.description}」を交換しました！`); }
+      setBusy(false); return;
+    }
     const { error } = await supabase.rpc("redeem_habit_reward", { p_reward_id: reward.id });
     setMessage(error ? "ポイントが不足しているか、交換できませんでした。" : `「${reward.description}」を交換しました！`);
     await load(); setBusy(false);
@@ -92,6 +114,7 @@ export default function HabitPage() {
     <div className="bingo-brand">HABIT BINGO</div>
     {boardId && <>
       <header className="habit-header"><div><span>今日のHabitBingo</span><h1>{formatJapaneseDate(today, true)}</h1></div><Link href="/habit/edit">習慣を編集</Link></header>
+      {userId === "guest" && <p className="habit-guest-note">ログインなしでお試し中です。記録はこの端末に保存されます。</p>}
       <section className={`habit-today ${todayDone.size === 9 ? "is-all-clear" : ""}`}>
         {todayDone.size === 9 && <div className="habit-clear-banner">🎉 ALL CLEAR! <small>⭐ ごほうびポイント +1</small></div>}
         <div className="habit-grid">{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? "is-done" : ""} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className="habit-check">{done ? "✓" : habit.position + 1}</span><b>{habit.name}</b></button>; })}</div>
