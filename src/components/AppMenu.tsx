@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type AppMenuCurrent = "map" | "municipality-search" | "adventure-book" | "share" | "settings";
+type AppMenuCurrent = "map" | "municipality-search" | "town-bingo" | "habit-bingo" | "adventure-book" | "share" | "settings";
 
 type AppMenuProps = {
   current?: AppMenuCurrent;
@@ -19,6 +19,8 @@ type MenuItem = {
 const MENU_ITEMS: MenuItem[] = [
   { key: "map", label: "全国・開拓マップ", href: "/" },
   { key: "municipality-search", label: "市町村検索", href: "/municipalities" },
+  { key: "town-bingo", label: "TownBingo", href: "/bingo" },
+  { key: "habit-bingo", label: "HabitBingo", href: "/habit" },
   { key: "adventure-book", label: "自分の称号・特典メーター（冒険の書）", href: "/adventure" },
   { key: "share", label: "シェア", href: "/share" },
   { key: "settings", label: "アプリ設定", href: "/about" },

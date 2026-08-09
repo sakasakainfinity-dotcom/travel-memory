@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AppMenu from "@/components/AppMenu";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { insertPlace } from "@/lib/insertPlace";
 import { fetchPlaces, type PlaceWithPhotos } from "@/lib/fetchPlaces";
 import SearchBox from "@/components/SearchBox";
 import MunicipalitySearchBox from "@/components/MunicipalitySearchBox";
@@ -16,8 +15,6 @@ import PhotoMapperSplash from "@/components/PhotoMapperSplash";
 import PhotoLightbox from "@/components/PhotoLightbox";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
-
-const CATEGORIES = ["食事", "宿泊", "体験", "お土産", "店舗", "娯楽", "マニアック", "その他"];
 
 type Marker = {
   id: string;
@@ -35,21 +32,15 @@ export default function UnifiedTopPage() {
   const router = useRouter();
   const [rawPosts, setRawPosts] = useState<PlaceWithPhotos[]>([]);
   const [selectedMunicipalityKey, setSelectedMunicipalityKey] = useState<string | null>(null);
-  const [uiMode, setUiMode] = useState<"view" | "post" | null>(null);
+  const [uiMode, setUiMode] = useState<"view" | null>(null);
   const [selectedPost, setSelectedPost] = useState<PlaceWithPhotos | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ src: string; post: PlaceWithPhotos } | null>(null);
-  const [title, setTitle] = useState("");
-  const [memo, setMemo] = useState("");
-  const [category, setCategory] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [profilePoints, setProfilePoints] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [accountName, setAccountName] = useState("ゲスト");
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: 35.68, lng: 139.76 });
-  const [loginPrompt, setLoginPrompt] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number; label?: string } | null>(null);
   const [booting, setBooting] = useState(true);
-  const [posting, setPosting] = useState(false);
 
   const syncAuthState = useCallback(async () => {
     const [sessionRes, userRes] = await Promise.all([
@@ -157,26 +148,12 @@ export default function UnifiedTopPage() {
     () => municipalityMarkers.find((m) => m.id === selectedMunicipalityKey) ?? null,
     [municipalityMarkers, selectedMunicipalityKey]
   );
-  const composeMunicipality = selectedMunicipality;
 
   const openedMunicipalityCount = municipalityMarkers.filter((m) => m.postCount > 0).length;
   const openedPrefectureCount = new Set(
     municipalityMarkers.filter((m) => m.postCount > 0).map((x) => x.prefectureName)
   ).size;
   const rank = resolveRank(profilePoints);
-
-  const handleStartComposeForMunicipality = useCallback(
-    async (municipalityKey: string) => {
-      const uid = await syncAuthState();
-      if (!uid) {
-        setLoginPrompt(true);
-        return;
-      }
-      setSelectedMunicipalityKey(municipalityKey);
-      setUiMode("post");
-    },
-    [syncAuthState]
-  );
 
   const openMunicipality = useCallback((municipalityKey: string) => {
     setSelectedMunicipalityKey(municipalityKey);
@@ -303,25 +280,6 @@ export default function UnifiedTopPage() {
               <div style={{ color: "#475569", fontSize: 13, textAlign: "center" }}>{selectedMunicipality.prefectureName} / 投稿 {selectedPosts.length}件</div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void handleStartComposeForMunicipality(selectedMunicipality.id)}
-              style={{
-                border: "1px solid rgba(255,255,255,0.7)",
-                background: "linear-gradient(120deg, rgba(255,255,255,0.55), rgba(226,232,255,0.45) 35%, rgba(186,230,253,0.48) 100%)",
-                color: "#0f172a",
-                borderRadius: 16,
-                padding: "12px 18px",
-                fontWeight: 900,
-                fontSize: 16,
-                cursor: "pointer",
-                boxShadow: "0 10px 28px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255,255,255,0.85)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              投稿する
-            </button>
-
             <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
               {selectedPosts.map((post) => {
                 const coverPhoto = post.photos?.[0] ?? null;
@@ -399,7 +357,7 @@ export default function UnifiedTopPage() {
                         lineHeight: 1.5,
                       }}
                     >
-                      つばめ「ぴよっ、まだ投稿はないみたい！最初の1枚を投稿して、この街を開拓しよう〜 ✨」
+                      つばめ「ぴよっ、この街のスポットは準備中だよ。公開を楽しみに待っていてね！」
                     </div>
                     <div
                       aria-hidden
@@ -438,96 +396,6 @@ export default function UnifiedTopPage() {
         </section>
       )}
 
-      {composeMunicipality && uiMode === "post" && (
-        <section style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.52)", display: "grid", placeItems: "center", zIndex: 50, padding: 12 }}>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                setPosting(true);
-                await insertPlace({
-                  title,
-                  memo,
-                  lat: composeMunicipality.lat,
-                  lng: composeMunicipality.lng,
-                  files,
-                  tags: category ? [category] : [],
-                });
-                setTitle("");
-                setMemo("");
-                setCategory("");
-                setFiles([]);
-                await load();
-                setUiMode("view");
-              } finally {
-                setPosting(false);
-              }
-            }}
-            style={{
-              width: "min(92vw, 640px)",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.63) 100%)",
-              borderRadius: 24,
-              padding: 18,
-              display: "grid",
-              gap: 12,
-              border: "1px solid rgba(255,255,255,0.8)",
-              backdropFilter: "blur(18px)",
-              boxShadow: "0 28px 80px rgba(15, 23, 42, 0.34)",
-            }}
-          >
-            <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0, letterSpacing: "0.01em" }}>✍️ 旅の投稿フォーム</h2>
-            <div style={{ fontSize: 13, color: "#334155", border: "1px solid rgba(186,230,253,0.8)", borderRadius: 14, padding: 10, background: "rgba(239,246,255,0.62)" }}>
-              投稿先: {composeMunicipality.prefectureName} {composeMunicipality.municipalityName}
-            </div>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>① タイトル（任意）</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, background: "rgba(255,255,255,0.72)" }} />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>② 画像アップロード（圧縮して投稿）</span>
-              <input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} required style={{ border: "1px dashed rgba(37,99,235,0.5)", borderRadius: 12, padding: 10, background: "rgba(239,246,255,0.65)" }} />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>③ ひとこと（任意）</span>
-              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="ひとこと" style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, minHeight: 90, background: "rgba(255,255,255,0.72)" }} />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>④ カテゴリー（任意）</span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid rgba(148,163,184,0.55)", borderRadius: 12, padding: 11, background: "rgba(255,255,255,0.72)" }}>
-                <option value="">選択しない</option>
-                {CATEGORIES.map((c) => <option value={c} key={c}>{c}</option>)}
-              </select>
-            </label>
-            <div style={{ border: "1px solid rgba(226,232,240,0.95)", borderRadius: 12, padding: 10, background: "rgba(248,250,252,0.8)" }}>⑤ 投稿者: {accountName}</div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => setUiMode("view")}
-                disabled={posting}
-                style={{ borderRadius: 10, border: "1px solid rgba(148,163,184,0.8)", background: "rgba(255,255,255,0.75)", padding: "8px 14px" }}
-              >
-                閉じる
-              </button>
-              <button
-                type="submit"
-                disabled={posting}
-                style={{
-                  border: "1px solid rgba(59,130,246,0.95)",
-                  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-                  color: "white",
-                  borderRadius: 12,
-                  padding: "10px 20px",
-                  fontWeight: 800,
-                  boxShadow: "0 12px 24px rgba(59, 130, 246, 0.35)",
-                }}
-              >
-                {posting ? "投稿中..." : "投稿する"}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
       {selectedPhoto && (
         <PhotoLightbox
           src={selectedPhoto.src}
@@ -556,19 +424,6 @@ export default function UnifiedTopPage() {
               <button onClick={() => setSelectedPost(null)}>閉じる</button>
             </div>
           </article>
-        </section>
-      )}
-
-      {loginPrompt && (
-        <section style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 40 }}>
-          <div style={{ width: "min(92vw, 380px)", background: "white", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
-            <div style={{ fontWeight: 900 }}>投稿にはログインが必要です</div>
-            <p style={{ margin: 0, color: "#475569" }}>ログイン後は投稿・いいね・行きたい・行ったが使えます。</p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setLoginPrompt(false)}>閉じる</button>
-              <button onClick={() => router.push("/login")}>ログインする</button>
-            </div>
-          </div>
         </section>
       )}
 
