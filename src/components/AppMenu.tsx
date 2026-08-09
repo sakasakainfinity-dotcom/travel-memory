@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 type AppMenuCurrent = "map" | "municipality-search" | "town-bingo" | "habit-bingo" | "adventure-book" | "share" | "settings";
 
@@ -17,7 +16,7 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { key: "map", label: "全国・開拓マップ", href: "/" },
+  { key: "map", label: "全国・開拓マップ", href: "/map" },
   { key: "municipality-search", label: "市町村検索", href: "/municipalities" },
   { key: "town-bingo", label: "TownBingo", href: "/bingo" },
   { key: "habit-bingo", label: "HabitBingo", href: "/habit" },
@@ -30,24 +29,6 @@ export default function AppMenu({ current }: AppMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setLoggedIn(Boolean(data.session));
-    };
-
-    void checkSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setLoggedIn(Boolean(session));
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
   useEffect(() => {
     if (!open) {
       document.body.style.overflow = "";
@@ -79,21 +60,7 @@ export default function AppMenu({ current }: AppMenuProps) {
     router.push(href);
   };
 
-  const handleAuthAction = async () => {
-    if (!loggedIn) {
-      navigateTo("/login");
-      return;
-    }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      alert("ログアウトに失敗しました");
-      return;
-    }
-
-    setOpen(false);
-    router.push("/login");
-  };
 
   return (
     <>
@@ -136,10 +103,6 @@ export default function AppMenu({ current }: AppMenuProps) {
               </button>
             );
           })}
-
-          <button type="button" onClick={() => void handleAuthAction()} style={styles.itemButton}>
-            {loggedIn ? "ログアウト" : "ログイン"}
-          </button>
         </nav>
       </aside>
     </>
