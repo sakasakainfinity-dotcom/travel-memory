@@ -8,7 +8,7 @@ import { guestHabitDefaults, loadGuestHabitData, saveGuestHabitData } from "@/li
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./habit.module.css";
 
-type Habit = { id: string; position: number; name: string };
+type Habit = { id: string; position: number; title: string; description: string | null };
 type Log = { habit_id: string; date: string; completed: boolean };
 type Reward = { id: string; description: string; required_points: number };
 type Period = 7 | 14 | 30;
@@ -49,9 +49,9 @@ export default function HabitPage() {
       } else activeBoard = createdBoard;
     }
     setBoardId(activeBoard.id);
-    const { error: seedError } = await supabase.from("habits").upsert(defaults.map((name, position) => ({ habit_bingo_id: activeBoard.id, position, name, target_count: 1 })), { onConflict: "habit_bingo_id,position", ignoreDuplicates: true });
+    const { error: seedError } = await supabase.from("habits").upsert(defaults.map((title, position) => ({ habit_bingo_id: activeBoard.id, position, name: title, title, description: "", target_count: 1 })), { onConflict: "habit_bingo_id,position", ignoreDuplicates: true });
     if (seedError) { setMessage("9マスを準備できませんでした。"); setLoading(false); return; }
-    const { data: habitRows, error: habitError } = await supabase.from("habits").select("id,position,name").eq("habit_bingo_id", activeBoard.id).order("position");
+    const { data: habitRows, error: habitError } = await supabase.from("habits").select("id,position,title,description").eq("habit_bingo_id", activeBoard.id).order("position");
     if (habitError) { setMessage("習慣を読み込めませんでした。"); setLoading(false); return; }
     const ids = (habitRows ?? []).map((habit) => habit.id);
     const [logResult, rewardResult, redemptionResult] = await Promise.all([
@@ -110,7 +110,7 @@ export default function HabitPage() {
     {userId === "guest" && <p className={styles.guest}>ログインなしでお試し中です。記録はこの端末に保存されます。</p>}
 
     <section className={`${styles.card} ${styles.today} ${todayDone.size === 9 ? styles.allClear : ""}`}><h2><span>❧</span> 今日のビンゴ <span>✦</span></h2>
-      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><b>{habit.name}</b>{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
+      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-label={habit.description ? `${habit.title}：${habit.description}` : habit.title} title={habit.description || undefined} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><b>{habit.title}</b>{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
       <div className={styles.helper}><span>❧</span> {helper}</div>
       <div className={styles.pointProgress}><div className={styles.current} style={{ left: `${Math.max(2, todayDone.size / 9 * 100)}%` }}>現在 +{todayPoints}pt</div><div className={styles.track}><i style={{ width: `${todayDone.size / 9 * 100}%` }}/><span className={styles.markSix}>★</span><span className={styles.markNine}>★</span></div><div className={styles.milestones}><span/><b>6個達成で<br/><strong>+1pt</strong></b><b>9個達成で<br/><strong>+2pt</strong></b></div></div>
     </section>
@@ -123,7 +123,7 @@ export default function HabitPage() {
 
     <section className={`${styles.card} ${styles.results}`}><h2><span>✦</span> 実績 <span>✦</span></h2>
       <div className={styles.periodControls}><label>表示期間：<select value={period} onChange={(event) => { setPeriod(Number(event.target.value) as Period); setPeriodEnd(today); }}><option value={7}>直近1週間</option><option value={14}>直近2週間</option><option value={30}>直近1か月</option></select></label><div><button aria-label="前の期間" onClick={() => setPeriodEnd(addDays(periodEnd, -period))}>‹</button><b>{shortDate(dates[0])} – {shortDate(periodEnd)}</b><button aria-label="次の期間" disabled={periodEnd === today} onClick={() => setPeriodEnd(addDays(periodEnd, period) > today ? today : addDays(periodEnd, period))}>›</button></div></div>
-      <div className={styles.tableWrap}><table><thead><tr><th>習慣</th>{dates.map((date) => <th key={date}>{new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(new Date(`${date}T12:00:00+09:00`))}<small>{shortDate(date)}</small></th>)}</tr></thead><tbody>{habits.map((habit) => <tr key={habit.id}><th>{habit.name}</th>{dates.map((date) => <td className={completedIds(date).has(habit.id) ? styles.yes : styles.no} key={date}>{completedIds(date).has(habit.id) ? "○" : "×"}</td>)}</tr>)}<tr className={styles.total}><th>達成数</th>{dates.map((date) => <td key={date}>{completedIds(date).size}/9</td>)}</tr><tr className={styles.total}><th>獲得pt</th>{dates.map((date) => <td key={date}>+{pointsFor(completedIds(date).size)}pt</td>)}</tr></tbody></table></div>
+      <div className={`${styles.tableWrap} ${period === 7 ? styles.oneWeek : ""}`}><table><thead><tr><th>習慣</th>{dates.map((date) => <th key={date}>{new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(new Date(`${date}T12:00:00+09:00`))}<small>{shortDate(date)}</small></th>)}</tr></thead><tbody>{habits.map((habit) => <tr key={habit.id}><th>{habit.title}</th>{dates.map((date) => <td className={completedIds(date).has(habit.id) ? styles.yes : styles.no} key={date}>{completedIds(date).has(habit.id) ? "○" : "×"}</td>)}</tr>)}<tr className={styles.total}><th>達成数</th>{dates.map((date) => <td key={date}>{completedIds(date).size}/9</td>)}</tr><tr className={styles.total}><th>獲得pt</th>{dates.map((date) => <td key={date}>+{pointsFor(completedIds(date).size)}pt</td>)}</tr></tbody></table></div>
       <p className={styles.rule}>6個達成で +1pt ／ 9個達成で +2pt</p>
     </section>
     {message && <p className={styles.message} role="status">{message}</p>}
