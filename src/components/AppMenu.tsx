@@ -16,13 +16,8 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { key: "map", label: "全国・開拓マップ", href: "/map" },
-  { key: "municipality-search", label: "市町村検索", href: "/municipalities" },
-  { key: "town-bingo", label: "TownBingo", href: "/bingo" },
-  { key: "habit-bingo", label: "HabitBingo", href: "/habit" },
-  { key: "adventure-book", label: "自分の称号・特典メーター（冒険の書）", href: "/adventure" },
-  { key: "share", label: "シェア", href: "/share" },
-  { key: "settings", label: "アプリ設定", href: "/about" },
+  { key: "town-bingo", label: "Town Bingo", href: "/bingo" },
+  { key: "habit-bingo", label: "Habit Bingo", href: "/habit" },
 ];
 
 export default function AppMenu({ current }: AppMenuProps) {
@@ -83,7 +78,7 @@ export default function AppMenu({ current }: AppMenuProps) {
         }}
       >
         <div style={styles.headerRow}>
-          <div style={styles.menuTitle}>photoMapper</div>
+          <div style={styles.menuTitle}>BINGO</div>
           <button type="button" aria-label="閉じる" onClick={() => setOpen(false)} style={styles.closeButton}>
             ×
           </button>
@@ -175,14 +170,14 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
   },
   itemButton: {
-    minHeight: 44,
+    minHeight: 52,
     borderRadius: 10,
     border: "1px solid #e2e8f0",
     background: "#fff",
     padding: "10px 12px",
     textAlign: "left",
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 17,
   },
   activeItem: {
     background: "#f1f5f9",
