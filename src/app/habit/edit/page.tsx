@@ -63,6 +63,14 @@ export default function HabitEditPage() {
       setMessage("9個すべてのタイトルを入力してください。");
       return;
     }
+    if (habits.some((habit) => habit.title.trim().length > 10)) {
+      setMessage("タイトルが長すぎます。10文字以内で入力してください。");
+      return;
+    }
+    if (habits.some((habit) => (habit.description?.trim().length ?? 0) > 30)) {
+      setMessage("詳細が長すぎます。30文字以内で入力してください。");
+      return;
+    }
 
     setSaving(true);
     setMessage("");
@@ -129,8 +137,8 @@ export default function HabitEditPage() {
     {loading ? <div className="bingo-card">読み込み中…</div> : boardId ? <><div className="bingo-card">
       <h2>9個の習慣</h2><p className="bingo-note">タイトルはビンゴと実績表に表示されます。詳細は具体的な達成条件を記録できます。</p>
       {habits.map((habit, index) => <div className="habit-edit-row" key={habit.id}>
-        <label><span>{index + 1}. タイトル（必須）</span><input className="bingo-field" placeholder="例：昼に運動" required maxLength={10} value={habit.title} onChange={(event) => setHabits((current) => current.map((item) => item.id === habit.id ? { ...item, title: event.target.value } : item))}/></label>
-        <label><span>詳細（任意）</span><input className="bingo-field" placeholder="具体的な数字も入れてみよう" maxLength={30} value={habit.description ?? ""} onChange={(event) => setHabits((current) => current.map((item) => item.id === habit.id ? { ...item, description: event.target.value } : item))}/></label>
+        <label className="habit-title-field"><span>{index + 1}. タイトル（必須・10文字以内）</span><input className="bingo-field" placeholder="例：昼に運動" required maxLength={10} value={habit.title} onChange={(event) => setHabits((current) => current.map((item) => item.id === habit.id ? { ...item, title: event.target.value } : item))}/></label>
+        <label className="habit-description-field"><span>詳細（任意・30文字以内）</span><input className="bingo-field" placeholder="具体的な数字も入れてみよう" maxLength={30} value={habit.description ?? ""} onChange={(event) => setHabits((current) => current.map((item) => item.id === habit.id ? { ...item, description: event.target.value } : item))}/></label>
       </div>)}
       <div className="habit-edit-actions"><button className="bingo-action" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "変更を保存"}</button><Link className="bingo-action bingo-secondary" href="/habit">キャンセル</Link></div>
     </div><div className="bingo-card habit-reward-editor" id="rewards"><h2>ごほうび</h2><p className="bingo-note">ごほうび名と交換に必要なポイントを設定します。</p><div className="reward-list">{rewards.map((reward) => <article key={reward.id}><div><strong>⭐ {reward.required_points}pt</strong><b>{reward.description}</b></div><div className="reward-tools"><button onClick={() => { setEditingReward(reward.id); setRewardName(reward.description); setRewardPoints(reward.required_points); }}>編集</button><button onClick={() => void removeReward(reward)}>削除</button></div></article>)}</div><div className="reward-form"><h3>{editingReward ? "ごほうびを編集" : "ごほうびを追加"}</h3><input className="bingo-field" placeholder="例：コンビニスイーツ" maxLength={100} value={rewardName} onChange={(event) => setRewardName(event.target.value)}/><label><input className="bingo-field" type="number" min="1" value={rewardPoints} onChange={(event) => setRewardPoints(Number(event.target.value))}/><span>pt</span></label><button className="bingo-action" disabled={saving} onClick={() => void saveReward()}>{editingReward ? "変更を保存" : "追加する"}</button>{editingReward && <button className="reward-cancel" onClick={() => { setEditingReward(null); setRewardName(""); setRewardPoints(3); }}>キャンセル</button>}</div></div></> : <div className="bingo-card"><p>{message}</p><Link className="bingo-action" href="/habit">HabitBingoへ</Link></div>}
