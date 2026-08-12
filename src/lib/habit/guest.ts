@@ -3,7 +3,8 @@ export const guestHabitDefaults = ["筋トレ", "読書10分", "水を2L飲む",
 export type GuestHabit = { id: string; position: number; title: string; description: string };
 export type GuestLog = { habit_id: string; date: string; completed: boolean };
 export type GuestReward = { id: string; description: string; required_points: number };
-export type GuestHabitData = { habits: GuestHabit[]; logs: GuestLog[]; rewards: GuestReward[]; spent: number };
+export type GuestRedemption = { points_used: number; redeemed_at: string };
+export type GuestHabitData = { habits: GuestHabit[]; logs: GuestLog[]; rewards: GuestReward[]; redemptions: GuestRedemption[] };
 
 const storageKey = "photomapper-habit-bingo-guest-v1";
 
@@ -12,7 +13,7 @@ export function defaultGuestHabitData(): GuestHabitData {
     habits: guestHabitDefaults.map((title, position) => ({ id: `guest-habit-${position}`, position, title, description: "" })),
     logs: [],
     rewards: [],
-    spent: 0,
+    redemptions: [],
   };
 }
 
@@ -30,7 +31,12 @@ export function loadGuestHabitData(): GuestHabitData {
         : fallback.habits,
       logs: Array.isArray(saved?.logs) ? saved.logs : [],
       rewards: Array.isArray(saved?.rewards) ? saved.rewards : [],
-      spent: typeof saved?.spent === "number" ? saved.spent : 0,
+      redemptions: Array.isArray(saved?.redemptions)
+        ? saved.redemptions
+        // Preserve a legacy guest deduction in the current month during migration.
+        : typeof (saved as { spent?: unknown } | null)?.spent === "number"
+          ? [{ points_used: (saved as { spent: number }).spent, redeemed_at: new Date().toISOString() }]
+          : [],
     };
   } catch {
     return defaultGuestHabitData();

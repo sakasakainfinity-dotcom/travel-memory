@@ -11,10 +11,13 @@ import styles from "./habit.module.css";
 type Habit = { id: string; position: number; title: string; description: string | null };
 type Log = { habit_id: string; date: string; completed: boolean };
 type Reward = { id: string; description: string; required_points: number };
+type Redemption = { points_used: number; created_at: string };
 type Period = 7 | 14 | 30;
 const defaults = guestHabitDefaults;
 const pointsFor = (count: number) => count === 9 ? 2 : count >= 6 ? 1 : 0;
 const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+const tokyoMonth = (isoDate: string) => isoDate.slice(0, 7);
+const redemptionTokyoMonth = (timestamp: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).format(new Date(timestamp));
 
 export default function HabitPage() {
   const today = useMemo(() => tokyoDate(), []);
@@ -23,7 +26,7 @@ export default function HabitPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
-  const [spent, setSpent] = useState(0);
+  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [period, setPeriod] = useState<Period>(7);
   const [periodEnd, setPeriodEnd] = useState(today);
   const [loading, setLoading] = useState(true);
@@ -34,7 +37,7 @@ export default function HabitPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       const guest = loadGuestHabitData();
-      setUserId("guest"); setBoardId("guest"); setHabits(guest.habits); setLogs(guest.logs); setRewards(guest.rewards); setSpent(guest.spent); setLoading(false); return;
+      setUserId("guest"); setBoardId("guest"); setHabits(guest.habits); setLogs(guest.logs); setRewards(guest.rewards); setRedemptions(guest.redemptions.map((item) => ({ points_used: item.points_used, created_at: item.redeemed_at }))); setLoading(false); return;
     }
     setUserId(user.id);
     const { data: board, error: boardError } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
@@ -57,11 +60,11 @@ export default function HabitPage() {
     const [logResult, rewardResult, redemptionResult] = await Promise.all([
       ids.length ? supabase.from("habit_logs").select("habit_id,date,completed").in("habit_id", ids).eq("user_id", user.id).eq("completed", true) : Promise.resolve({ data: [], error: null }),
       supabase.from("reward_definitions").select("id,description,required_points").eq("habit_bingo_id", activeBoard.id).order("required_points"),
-      supabase.from("reward_redemptions").select("points_used").eq("habit_bingo_id", activeBoard.id).eq("user_id", user.id),
+      supabase.from("reward_redemptions").select("points_used,created_at").eq("habit_bingo_id", activeBoard.id).eq("user_id", user.id),
     ]);
     if (logResult.error || rewardResult.error || redemptionResult.error) setMessage("一部の記録を読み込めませんでした。DB更新を確認してください。");
     setHabits(habitRows ?? []); setLogs(logResult.data ?? []); setRewards(rewardResult.data ?? []);
-    setSpent((redemptionResult.data ?? []).reduce((sum, row) => sum + row.points_used, 0)); setLoading(false);
+    setRedemptions(redemptionResult.data ?? []); setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -69,9 +72,10 @@ export default function HabitPage() {
   const todayDone = completedIds(today);
   const earned = useMemo(() => {
     const counts = new Map<string, Set<string>>();
-    logs.forEach((log) => { if (!counts.has(log.date)) counts.set(log.date, new Set()); counts.get(log.date)!.add(log.habit_id); });
+    logs.forEach((log) => { if (tokyoMonth(log.date) !== tokyoMonth(today)) return; if (!counts.has(log.date)) counts.set(log.date, new Set()); counts.get(log.date)!.add(log.habit_id); });
     return [...counts.values()].reduce((sum, ids) => sum + pointsFor(ids.size), 0);
-  }, [logs]);
+  }, [logs, today]);
+  const spent = useMemo(() => redemptions.filter((item) => redemptionTokyoMonth(item.created_at) === tokyoMonth(today)).reduce((sum, item) => sum + item.points_used, 0), [redemptions, today]);
   const balance = earned - spent;
   const dates = useMemo(() => Array.from({ length: period }, (_, index) => addDays(periodEnd, index - period + 1)), [period, periodEnd]);
   const nextReward = rewards.find((reward) => reward.required_points > balance) ?? rewards[0];
@@ -97,7 +101,7 @@ export default function HabitPage() {
     if (userId === "guest") {
       const guest = loadGuestHabitData();
       if (balance < reward.required_points) setMessage("ポイントが不足しています。");
-      else { guest.spent += reward.required_points; saveGuestHabitData(guest); setSpent(guest.spent); setMessage(`「${reward.description}」を交換しました！`); }
+      else { guest.redemptions.push({ points_used: reward.required_points, redeemed_at: new Date().toISOString() }); saveGuestHabitData(guest); setRedemptions(guest.redemptions.map((item) => ({ points_used: item.points_used, created_at: item.redeemed_at }))); setMessage(`「${reward.description}」を交換しました！`); }
       setBusy(false); return;
     }
     const { error } = await supabase.rpc("redeem_habit_reward", { p_reward_id: reward.id });
@@ -106,17 +110,17 @@ export default function HabitPage() {
 
   if (loading) return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}><p className={styles.eyebrow}>HABIT BINGO</p><div className={styles.loading}>今日の9マスを準備しています…</div></div></main>;
   return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>HABIT BINGO</p><h1>{formatJapaneseDate(today, true)}</h1><div className={styles.chips}><span>✓ 今日 {todayDone.size}/9 達成</span><span>★ 保有 {balance}pt</span></div></div><Link href="/habit/edit"><span aria-hidden>✎</span> 習慣を編集</Link></header>
+    <header className={styles.header}><div><p className={styles.eyebrow}>HABIT BINGO</p><h1>{formatJapaneseDate(today, true)}</h1><div className={styles.chips}><span>✓ 今日 {todayDone.size}/9 達成</span><span>★ 今月 {balance}pt</span></div></div><Link href="/habit/edit"><span aria-hidden>✎</span> 習慣を編集</Link></header>
     {userId === "guest" && <p className={styles.guest}>ログインなしでお試し中です。記録はこの端末に保存されます。</p>}
 
     <section className={`${styles.card} ${styles.today} ${todayDone.size === 9 ? styles.allClear : ""}`}><h2><span>❧</span> 今日のビンゴ <span>✦</span></h2>
-      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-label={habit.description ? `${habit.title}：${habit.description}` : habit.title} title={habit.description || undefined} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><b>{habit.title}</b>{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
+      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-label={habit.description ? `${habit.title}：${habit.description}` : habit.title} title={habit.description || undefined} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><b>{habit.title}</b>{habit.description && <small className={styles.habitDescription}>{habit.description}</small>}{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
       <div className={styles.helper}><span>❧</span> {helper}</div>
       <div className={styles.pointProgress}><div className={styles.current} style={{ left: `${Math.max(2, todayDone.size / 9 * 100)}%` }}>現在 +{todayPoints}pt</div><div className={styles.track}><i style={{ width: `${todayDone.size / 9 * 100}%` }}/><span className={styles.markSix}>★</span><span className={styles.markNine}>★</span></div><div className={styles.milestones}><span/><b>6個達成で<br/><strong>+1pt</strong></b><b>9個達成で<br/><strong>+2pt</strong></b></div></div>
     </section>
 
     <section className={`${styles.card} ${styles.rewards}`}><h2><span>✦</span> ごほうび <span>✦</span></h2>
-      <div className={styles.rewardHero}><div><small>保有ポイント</small><strong>★ <em>{balance}</em>pt</strong></div>{nextReward ? <div className={styles.next}><small>次のごほうび</small><b>{nextReward.description}</b><div><i style={{ width: `${Math.min(100, balance / nextReward.required_points * 100)}%` }}/></div><span>{balance >= nextReward.required_points ? "交換できます" : `あと ${nextReward.required_points - balance}pt`}</span></div> : <div className={styles.next}><small>次のごほうび</small><b>ごほうびを登録しよう</b><Link href="/habit/edit#rewards">設定する →</Link></div>}</div>
+      <div className={styles.rewardHero}><div><small>今月の保有ポイント</small><strong>★ <em>{balance}</em>pt</strong></div>{nextReward ? <div className={styles.next}><small>次のごほうび</small><b>{nextReward.description}</b><div><i style={{ width: `${Math.min(100, balance / nextReward.required_points * 100)}%` }}/></div><span>{balance >= nextReward.required_points ? "交換できます" : `あと ${nextReward.required_points - balance}pt`}</span></div> : <div className={styles.next}><small>次のごほうび</small><b>ごほうびを登録しよう</b><Link href="/habit/edit#rewards">設定する →</Link></div>}</div>
       <div className={styles.rewardList}>{rewards.map((reward) => { const shortage = reward.required_points - balance; return <article key={reward.id}><strong>★ {reward.required_points}pt</strong><b>{reward.description}</b><button disabled={busy || shortage > 0} onClick={() => void redeem(reward)}>{shortage > 0 ? `あと${shortage}pt` : "つかう"}</button></article>; })}</div>
       <Link className={styles.editRewards} href="/habit/edit#rewards">ごほうびを編集</Link>
     </section>
