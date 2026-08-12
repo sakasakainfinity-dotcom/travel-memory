@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -15,6 +16,13 @@ export default function AdminBingo() {
   const [municipality, setMunicipality] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+
+  function openItems(boardId: string) {
+    const target = document.getElementById(`bingo-items-${boardId}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `#bingo-items-${boardId}`);
+    target?.querySelector<HTMLButtonElement>("button[data-editable-cell]")?.focus({ preventScroll: true });
+  }
 
   async function load() {
     const { data, error } = await supabase.from("bingos")
@@ -65,21 +73,25 @@ export default function AdminBingo() {
 
   return <main className="bingo-shell"><div className="bingo-wrap admin-bingo-wrap">
     <div className="bingo-brand">ADMIN</div><h1>旅ビンゴ設定</h1>
+    {rows.length > 0 && <nav className="admin-bingo-nav" aria-label="旅ビンゴのクイックメニュー">
+      <strong>ビンゴアイテムを編集</strong>
+      <div>{rows.map((row) => <button type="button" key={row.id} onClick={() => openItems(row.id)}>{row.title}<span>25マスへ →</span></button>)}</div>
+    </nav>}
     <div className="bingo-card admin-create"><h2>新規作成（25マス）</h2>
       <input className="bingo-field" placeholder="タイトル" value={title} onChange={(e) => setTitle(e.target.value)}/>
       <input className="bingo-field" placeholder="slug" value={slug} onChange={(e) => setSlug(e.target.value)}/>
       <input className="bingo-field" placeholder="市町村" value={municipality} onChange={(e) => setMunicipality(e.target.value)}/>
       <button className="bingo-action" disabled={saving} onClick={() => void create()}>非公開で作成</button>
     </div>
-    {rows.map((row, rowIndex) => <section className="bingo-card admin-board" key={row.id}>
+    {rows.map((row, rowIndex) => <section className="bingo-card admin-board" id={`bingo-items-${row.id}`} key={row.id}>
       <div className="admin-board-settings"><div><div className="bingo-brand">{row.municipality_name}</div><input aria-label="ビンゴタイトル" className="bingo-field" value={row.title} onChange={(e) => setRows((current) => current.map((value, index) => index === rowIndex ? { ...value, title: e.target.value } : value))}/></div>
         <label><input type="checkbox" checked={row.is_published} onChange={(e) => setRows((current) => current.map((value, index) => index === rowIndex ? { ...value, is_published: e.target.checked } : value))}/> 公開中</label>
         <button className="bingo-action" disabled={saving} onClick={() => void saveBoard(row)}>公開設定を保存</button></div>
-      <h2>5×5 盤面プレビュー</h2><p className="bingo-note">編集するマスを選んでください。移動先にマスがある場合は位置を入れ替えます。</p>
+      <div className="admin-items-heading"><div><h2>ビンゴアイテム（25マス）</h2><p className="bingo-note">編集するマスを選んでください。移動先にマスがある場合は位置を入れ替えます。</p></div><Link href={`/bingo/${row.slug}`} target="_blank">ユーザー画面を確認 ↗</Link></div>
       <div className="bingo-grid bingo-grid-5 admin-bingo-grid">{Array.from({ length: 25 }, (_, position) => {
         const item = items[row.id]?.find((candidate) => candidate.position === position);
         const centre = position === 12;
-        return <button key={position} type="button" className={`bingo-cell ${centre ? "is-user-mission" : ""} ${item && !item.active ? "is-inactive" : ""}`} disabled={centre || !item} onClick={() => item && setEditing({ ...item })}>
+        return <button key={position} type="button" data-editable-cell={!centre && item ? "true" : undefined} className={`bingo-cell ${centre ? "is-user-mission" : ""} ${item && !item.active ? "is-inactive" : ""}`} disabled={centre || !item} onClick={() => item && setEditing({ ...item })}>
           <small>{position + 1}</small>{centre ? <><b>👤</b><span>ユーザー<br/>設定マス</span></> : <span>{item?.title ?? "未設定"}</span>}
         </button>;
       })}</div>
