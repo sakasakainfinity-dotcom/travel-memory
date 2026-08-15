@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 type AppMenuCurrent = "map" | "municipality-search" | "town-bingo" | "habit-bingo" | "adventure-book" | "share" | "settings";
 
@@ -15,15 +16,22 @@ type MenuItem = {
   href: string;
 };
 
-const MENU_ITEMS: MenuItem[] = [
-  { key: "town-bingo", label: "Town Bingo", href: "/bingo" },
-  { key: "habit-bingo", label: "If Then Bingo", href: "/habit" },
-];
-
 export default function AppMenu({ current }: AppMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (!active || !data.session) return;
+      setSignedIn(true);
+      const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", data.session.user.id).maybeSingle();
+      if (active) setIsAdmin(Boolean(profile?.is_admin));
+    });
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     if (!open) {
       document.body.style.overflow = "";
@@ -85,7 +93,11 @@ export default function AppMenu({ current }: AppMenuProps) {
         </div>
 
         <nav style={styles.nav}>
-          {MENU_ITEMS.map((item) => {
+          {([
+            { key: "town-bingo", label: "町探索", href: "/explore" },
+            { key: "settings", label: signedIn ? "マイページ" : "会員ページ", href: "/member" },
+            ...(isAdmin ? [{ key: "share" as AppMenuCurrent, label: "管理画面", href: "/admin/members" }] : []),
+          ] satisfies MenuItem[]).map((item) => {
             const active = current === item.key;
             return (
               <button
@@ -98,6 +110,7 @@ export default function AppMenu({ current }: AppMenuProps) {
               </button>
             );
           })}
+          {signedIn && <button type="button" onClick={() => void supabase.auth.signOut().then(() => { setOpen(false); router.push("/explore"); router.refresh(); })} style={styles.itemButton}>ログアウト</button>}
         </nav>
       </aside>
     </>
