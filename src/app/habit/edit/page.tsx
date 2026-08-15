@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AppMenu from "@/components/AppMenu";
+import MagicLinkLogin from "@/components/MagicLinkLogin";
 import { loadGuestHabitData, saveGuestHabitData } from "@/lib/habit/guest";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -20,16 +21,17 @@ export default function HabitEditPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [isGuest, setIsGuest] = useState(false);
+  const [access, setAccess] = useState<"checking" | "login" | "denied" | "allowed">("checking");
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        const guest = loadGuestHabitData();
-        setIsGuest(true); setBoardId("guest"); setHabits(guest.habits); setRewards(guest.rewards);
-        setLoading(false);
-        return;
+        setAccess("login"); setLoading(false); return;
       }
+      const { data: entitled } = await supabase.rpc("has_entitlement", { kind: "if_then_bingo" });
+      if (!entitled) { setAccess("denied"); setLoading(false); return; }
+      setAccess("allowed");
       const { data: board, error: boardError } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
       if (boardError) {
         setMessage("If Then Bingoを読み込めませんでした。");
@@ -133,6 +135,8 @@ export default function HabitEditPage() {
     setMessage(error ? "交換履歴のあるごほうびは削除できません。" : "ごほうびを削除しました。");
   }
 
+  if (access === "login") return <MagicLinkLogin next="/habit/edit"/>;
+  if (access === "denied") return <main className="member-login"><div><h1>if then bingo</h1><p>このアカウントではif then bingoを利用できません。</p></div></main>;
   return <main className="bingo-shell"><AppMenu current="habit-bingo"/><div className="bingo-wrap">
     <Link className="bingo-back-link" href="/habit">← If Then Bingoに戻る</Link>
     <div className="bingo-brand">IF THEN BINGO EDIT</div>

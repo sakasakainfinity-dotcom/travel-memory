@@ -9,6 +9,8 @@ export default function AuthCallbackPage() {
     (async () => {
       try {
         const url = new URL(location.href);
+        const requestedNext = url.searchParams.get("next") || "/";
+        const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : "/";
 
         // メールトークンは使わない運用ならこのブロックは不要（残すならこのまま）
         const hp = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : "");
@@ -19,24 +21,24 @@ export default function AuthCallbackPage() {
           // セッション待ち
           for (let i = 0; i < 30; i++) {
             const { data } = await supabase.auth.getSession();
-            if (data.session?.user) return location.replace("/");
+            if (data.session?.user) { await supabase.rpc("touch_member_login"); return location.replace(next); }
             await new Promise(r => setTimeout(r, 100));
           }
           return location.replace("/public?reason=no-session");
         }
 
-        // Google（PKCE）
+        // PKCE（Google / magic link）
         const code = url.searchParams.get("code");
         const src = url.searchParams.get("src") || "google";
         if (!code) return location.replace(`/login?reason=no-code&src=${src}`);
 
-        const { error } = await (supabase.auth as any).exchangeCodeForSession(location.href);
-        if (!code) return location.replace(`/public?reason=no-code&src=${src}`);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) return location.replace(`/login?reason=exchange-failed&src=${src}`);
         
         // セッション待ち
         for (let i = 0; i < 30; i++) {
           const { data } = await supabase.auth.getSession();
-          if (data.session?.user) return location.replace("/");
+          if (data.session?.user) { await supabase.rpc("touch_member_login"); return location.replace(next); }
           await new Promise(r => setTimeout(r, 100));
         }
         location.replace(`/login?reason=no-session&src=${src}`);
@@ -53,4 +55,3 @@ export default function AuthCallbackPage() {
     </main>
   );
 }
-
