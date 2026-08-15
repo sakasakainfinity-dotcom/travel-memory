@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 type Bingo = { id: string; title: string; slug: string; municipality_name: string; description: string | null; is_published: boolean };
 type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; image_url: string | null; active: boolean };
+type AdminAccess = { state: "checking" | "allowed" | "denied"; email?: string; reason?: string };
 
 export default function AdminBingo() {
   const [rows, setRows] = useState<Bingo[]>([]);
@@ -16,6 +17,7 @@ export default function AdminBingo() {
   const [municipality, setMunicipality] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [adminAccess, setAdminAccess] = useState<AdminAccess>({ state: "checking" });
 
   function openItems(boardId: string) {
     const target = document.getElementById(`bingo-items-${boardId}`);
@@ -25,10 +27,25 @@ export default function AdminBingo() {
   }
 
   async function load() {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      setAdminAccess({ state: "denied", reason: "ログイン状態を確認できませんでした。もう一度ログインしてください。" });
+      return;
+    }
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("is_admin").eq("id", userData.user.id).maybeSingle();
+    if (profileError || !profile?.is_admin) {
+      setAdminAccess({
+        state: "denied",
+        email: userData.user.email,
+        reason: "このアカウントの profiles.is_admin が有効になっていません。Supabase の profiles テーブルで管理者設定を確認してください。",
+      });
+      return;
+    }
+    setAdminAccess({ state: "allowed", email: userData.user.email });
     const { data, error } = await supabase.from("bingos")
       .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,image_url,active)")
       .order("created_at");
-    if (error) { setMessage("管理者権限が必要です"); return; }
+    if (error) { setMessage(`ビンゴを読み込めませんでした: ${error.message}`); return; }
     const boards = (data ?? []) as unknown as (Bingo & { items: Item[] })[];
     setRows(boards.map(({ items: _items, ...board }) => board));
     setItems(Object.fromEntries(boards.map((board) => [board.id, [...board.items].sort((a, b) => a.position - b.position)])));
@@ -66,13 +83,18 @@ export default function AdminBingo() {
       next_description: editing.description ?? "", next_image_url: editing.image_url ?? "",
       next_active: editing.active, next_type: editing.type,
     });
-    setMessage(error ? `マスを保存できませんでした: ${error.message}` : "マスを保存しました。ユーザー画面へ反映されます");
+    setMessage(error ? (error.message.includes("Administrator access required")
+      ? "マスを保存できませんでした。入力内容ではなく、ログイン中のアカウントに管理者権限がありません。profiles.is_admin を確認してください。"
+      : `マスを保存できませんでした: ${error.message}`) : "マスを保存しました。ユーザー画面へ反映されます");
     if (!error) setEditing(null);
     setSaving(false); await load();
   }
 
   return <main className="bingo-shell"><div className="bingo-wrap admin-bingo-wrap">
     <div className="bingo-brand">ADMIN</div><h1>旅ビンゴ設定</h1>
+    {adminAccess.state === "checking" && <div className="bingo-card">管理者権限を確認しています…</div>}
+    {adminAccess.state === "denied" && <div className="bingo-card"><h2>管理者権限を確認できません</h2><p>{adminAccess.reason}</p>{adminAccess.email && <p className="bingo-note">ログイン中: {adminAccess.email}</p>}<p className="bingo-note">これはマスの入力内容や画像URLのエラーではありません。</p></div>}
+    {adminAccess.state === "allowed" && <>
     {rows.length > 0 && <nav className="admin-bingo-nav" aria-label="旅ビンゴのクイックメニュー">
       <strong>ビンゴアイテムを編集</strong>
       <div>{rows.map((row) => <button type="button" key={row.id} onClick={() => openItems(row.id)}>{row.title}<span>25マスへ →</span></button>)}</div>
@@ -97,6 +119,7 @@ export default function AdminBingo() {
       })}</div>
     </section>)}
     {message && <p className={message.includes("保存しました") || message.includes("作成しました") ? "bingo-success" : "bingo-error"} role="status">{message}</p>}
+    </>}
     {editing && <div className="bingo-modal" onClick={() => setEditing(null)}><form onSubmit={(event) => { event.preventDefault(); void saveItem(); }} onClick={(event) => event.stopPropagation()}>
       <div className="bingo-brand">CELL {editing.position + 1}</div><h2>マスを編集</h2>
       <label className="admin-field-label">タイトル<input required maxLength={60} className="bingo-field" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })}/></label>
