@@ -27,13 +27,13 @@ export default function AuthCallbackPage() {
           return location.replace("/public?reason=no-session");
         }
 
-        // Google（PKCE）
+        // PKCE（Google / magic link）
         const code = url.searchParams.get("code");
         const src = url.searchParams.get("src") || "google";
         if (!code) return location.replace(`/login?reason=no-code&src=${src}`);
 
-        const { error } = await (supabase.auth as any).exchangeCodeForSession(location.href);
-        if (!code) return location.replace(`/public?reason=no-code&src=${src}`);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) return location.replace(`/login?reason=exchange-failed&src=${src}`);
         
         // セッション待ち
         for (let i = 0; i < 30; i++) {
