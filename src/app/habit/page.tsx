@@ -8,7 +8,7 @@ import { guestHabitDefaults, loadGuestHabitData, saveGuestHabitData } from "@/li
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./habit.module.css";
 
-type Habit = { id: string; position: number; title: string; description: string | null };
+type Habit = { id: string; position: number; title: string; if_condition: string; then_action: string };
 type Log = { habit_id: string; date: string; completed: boolean };
 type Reward = { id: string; description: string; required_points: number };
 type Redemption = { points_used: number; created_at: string };
@@ -41,20 +41,20 @@ export default function HabitPage() {
     }
     setUserId(user.id);
     const { data: board, error: boardError } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
-    if (boardError) { setMessage("HabitBingoを読み込めませんでした。"); setLoading(false); return; }
+    if (boardError) { setMessage("If Then Bingoを読み込めませんでした。"); setLoading(false); return; }
     let activeBoard = board;
     if (!activeBoard) {
-      const { data: createdBoard, error: createError } = await supabase.from("habit_bingos").insert({ user_id: user.id, title: "わたしのHabitBingo", is_active: true }).select("id").single();
+      const { data: createdBoard, error: createError } = await supabase.from("habit_bingos").insert({ user_id: user.id, title: "わたしのIf Then Bingo", is_active: true }).select("id").single();
       if (createError || !createdBoard) {
         const { data: concurrentBoard } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
-        if (!concurrentBoard) { setMessage("HabitBingoを準備できませんでした。"); setLoading(false); return; }
+        if (!concurrentBoard) { setMessage("If Then Bingoを準備できませんでした。"); setLoading(false); return; }
         activeBoard = concurrentBoard;
       } else activeBoard = createdBoard;
     }
     setBoardId(activeBoard.id);
-    const { error: seedError } = await supabase.from("habits").upsert(defaults.map((title, position) => ({ habit_bingo_id: activeBoard.id, position, name: title, title, description: "", target_count: 1 })), { onConflict: "habit_bingo_id,position", ignoreDuplicates: true });
+    const { error: seedError } = await supabase.from("habits").upsert(defaults.map((title, position) => ({ habit_bingo_id: activeBoard.id, position, name: title, title, description: "", if_condition: "今日", then_action: title, target_count: 1 })), { onConflict: "habit_bingo_id,position", ignoreDuplicates: true });
     if (seedError) { setMessage("9マスを準備できませんでした。"); setLoading(false); return; }
-    const { data: habitRows, error: habitError } = await supabase.from("habits").select("id,position,title,description").eq("habit_bingo_id", activeBoard.id).order("position");
+    const { data: habitRows, error: habitError } = await supabase.from("habits").select("id,position,title,if_condition,then_action").eq("habit_bingo_id", activeBoard.id).order("position");
     if (habitError) { setMessage("習慣を読み込めませんでした。"); setLoading(false); return; }
     const ids = (habitRows ?? []).map((habit) => habit.id);
     const [logResult, rewardResult, redemptionResult] = await Promise.all([
@@ -108,13 +108,13 @@ export default function HabitPage() {
     setMessage(error ? "ポイントが不足しているか、交換できませんでした。" : `「${reward.description}」を交換しました！`); await load(); setBusy(false);
   }
 
-  if (loading) return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}><p className={styles.eyebrow}>HABIT BINGO</p><div className={styles.loading}>今日の9マスを準備しています…</div></div></main>;
+  if (loading) return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}><p className={styles.eyebrow}>IF THEN BINGO</p><div className={styles.loading}>今日の9マスを準備しています…</div></div></main>;
   return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>HABIT BINGO</p><h1>{formatJapaneseDate(today, true)}</h1><div className={styles.chips}><span>✓ 今日 {todayDone.size}/9 達成</span><span>★ 今月 {balance}pt</span></div></div><Link href="/habit/edit"><span aria-hidden>✎</span> 習慣を編集</Link></header>
+    <header className={styles.header}><div><p className={styles.eyebrow}>IF THEN BINGO</p><h1>{formatJapaneseDate(today, true)}</h1><div className={styles.chips}><span>✓ 今日 {todayDone.size}/9 達成</span><span>★ 今月 {balance}pt</span></div></div><Link href="/habit/edit"><span aria-hidden>✎</span> ルールを編集</Link></header>
     {userId === "guest" && <p className={styles.guest}>ログインなしでお試し中です。記録はこの端末に保存されます。</p>}
 
     <section className={`${styles.card} ${styles.today} ${todayDone.size === 9 ? styles.allClear : ""}`}><h2><span>❧</span> 今日のビンゴ <span>✦</span></h2>
-      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-label={habit.description ? `${habit.title}：${habit.description}` : habit.title} title={habit.description || undefined} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><b>{habit.title}</b>{habit.description && <small className={styles.habitDescription}>{habit.description}</small>}{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
+      <div className={styles.grid}>{habits.map((habit) => { const done = todayDone.has(habit.id); return <button className={done ? styles.done : ""} aria-label={`If ${habit.if_condition}、Then ${habit.then_action}`} aria-pressed={done} disabled={busy} key={habit.id} onClick={() => void toggle(habit)}><span className={styles.check}>{done ? "✓" : "○"}</span><span className={styles.ifThen}><small>IF</small><b>{habit.if_condition}</b></span><span className={styles.ifThen}><small>THEN</small><b>{habit.then_action}</b></span>{done && habit.position % 4 === 0 && <i aria-hidden>✦</i>}</button>; })}</div>
       <div className={styles.helper}><span>❧</span> {helper}</div>
       <div className={styles.pointProgress}><div className={styles.current} style={{ left: `${Math.max(2, todayDone.size / 9 * 100)}%` }}>現在 +{todayPoints}pt</div><div className={styles.track}><i style={{ width: `${todayDone.size / 9 * 100}%` }}/><span className={styles.markSix}>★</span><span className={styles.markNine}>★</span></div><div className={styles.milestones}><span/><b>6個達成で<br/><strong>+1pt</strong></b><b>9個達成で<br/><strong>+2pt</strong></b></div></div>
     </section>
