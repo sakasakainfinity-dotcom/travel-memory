@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppMenu from "@/components/AppMenu";
+import MagicLinkLogin from "@/components/MagicLinkLogin";
 import { addDays, formatJapaneseDate, tokyoDate } from "@/lib/habit/date";
 import { guestHabitDefaults, loadGuestHabitData, saveGuestHabitData } from "@/lib/habit/guest";
 import { supabase } from "@/lib/supabaseClient";
@@ -32,13 +33,16 @@ export default function HabitPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [access, setAccess] = useState<"checking" | "login" | "denied" | "allowed">("checking");
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      const guest = loadGuestHabitData();
-      setUserId("guest"); setBoardId("guest"); setHabits(guest.habits); setLogs(guest.logs); setRewards(guest.rewards); setRedemptions(guest.redemptions.map((item) => ({ points_used: item.points_used, created_at: item.redeemed_at }))); setLoading(false); return;
+      setAccess("login"); setLoading(false); return;
     }
+    const { data: entitled } = await supabase.rpc("has_entitlement", { kind: "if_then_bingo" });
+    if (!entitled) { setAccess("denied"); setLoading(false); return; }
+    setAccess("allowed");
     setUserId(user.id);
     const { data: board, error: boardError } = await supabase.from("habit_bingos").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
     if (boardError) { setMessage("If Then Bingoを読み込めませんでした。"); setLoading(false); return; }
@@ -108,7 +112,9 @@ export default function HabitPage() {
     setMessage(error ? "ポイントが不足しているか、交換できませんでした。" : `「${reward.description}」を交換しました！`); await load(); setBusy(false);
   }
 
-  if (loading) return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}><p className={styles.eyebrow}>IF THEN BINGO</p><div className={styles.loading}>今日の9マスを準備しています…</div></div></main>;
+  if (loading || access === "checking") return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}><p className={styles.eyebrow}>IF THEN BINGO</p><div className={styles.loading}>今日の9マスを準備しています…</div></div></main>;
+  if (access === "login") return <MagicLinkLogin next="/habit"/>;
+  if (access === "denied") return <main className="member-login"><div><h1>if then bingo</h1><p>このアカウントではif then bingoを利用できません。</p><button onClick={() => void supabase.auth.signOut().then(() => location.reload())}>別のアカウントでログイン</button></div></main>;
   return <main className={styles.shell}><AppMenu current="habit-bingo"/><div className={styles.page}>
     <header className={styles.header}><div><p className={styles.eyebrow}>IF THEN BINGO</p><h1>{formatJapaneseDate(today, true)}</h1><div className={styles.chips}><span>✓ 今日 {todayDone.size}/9 達成</span><span>★ 今月 {balance}pt</span></div></div><Link href="/habit/edit"><span aria-hidden>✎</span> ルールを編集</Link></header>
     {userId === "guest" && <p className={styles.guest}>ログインなしでお試し中です。記録はこの端末に保存されます。</p>}
