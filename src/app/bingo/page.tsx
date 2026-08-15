@@ -31,6 +31,6 @@ export default function TownBingoIndex() {
       {towns.map((town) => <Link href={`/bingo/${town.slug}`} key={town.id}><article className="bingo-card"><div className="bingo-brand">{town.municipality_name}</div><h2>{town.title}</h2><p>{town.description}</p><b>この街でスタート →</b></article></Link>)}
       {!error && !towns.length && <div className="bingo-card">公開中のTownBingoを準備しています。</div>}
     </div>
-    <footer className="bingo-admin-footer"><Link href="/admin/members">admin</Link></footer>
+    <footer className="bingo-admin-footer"><Link href="/admin/members">管理者ページ</Link></footer>
   </div></main>;
 }

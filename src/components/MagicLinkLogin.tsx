@@ -14,18 +14,17 @@ export default function MagicLinkLogin({ next = "/", title = "if then bingo" }: 
     event.preventDefault(); setBusy(true); setMessage("");
     const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
     if (codeSent) {
-      const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
-      if (error) { setMessage("確認コードが正しくないか、有効期限が切れています。"); setBusy(false); return; }
+      const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
+      if (error || !data.session) { setMessage("確認コードが正しくないか、有効期限が切れています。"); setBusy(false); return; }
+      await supabase.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
       await supabase.rpc("touch_member_login");
       location.replace(safeNext);
       return;
     }
     const check = await fetch("/api/auth/magic-link", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
     const result = await check.json();
-    if (!check.ok || !result.eligible) { setMessage("このメールアドレスでは現在利用できません。"); setBusy(false); return; }
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } });
-    if (error) setMessage("確認コードを送信できませんでした。");
-    else { setCodeSent(true); setMessage("メールに届いた6桁の確認コードを入力してください。"); }
+    if (!check.ok || !result.eligible || !result.sent) { setMessage(result.error ?? "このメールアドレスでは現在利用できません。"); setBusy(false); return; }
+    setCodeSent(true); setMessage("メールに届いた6桁の確認コードを入力してください。");
     setBusy(false);
   }
 
