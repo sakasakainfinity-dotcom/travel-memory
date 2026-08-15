@@ -1,36 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import AppMenu from "@/components/AppMenu";
-import { supabase } from "@/lib/supabaseClient";
-
-type Town = { id: string; slug: string; title: string; municipality_name: string; description: string | null; cover_image_url: string | null };
-
+// Keep old bookmarks and printed QR codes working while the public entry point
+// moves from a feature name to the town-exploration hierarchy.
 export default function TownBingoIndex() {
-  const [towns, setTowns] = useState<Town[]>([]);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void supabase.from("bingos").select("id,slug,title,municipality_name,description,cover_image_url").eq("is_published", true).order("title").then(({ data, error: loadError }) => {
-      setTowns(data ?? []);
-      if (loadError) setError("BINGO一覧を読み込めませんでした");
-    });
-  }, []);
-
-  return <main className="bingo-shell"><AppMenu current="town-bingo"/><div className="bingo-wrap">
-    <div className="bingo-brand">TOWN BINGO</div>
-    <h1 className="bingo-title">街を歩けば、<br/>発見がそろう。</h1>
-    <p>写真と謎解きを楽しみながら、まちの魅力を見つけよう。</p>
-    <Link className="bingo-habit-link" href="/habit">
-      <span><span className="bingo-brand">IF THEN BINGO</span><b>「もし〜なら」を楽しむ</b><small>IfとThenを達成して、ごほうびを目指そう。</small></span>
-      <strong>はじめる →</strong>
-    </Link>
-    {error && <p className="bingo-error">{error}</p>}
-    <div className="bingo-list">
-      {towns.map((town) => <Link href={`/bingo/${town.slug}`} key={town.id}><article className="bingo-card"><div className="bingo-brand">{town.municipality_name}</div><h2>{town.title}</h2><p>{town.description}</p><b>この街でスタート →</b></article></Link>)}
-      {!error && !towns.length && <div className="bingo-card">公開中のTownBingoを準備しています。</div>}
-    </div>
-    <footer className="bingo-admin-footer"><Link href="/admin/members">管理者ページ</Link></footer>
-  </div></main>;
+  redirect("/explore");
 }
