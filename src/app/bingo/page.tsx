@@ -23,7 +23,7 @@ export default function TownBingoIndex() {
     <h1 className="bingo-title">街を歩けば、<br/>発見がそろう。</h1>
     <p>写真と謎解きを楽しみながら、まちの魅力を見つけよう。</p>
     <Link className="bingo-habit-link" href="/habit">
-      <span><span className="bingo-brand">HABIT BINGO</span><b>習慣をビンゴで楽しむ</b><small>毎日の習慣を記録して、ごほうびを目指そう。</small></span>
+      <span><span className="bingo-brand">IF THEN BINGO</span><b>「もし〜なら」を楽しむ</b><small>IfとThenを達成して、ごほうびを目指そう。</small></span>
       <strong>はじめる →</strong>
     </Link>
     {error && <p className="bingo-error">{error}</p>}

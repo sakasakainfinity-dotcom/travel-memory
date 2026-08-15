@@ -17,7 +17,7 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   { key: "town-bingo", label: "Town Bingo", href: "/bingo" },
-  { key: "habit-bingo", label: "Habit Bingo", href: "/habit" },
+  { key: "habit-bingo", label: "If Then Bingo", href: "/habit" },
 ];
 
 export default function AppMenu({ current }: AppMenuProps) {
