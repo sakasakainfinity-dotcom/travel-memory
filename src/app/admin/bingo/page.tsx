@@ -27,21 +27,22 @@ export default function AdminBingo() {
   }
 
   async function load() {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const user = sessionData.session?.user;
+    if (sessionError || !user) {
       setAdminAccess({ state: "denied", reason: "ログイン状態を確認できませんでした。もう一度ログインしてください。" });
       return;
     }
-    const { data: profile, error: profileError } = await supabase.from("profiles").select("is_admin").eq("id", userData.user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
     if (profileError || !profile?.is_admin) {
       setAdminAccess({
         state: "denied",
-        email: userData.user.email,
+        email: user.email,
         reason: "このアカウントの profiles.is_admin が有効になっていません。Supabase の profiles テーブルで管理者設定を確認してください。",
       });
       return;
     }
-    setAdminAccess({ state: "allowed", email: userData.user.email });
+    setAdminAccess({ state: "allowed", email: user.email });
     const { data, error } = await supabase.from("bingos")
       .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,image_url,active)")
       .order("created_at");

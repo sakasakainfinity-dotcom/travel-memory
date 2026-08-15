@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
+import { getSupabaseServerEnv } from "@/lib/server/env";
+
+async function sendLoginCode(email: string) {
+  const { url, anonKey } = getSupabaseServerEnv();
+  const authClient = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await authClient.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (error) throw error;
+  return NextResponse.json({ eligible: true, sent: true });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +31,7 @@ export async function POST(request: NextRequest) {
       .eq("status", "active")
       .maybeSingle();
     if (memberError) throw memberError;
-    if (member) return NextResponse.json({ eligible: true });
+    if (member) return sendLoginCode(email);
 
     // Administrators must be able to obtain a session before they can open the
     // member management screen. They do not need a member entitlement merely
@@ -33,14 +48,17 @@ export async function POST(request: NextRequest) {
           .eq("id", authUser.id)
           .maybeSingle();
         if (profileError) throw profileError;
-        return NextResponse.json({ eligible: profile?.is_admin === true });
+        if (profile?.is_admin) return sendLoginCode(email);
+        return NextResponse.json({ eligible: false });
       }
       if (!listed.data.nextPage) break;
       page = listed.data.nextPage;
     }
 
     return NextResponse.json({ eligible: false });
-  } catch {
-    return NextResponse.json({ error: "ログインを確認できませんでした。" }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const rateLimited = /rate|seconds|security purposes/i.test(message);
+    return NextResponse.json({ error: rateLimited ? "確認コードは少し時間を空けてから再送してください。" : "確認コードを送信できませんでした。" }, { status: rateLimited ? 429 : 500 });
   }
 }
