@@ -36,7 +36,8 @@ export default function HabitPage() {
   const [access, setAccess] = useState<"checking" | "login" | "denied" | "allowed">("checking");
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       setAccess("login"); setLoading(false); return;
     }
