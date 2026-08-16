@@ -3,6 +3,9 @@ import AppMenu from "@/components/AppMenu";
 
 export default function ExplorePage() {
   return <main className="bingo-shell"><AppMenu current="town-bingo"/><div className="bingo-wrap explore-page">
+    <Link className="explore-secret-link" href="/habit" aria-label="IF THEN BINGOを開く">
+      IF THEN BINGO
+    </Link>
     <div className="bingo-brand">PHOTO MAPPER</div>
     <h1 className="bingo-title">町探索</h1>
     <p className="explore-lead">気になる町を選んで探索しよう。</p>
