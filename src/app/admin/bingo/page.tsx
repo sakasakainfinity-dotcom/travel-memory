@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Bingo = { id: string; title: string; slug: string; municipality_name: string; description: string | null; is_published: boolean };
-type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; image_url: string | null; active: boolean };
+type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; question: string | null; hint: string | null; correct_answers: string[] | null; image_url: string | null; active: boolean };
 type AdminAccess = { state: "checking" | "allowed" | "denied"; email?: string; reason?: string };
 
 export default function AdminBingo() {
@@ -44,7 +44,7 @@ export default function AdminBingo() {
     }
     setAdminAccess({ state: "allowed", email: user.email });
     const { data, error } = await supabase.from("bingos")
-      .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,image_url,active)")
+      .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,question,hint,correct_answers,image_url,active)")
       .order("created_at");
     if (error) { setMessage(`ビンゴを読み込めませんでした: ${error.message}`); return; }
     const boards = (data ?? []) as unknown as (Bingo & { items: Item[] })[];
@@ -83,6 +83,9 @@ export default function AdminBingo() {
       target_id: editing.id, next_position: editing.position, next_title: editing.title.trim(),
       next_description: editing.description ?? "", next_image_url: editing.image_url ?? "",
       next_active: editing.active, next_type: editing.type,
+      next_question: editing.type === "quiz" ? editing.question ?? "" : "",
+      next_hint: editing.type === "quiz" ? editing.hint ?? "" : "",
+      next_correct_answers: editing.type === "quiz" ? editing.correct_answers ?? [] : [],
     });
     setMessage(error ? (error.message.includes("Administrator access required")
       ? "マスを保存できませんでした。入力内容ではなく、ログイン中のアカウントに管理者権限がありません。profiles.is_admin を確認してください。"
@@ -127,6 +130,11 @@ export default function AdminBingo() {
       <label className="admin-field-label">説明文<textarea maxLength={300} rows={4} className="bingo-field" value={editing.description ?? ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })}/></label>
       <label className="admin-field-label">画像URL<input type="url" className="bingo-field" placeholder="https://…" value={editing.image_url ?? ""} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}/></label>
       <label className="admin-field-label">種類<select className="bingo-field" value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value as "photo" | "quiz" })}><option value="photo">写真ミッション</option><option value="quiz">クイズ</option></select></label>
+      {editing.type === "quiz" && <>
+        <label className="admin-field-label">問題文<textarea required maxLength={300} rows={3} className="bingo-field" value={editing.question ?? ""} onChange={(e) => setEditing({ ...editing, question: e.target.value })}/></label>
+        <label className="admin-field-label">正解（複数ある場合は1行に1つ）<textarea required rows={3} className="bingo-field" placeholder={"大子\nだいご"} value={(editing.correct_answers ?? []).join("\n")} onChange={(e) => setEditing({ ...editing, correct_answers: e.target.value.split("\n").map((value) => value.trim()).filter(Boolean) })}/></label>
+        <label className="admin-field-label">ヒント（任意）<textarea maxLength={300} rows={2} className="bingo-field" value={editing.hint ?? ""} onChange={(e) => setEditing({ ...editing, hint: e.target.value })}/></label>
+      </>}
       <label className="admin-field-label">並び順（1〜25、13は予約済み）<input type="number" min={1} max={25} required className="bingo-field" value={editing.position + 1} onChange={(e) => setEditing({ ...editing, position: Number(e.target.value) - 1 })}/></label>
       <label className="admin-active"><input type="checkbox" checked={editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })}/> ユーザー画面に表示する</label>
       <div className="admin-modal-actions"><button className="bingo-action" disabled={saving}>{saving ? "保存中…" : "変更を保存"}</button><button type="button" className="bingo-action bingo-secondary" onClick={() => setEditing(null)}>キャンセル</button></div>
