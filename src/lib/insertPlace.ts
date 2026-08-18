@@ -73,9 +73,9 @@ export async function insertPlace(input: NewPlaceInput): Promise<InsertedPlace> 
   const urls: string[] = [];
   for (const f of input.files ?? []) {
     const compressed = await compressImage(f, {
-      maxSide: 1280,
-      quality: 0.68,
-      targetMaxBytes: Math.min(350 * 1024, Math.max(120 * 1024, Math.floor(f.size * 0.1))),
+      maxSide: 960,
+      quality: 0.55,
+      targetMaxBytes: Math.min(200 * 1024, Math.max(80 * 1024, Math.floor(f.size * 0.08))),
     });
     const ext = compressed.type === "image/webp" ? "webp" : compressed.type === "image/png" ? "png" : "jpg";
     const fileName = `${placeRow.id}/${createBrowserSafeId()}.${ext}`;

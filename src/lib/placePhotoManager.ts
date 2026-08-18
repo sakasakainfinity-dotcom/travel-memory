@@ -40,9 +40,9 @@ export async function uploadPlacePhotos({
     });
 
     const compressed = await compressImage(file, {
-      maxSide: 1280,
-      quality: 0.68,
-      targetMaxBytes: Math.min(350 * 1024, Math.max(120 * 1024, Math.floor(file.size * 0.1))),
+      maxSide: 960,
+      quality: 0.55,
+      targetMaxBytes: Math.min(200 * 1024, Math.max(80 * 1024, Math.floor(file.size * 0.08))),
     });
     const extension = getExtensionFromType(compressed.type);
     const path = `${placeId}/${createBrowserSafeId()}.${extension}`;

@@ -10,10 +10,10 @@ export type CompressOptions = {
   minRecompressQuality?: number;
 };
 
-const DEFAULT_MAX_SIDE = 1280;
-const DEFAULT_QUALITY = 0.68;
-const DEFAULT_TARGET_MAX_BYTES = 350 * 1024;
-const DEFAULT_SIZE_CAP_BYTES = 700 * 1024;
+const DEFAULT_MAX_SIDE = 960;
+const DEFAULT_QUALITY = 0.55;
+const DEFAULT_TARGET_MAX_BYTES = 200 * 1024;
+const DEFAULT_SIZE_CAP_BYTES = 350 * 1024;
 const DEFAULT_MAX_RECOMPRESSIONS = 3;
 const DEFAULT_RECOMPRESS_QUALITY_STEP = 0.1;
 const MIN_QUALITY = 0.3;
@@ -249,7 +249,7 @@ function loadImage(src: string) {
 }
 
 function clampTargetBytes(bytes: number) {
-  return Math.min(DEFAULT_TARGET_MAX_BYTES, Math.max(120 * 1024, bytes));
+  return Math.min(DEFAULT_TARGET_MAX_BYTES, Math.max(80 * 1024, bytes));
 }
 
 function buildSideCandidates(maxSide: number) {
