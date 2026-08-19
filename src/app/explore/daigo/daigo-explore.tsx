@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatDatedElapsed } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
 
 type PreviewCell = { cleared: boolean; clearedAt?: string; photo?: string };
@@ -20,6 +21,7 @@ export default function DaigoExplore() {
   const [cells, setCells] = useState<PreviewCell[]>(emptyCells);
   const [items, setItems] = useState<BingoItem[]>([]);
   const [started, setStarted] = useState(false);
+  const [startTime, setStartTime] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState("");
 
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function DaigoExplore() {
         try {
           const progress = JSON.parse(saved) as SavedProgress;
           hasStarted = Boolean(progress.startTime);
+          setStartTime(progress.startTime ?? null);
           setCustomTitle(progress.customTitle ?? "");
           for (const id of progress.clearedIds ?? []) {
             const position = positions.get(id);
@@ -65,7 +68,7 @@ export default function DaigoExplore() {
       if (session) {
         const { data: bingoSession } = await supabase
           .from("bingo_sessions")
-          .select("id")
+          .select("id,start_time")
           .eq("bingo_id", game.id)
           .eq("user_id", session.user.id)
           .in("status", ["active", "completed"])
@@ -74,6 +77,7 @@ export default function DaigoExplore() {
           .maybeSingle();
         if (bingoSession) {
           hasStarted = true;
+          setStartTime(bingoSession.start_time);
           const { data: progressRows } = await supabase
             .from("bingo_progress")
             .select("bingo_item_id,is_cleared,cleared_at,photo_url")
@@ -122,11 +126,11 @@ export default function DaigoExplore() {
         {cells.map((cell, position) => {
           const item = items.find((candidate) => candidate.position === position);
           const isMission = item?.type === "user_mission" || position === 12;
-          const clearedTime = cell.clearedAt ? formatClearedTime(cell.clearedAt) : null;
+          const clearedTime = cell.clearedAt ? formatDatedElapsed(startTime, cell.clearedAt) : null;
           return <div role="gridcell" aria-label={`${position + 1}マス目${cell.cleared ? `、達成済み${clearedTime ? `、${clearedTime}` : ""}` : ""}`} className={`bingo-cell${cell.cleared ? " is-clear" : ""}`} key={position}>
             {!item?.active ? <span className="bingo-empty">—</span> : isMission ? <span className="user-mission-cell">
-              {cell.cleared ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{customTitle || item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>達成 {clearedTime}</time>}</span> : <><b>YOUR MISSION</b><small>{customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!customTitle && <em>＋ 設定する</em>}</>}
-            </span> : cell.cleared ? <span className={cell.photo ? "bingo-photo-cell" : ""}>{cell.photo && <img src={cell.photo} alt={`${item.title}の投稿写真`}/>}<span className="bingo-clear-details"><b>✓ 達成！</b><small>{item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>達成 {clearedTime}</time>}</span></span> : item.title}
+              {cell.cleared ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{customTitle || item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>{clearedTime}</time>}</span> : <><b>YOUR MISSION</b><small>{customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!customTitle && <em>＋ 設定する</em>}</>}
+            </span> : cell.cleared ? <span className={cell.photo ? "bingo-photo-cell" : ""}>{cell.photo && <img src={cell.photo} alt={`${item.title}の投稿写真`}/>}<span className="bingo-clear-details"><b>✓ 達成！</b><small>{item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>{clearedTime}</time>}</span></span> : item.title}
           </div>;
         })}
       </div>
@@ -143,8 +147,4 @@ export default function DaigoExplore() {
 
     <Link className="daigo-member-link" href="/member"><span aria-hidden>♙</span> マイページへ <span aria-hidden>→</span></Link>
   </div>;
-}
-
-function formatClearedTime(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
