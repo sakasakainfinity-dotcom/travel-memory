@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
+import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
 import { bingoLines, formatElapsed, normalizeAnswer } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -22,7 +23,14 @@ type Item = {
   places?: { lat: number; lng: number; title: string } | null;
 };
 type Game = { id: string; title: string; description: string | null; items: Item[] };
-type GuestProgress = { startTime: string; completedAt: string | null; clearedIds: string[]; customTitle?: string };
+type GuestProgress = {
+  startTime: string;
+  completedAt: string | null;
+  clearedIds: string[];
+  customTitle?: string;
+  clearedAtById?: Record<string, string>;
+  photoById?: Record<string, string>;
+};
 
 const storageKey = (slug: string) => `town-bingo-progress:${slug}`;
 
@@ -33,6 +41,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
   const [answer, setAnswer] = useState("");
   const [missionDraft, setMissionDraft] = useState("");
   const [message, setMessage] = useState("");
+  const [photoSaving, setPhotoSaving] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -90,14 +99,35 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
     setMessage("");
   }
 
-  function clear(item: Item) {
+  function clear(item: Item, photo?: string) {
     if (!progress) return;
     const clearedIds = Array.from(new Set([...progress.clearedIds, item.id]));
-    const completedAt = clearedIds.length === game?.items.filter((candidate) => candidate.active).length ? new Date().toISOString() : progress.completedAt;
-    save({ ...progress, clearedIds, completedAt });
+    const clearedAt = progress.clearedAtById?.[item.id] ?? new Date().toISOString();
+    const completedAt = clearedIds.length === game?.items.filter((candidate) => candidate.active).length ? clearedAt : progress.completedAt;
+    save({
+      ...progress,
+      clearedIds,
+      completedAt,
+      clearedAtById: { ...progress.clearedAtById, [item.id]: clearedAt },
+      photoById: photo ? { ...progress.photoById, [item.id]: photo } : progress.photoById,
+    });
     setSelected(null);
     setAnswer("");
     setMessage("");
+  }
+
+  async function savePhoto(item: Item, file: File) {
+    setPhotoSaving(true);
+    setMessage("");
+    try {
+      const uploadable = await convertToUploadableImage(file);
+      const photo = await resizePhoto(uploadable);
+      clear(item, photo);
+    } catch {
+      setMessage("写真を読み込めませんでした。別の写真を選んでください。");
+    } finally {
+      setPhotoSaving(false);
+    }
   }
 
   function selectItem(item: Item | undefined) {
@@ -116,7 +146,9 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
 
   function undoMission(item: Item) {
     if (!progress) return;
-    save({ ...progress, completedAt: null, clearedIds: progress.clearedIds.filter((id) => id !== item.id) });
+    const clearedAtById = { ...progress.clearedAtById };
+    delete clearedAtById[item.id];
+    save({ ...progress, completedAt: null, clearedIds: progress.clearedIds.filter((id) => id !== item.id), clearedAtById });
     setMessage("達成を取り消しました。ミッションを変更できます");
   }
 
@@ -151,8 +183,11 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
             const item = game.items.find((candidate) => candidate.position === position);
             if (!item?.active) return <span className="bingo-empty" key={position}>—</span>;
             const isMission = item.type === "user_mission" || position === 12;
-            return <span className={isMission ? "user-mission-cell" : ""} key={position}>
-              {done.has(item.id) ? <><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small></> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
+            const clearedAt = progress?.clearedAtById?.[item.id];
+            const photo = progress?.photoById?.[item.id];
+            return <span className={`${isMission ? "user-mission-cell" : ""} ${photo ? "bingo-photo-cell" : ""}`} key={position}>
+              {photo && <img src={photo} alt={`${item.title}の投稿写真`}/>}
+              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>達成 {formatClearedTime(clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
             </span>;
           })}
         </BingoGrid>
@@ -171,10 +206,38 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
           {selected.question && <p><b>{selected.question}</b></p>}
           {selected.hint && <details><summary>ヒントを見る</summary><p>{selected.hint}</p></details>}
           {selected.places && <p><a className="bingo-action bingo-secondary" href={`/map?lat=${selected.places.lat}&lng=${selected.places.lng}&zoom=16`}>地図で場所を見る</a></p>}
-          {selected.type === "quiz" ? <><input className="bingo-field" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="答えを入力"/><p><button className="bingo-action" onClick={checkQuiz}>回答する</button></p></> : <><label className="bingo-action">写真を撮る／選ぶ<input hidden type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && clear(selected)}/></label>{!selected.photo_required && <button className="bingo-action bingo-secondary" onClick={() => clear(selected)}>撮影せずCLEAR</button>}</>}</>}
+          {selected.type === "quiz" ? <><input className="bingo-field" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="答えを入力"/><p><button className="bingo-action" onClick={checkQuiz}>回答する</button></p></> : <><label className="bingo-action">{photoSaving ? "写真を保存中…" : "写真を撮る／選ぶ"}<input disabled={photoSaving} hidden type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && void savePhoto(selected, event.target.files[0])}/></label>{!selected.photo_required && <button className="bingo-action bingo-secondary" disabled={photoSaving} onClick={() => clear(selected)}>撮影せずCLEAR</button>}</>}</>}
           <p><button onClick={() => setSelected(null)}>閉じる</button></p>
         </div></div>}
       </div>
     </main>
   );
+}
+
+function formatClearedTime(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function resizePhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxSide = 640;
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return reject(new Error("Canvas is unavailable"));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.72));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Image could not be decoded"));
+    };
+    image.src = objectUrl;
+  });
 }

@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type PreviewCell = { cleared: boolean };
-type SavedProgress = { startTime?: string; clearedIds?: string[]; customTitle?: string };
+type PreviewCell = { cleared: boolean; clearedAt?: string; photo?: string };
+type SavedProgress = {
+  startTime?: string;
+  clearedIds?: string[];
+  customTitle?: string;
+  clearedAtById?: Record<string, string>;
+  photoById?: Record<string, string>;
+};
 type BingoItem = { id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; active: boolean };
 
 const emptyCells = (): PreviewCell[] => Array.from({ length: 25 }, () => ({ cleared: false }));
@@ -42,7 +48,13 @@ export default function DaigoExplore() {
             const position = positions.get(id);
             const item = items.find((candidate) => candidate.id === id);
             if ((item?.type === "user_mission" || position === 12) && !progress.customTitle) continue;
-            if (position !== undefined && position < 25) next[position].cleared = true;
+            if (position !== undefined && position < 25) {
+              next[position] = {
+                cleared: true,
+                clearedAt: progress.clearedAtById?.[id],
+                photo: progress.photoById?.[id],
+              };
+            }
           }
         } catch {
           // The game screen owns invalid local progress cleanup.
@@ -64,13 +76,17 @@ export default function DaigoExplore() {
           hasStarted = true;
           const { data: progressRows } = await supabase
             .from("bingo_progress")
-            .select("bingo_item_id,is_cleared")
+            .select("bingo_item_id,is_cleared,cleared_at,photo_url")
             .eq("session_id", bingoSession.id)
             .eq("is_cleared", true);
           for (const row of progressRows ?? []) {
             const position = positions.get(row.bingo_item_id);
             if (position === undefined || position >= 25) continue;
-            next[position].cleared = true;
+            next[position] = {
+              cleared: true,
+              clearedAt: row.cleared_at ?? next[position].clearedAt,
+              photo: row.photo_url ?? next[position].photo,
+            };
           }
         }
       }
@@ -106,10 +122,11 @@ export default function DaigoExplore() {
         {cells.map((cell, position) => {
           const item = items.find((candidate) => candidate.position === position);
           const isMission = item?.type === "user_mission" || position === 12;
-          return <div role="gridcell" aria-label={`${position + 1}マス目${cell.cleared ? "、達成済み" : ""}`} className={`bingo-cell${cell.cleared ? " is-clear" : ""}`} key={position}>
+          const clearedTime = cell.clearedAt ? formatClearedTime(cell.clearedAt) : null;
+          return <div role="gridcell" aria-label={`${position + 1}マス目${cell.cleared ? `、達成済み${clearedTime ? `、${clearedTime}` : ""}` : ""}`} className={`bingo-cell${cell.cleared ? " is-clear" : ""}`} key={position}>
             {!item?.active ? <span className="bingo-empty">—</span> : isMission ? <span className="user-mission-cell">
-              {cell.cleared ? <><b>✓ 達成！</b><small>{customTitle || item.title}</small></> : <><b>YOUR MISSION</b><small>{customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!customTitle && <em>＋ 設定する</em>}</>}
-            </span> : cell.cleared ? <><b>✓ 達成！</b><small>{item.title}</small></> : item.title}
+              {cell.cleared ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{customTitle || item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>達成 {clearedTime}</time>}</span> : <><b>YOUR MISSION</b><small>{customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!customTitle && <em>＋ 設定する</em>}</>}
+            </span> : cell.cleared ? <span className={cell.photo ? "bingo-photo-cell" : ""}>{cell.photo && <img src={cell.photo} alt={`${item.title}の投稿写真`}/>}<span className="bingo-clear-details"><b>✓ 達成！</b><small>{item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>達成 {clearedTime}</time>}</span></span> : item.title}
           </div>;
         })}
       </div>
@@ -126,4 +143,8 @@ export default function DaigoExplore() {
 
     <Link className="daigo-member-link" href="/member"><span aria-hidden>♙</span> マイページへ <span aria-hidden>→</span></Link>
   </div>;
+}
+
+function formatClearedTime(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
