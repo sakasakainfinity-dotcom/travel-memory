@@ -12,8 +12,16 @@ export function formatElapsed(startTime: string | null, completedAt?: string | n
   if (!startTime) return "00:00:00";
   const end = completedAt ? new Date(completedAt).getTime() : now;
   const seconds = Math.max(0, Math.floor((end - new Date(startTime).getTime()) / 1000));
-  return [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
+  const days = Math.floor(seconds / 86400);
+  const time = [Math.floor((seconds % 86400) / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
     .map((part) => String(part).padStart(2, "0")).join(":");
+  return days > 0 ? `${days}day ${time}` : time;
+}
+
+export function formatDatedElapsed(startTime: string | null, completedAt?: string | null, now = Date.now()) {
+  const end = completedAt ? new Date(completedAt) : new Date(now);
+  const date = new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric" }).format(end);
+  return `${date} ${formatElapsed(startTime, completedAt, now)}`;
 }
 
 export function normalizeAnswer(value: string) {
