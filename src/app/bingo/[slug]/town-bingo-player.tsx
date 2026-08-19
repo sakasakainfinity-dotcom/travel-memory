@@ -187,7 +187,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
             const photo = progress?.photoById?.[item.id];
             return <span className={`${isMission ? "user-mission-cell" : ""} ${photo ? "bingo-photo-cell" : ""}`} key={position}>
               {photo && <img src={photo} alt={`${item.title}の投稿写真`}/>}
-              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>達成 {formatClearedTime(clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
+              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>達成 {formatElapsed(progress?.startTime ?? null, clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
             </span>;
           })}
         </BingoGrid>
@@ -212,10 +212,6 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
       </div>
     </main>
   );
-}
-
-function formatClearedTime(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function resizePhoto(file: File): Promise<string> {
