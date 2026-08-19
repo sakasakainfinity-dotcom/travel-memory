@@ -18,6 +18,12 @@ export function formatElapsed(startTime: string | null, completedAt?: string | n
   return days > 0 ? `${days}day ${time}` : time;
 }
 
+export function formatDatedElapsed(startTime: string | null, completedAt?: string | null, now = Date.now()) {
+  const end = completedAt ? new Date(completedAt) : new Date(now);
+  const date = new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric" }).format(end);
+  return `${date} ${formatElapsed(startTime, completedAt, now)}`;
+}
+
 export function normalizeAnswer(value: string) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("ja-JP").replace(/\s+/g, "");
 }

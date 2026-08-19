@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
 import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
-import { bingoLines, formatElapsed, normalizeAnswer } from "@/lib/bingo/lines";
+import { bingoLines, formatDatedElapsed, normalizeAnswer } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = {
@@ -171,7 +171,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
         <h1 className="bingo-title">{game.title}</h1>
         <div className="bingo-stats">
           <span>CLEAR {done.size} / 25</span><span>BINGO {lines.length}</span>
-          <span>TIME {formatElapsed(progress?.startTime ?? null, progress?.completedAt ?? null, now)}</span>
+          <span>{formatDatedElapsed(progress?.startTime ?? null, progress?.completedAt ?? null, now)}</span>
         </div>
         {!progress && <div className="bingo-card" style={{ marginTop: 16 }}>
           <p>{game.description}</p>
@@ -187,7 +187,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
             const photo = progress?.photoById?.[item.id];
             return <span className={`${isMission ? "user-mission-cell" : ""} ${photo ? "bingo-photo-cell" : ""}`} key={position}>
               {photo && <img src={photo} alt={`${item.title}の投稿写真`}/>}
-              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>達成 {formatElapsed(progress?.startTime ?? null, clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
+              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>{formatDatedElapsed(progress?.startTime ?? null, clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
             </span>;
           })}
         </BingoGrid>
