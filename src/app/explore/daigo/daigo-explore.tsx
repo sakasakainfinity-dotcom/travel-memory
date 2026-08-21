@@ -141,7 +141,7 @@ export default function DaigoExplore() {
       <div className="daigo-ticket-top"><span>公式HP予約＋会員登録者限定</span><small>STAY BENEFIT</small></div>
       <div className="daigo-ticket-body"><div><p>滞在中クーポン</p><strong>¥500 <em>OFF</em></strong></div><div className="daigo-stamp" aria-hidden>DAIGO<br />STAY</div></div>
       <p className="daigo-ticket-copy">まちやど公式HPからご予約後、会員登録された方限定の滞在特典です。</p>
-      <p className="daigo-ticket-condition">対象店舗で4,000円以上のお食事にご利用いただけます。</p>
+      <p className="daigo-ticket-condition">対象店舗で3,000円以上のお会計でご利用いただけます。</p>
       <Link className="daigo-primary" href="/coupons/stay">クーポンを確認する<span aria-hidden>→</span></Link>
     </section>
 
