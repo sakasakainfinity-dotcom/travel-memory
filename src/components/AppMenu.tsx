@@ -96,7 +96,7 @@ export default function AppMenu({ current }: AppMenuProps) {
           {([
             { key: "town-bingo", label: "町探索", href: "/explore" },
             { key: "settings", label: signedIn ? "マイページ" : "会員ページ", href: "/member" },
-            ...(isAdmin ? [{ key: "share" as AppMenuCurrent, label: "管理画面", href: "/admin/members" }] : []),
+            ...(isAdmin ? [{ key: "share" as AppMenuCurrent, label: "管理画面", href: "/admin" }] : []),
           ] satisfies MenuItem[]).map((item) => {
             const active = current === item.key;
             return (
