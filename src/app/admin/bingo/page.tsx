@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AdminNavigation from "@/components/admin/AdminNavigation";
 
 type Bingo = { id: string; title: string; slug: string; municipality_name: string; description: string | null; is_published: boolean };
 type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; question: string | null; hint: string | null; correct_answers: string[] | null; image_url: string | null; active: boolean };
@@ -95,6 +96,7 @@ export default function AdminBingo() {
   }
 
   return <main className="bingo-shell"><div className="bingo-wrap admin-bingo-wrap">
+    <AdminNavigation current="bingo" />
     <div className="bingo-brand">ADMIN</div><h1>旅ビンゴ設定</h1>
     {adminAccess.state === "checking" && <div className="bingo-card">管理者権限を確認しています…</div>}
     {adminAccess.state === "denied" && <div className="bingo-card"><h2>管理者権限を確認できません</h2><p>{adminAccess.reason}</p>{adminAccess.email && <p className="bingo-note">ログイン中: {adminAccess.email}</p>}<p className="bingo-note">これはマスの入力内容や画像URLのエラーではありません。</p></div>}
