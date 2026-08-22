@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatDatedElapsed } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
+import StayBenefitsSection from "./stay-benefits-section";
 
 type PreviewCell = { cleared: boolean; clearedAt?: string; photo?: string };
 type SavedProgress = {
@@ -144,6 +145,8 @@ export default function DaigoExplore() {
       <p className="daigo-ticket-condition">対象店舗で3,000円以上のお会計でご利用いただけます。</p>
       <Link className="daigo-primary" href="/coupons/stay">クーポンを確認する<span aria-hidden>→</span></Link>
     </section>
+
+    <StayBenefitsSection />
 
     <Link className="daigo-member-link" href="/member"><span aria-hidden>♙</span> マイページへ <span aria-hidden>→</span></Link>
   </div>;
