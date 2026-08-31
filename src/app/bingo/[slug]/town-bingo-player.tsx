@@ -6,6 +6,7 @@ import BingoGrid from "@/components/bingo/BingoGrid";
 import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
 import { bingoLines, formatDatedElapsed, normalizeAnswer } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
+import BingoLocationMap, { BingoMapSpot } from "@/components/bingo/BingoLocationMap";
 
 type Item = {
   id: string;
@@ -20,6 +21,8 @@ type Item = {
   photo_required: boolean;
   image_url: string | null;
   active: boolean;
+  latitude: number | null;
+  longitude: number | null;
   places?: { lat: number; lng: number; title: string } | null;
 };
 type Game = { id: string; title: string; description: string | null; items: Item[] };
@@ -43,6 +46,8 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
   const [message, setMessage] = useState("");
   const [photoSaving, setPhotoSaving] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [view, setView] = useState<"bingo" | "map">("bingo");
+  const [newSpot, setNewSpot] = useState<Item | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -62,7 +67,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
     void (async () => {
       const { data } = await supabase
         .from("bingos")
-        .select("id,title,description,items:bingo_items(id,position,type,title,description,question,hint,correct_answers,spot_id,photo_required,image_url,active,places(lat,lng,title))")
+        .select("id,title,description,items:bingo_items(id,position,type,title,description,question,hint,correct_answers,spot_id,photo_required,image_url,active,latitude,longitude,places(lat,lng,title))")
         .eq("slug", slug)
         .eq("is_published", true)
         .maybeSingle();
@@ -88,6 +93,8 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
     [game, done],
   );
   const lines = bingoLines(5, clearedIndexes);
+  const mappedItems = useMemo(() => game?.items.filter((item) => item.active && item.latitude != null && item.longitude != null) ?? [], [game]);
+  const discoveredSpots = useMemo(() => mappedItems.filter((item) => done.has(item.id)).map((item): BingoMapSpot => ({ id: item.id, title: item.title, latitude: item.latitude!, longitude: item.longitude! })), [mappedItems, done]);
 
   function save(next: GuestProgress) {
     setProgress(next);
@@ -114,6 +121,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
     setSelected(null);
     setAnswer("");
     setMessage("");
+    if (!done.has(item.id) && item.latitude != null && item.longitude != null) setNewSpot(item);
   }
 
   async function savePhoto(item: Item, file: File) {
@@ -173,12 +181,13 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
           <span>CLEAR {done.size} / 25</span><span>BINGO {lines.length}</span>
           <span>{formatDatedElapsed(progress?.startTime ?? null, progress?.completedAt ?? null, now)}</span>
         </div>
+        <div className="bingo-view-tabs" role="tablist" aria-label="表示を切り替え"><button role="tab" aria-selected={view === "bingo"} onClick={() => setView("bingo")}>BINGO</button><button role="tab" aria-selected={view === "map"} onClick={() => setView("map")}>探索MAP</button></div>
         {!progress && <div className="bingo-card" style={{ marginTop: 16 }}>
           <p>{game.description}</p>
           <button className="bingo-action" onClick={start}>BINGOをスタート</button>
           <p className="bingo-note">ログイン不要。進捗はこの端末に保存されます。</p>
         </div>}
-        <BingoGrid size={5} cleared={clearedIndexes} onSelect={(position) => selectItem(game.items.find((item) => item.position === position))}>
+        {view === "bingo" ? <><BingoGrid size={5} cleared={clearedIndexes} onSelect={(position) => selectItem(game.items.find((item) => item.position === position))}>
           {Array.from({ length: 25 }, (_, position) => {
             const item = game.items.find((candidate) => candidate.position === position);
             if (!item?.active) return <span className="bingo-empty" key={position}>—</span>;
@@ -191,7 +200,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
             </span>;
           })}
         </BingoGrid>
-        {lines.length > 0 && <div className="bingo-card"><b>🎉 {lines.length} BINGO 達成！</b></div>}
+        {lines.length > 0 && <div className="bingo-card"><b>🎉 {lines.length} BINGO 達成！</b></div>}</> : <section className="bingo-exploration"><div className="bingo-map-progress"><div><span>DAIGO MAP</span><strong>{discoveredSpots.length} / {mappedItems.length} SPOTS DISCOVERED</strong></div><b>探索率 {mappedItems.length ? Math.round(discoveredSpots.length / mappedItems.length * 100) : 0}%</b></div><BingoLocationMap spots={discoveredSpots}/>{discoveredSpots.length === 0 && <p className="bingo-map-empty">BINGOをクリアすると、ここに発見したスポットが追加されます。</p>}</section>}
         {message && <p className="bingo-error">{message}</p>}
         {selected && <div className="bingo-modal" onClick={() => setSelected(null)}><div onClick={(event) => event.stopPropagation()}>
           {(selected.type === "user_mission" || selected.position === 12) ? <>
@@ -209,6 +218,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
           {selected.type === "quiz" ? <><input className="bingo-field" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="答えを入力"/><p><button className="bingo-action" onClick={checkQuiz}>回答する</button></p></> : <><label className="bingo-action">{photoSaving ? "写真を保存中…" : "写真を撮る／選ぶ"}<input disabled={photoSaving} hidden type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && void savePhoto(selected, event.target.files[0])}/></label>{!selected.photo_required && <button className="bingo-action bingo-secondary" disabled={photoSaving} onClick={() => clear(selected)}>撮影せずCLEAR</button>}</>}</>}
           <p><button onClick={() => setSelected(null)}>閉じる</button></p>
         </div></div>}
+        {newSpot && <div className="bingo-spot-toast" role="status"><button className="bingo-toast-close" aria-label="通知を閉じる" onClick={() => setNewSpot(null)}>×</button><span>📍 NEW SPOT DISCOVERED</span><strong>{newSpot.title}</strong><small>MAPに追加されました</small><button className="bingo-action" onClick={() => { setView("map"); setNewSpot(null); }}>MAPを見る</button></div>}
       </div>
     </main>
   );
