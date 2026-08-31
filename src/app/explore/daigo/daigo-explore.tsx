@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatDatedElapsed } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
-import StayBenefitsSection from "./stay-benefits-section";
 
 type PreviewCell = { cleared: boolean; clearedAt?: string; photo?: string };
 type SavedProgress = {
@@ -137,16 +136,6 @@ export default function DaigoExplore() {
       </div>
       <Link className="daigo-primary" href="/bingo/daigo">{started ? "BINGOの続きを遊ぶ" : "BINGOをはじめる"}<span aria-hidden>→</span></Link>
     </section>
-
-    <section className="daigo-ticket">
-      <div className="daigo-ticket-top"><span>公式HP予約＋会員登録者限定</span><small>STAY BENEFIT</small></div>
-      <div className="daigo-ticket-body"><div><p>滞在中クーポン</p><strong>¥500 <em>OFF</em></strong></div><div className="daigo-stamp" aria-hidden>DAIGO<br />STAY</div></div>
-      <p className="daigo-ticket-copy">まちやど公式HPからご予約後、会員登録された方限定の滞在特典です。</p>
-      <p className="daigo-ticket-condition">対象店舗で3,000円以上のお会計でご利用いただけます。</p>
-      <Link className="daigo-primary" href="/coupons/stay">クーポンを確認する<span aria-hidden>→</span></Link>
-    </section>
-
-    <StayBenefitsSection />
 
     <Link className="daigo-member-link" href="/member"><span aria-hidden>♙</span> マイページへ <span aria-hidden>→</span></Link>
   </div>;

@@ -9,9 +9,8 @@ import { supabase } from "@/lib/supabaseClient";
 type Access = "checking" | "signed-out" | "forbidden" | "allowed" | "error";
 
 const adminTools = [
-  { href: "/admin/members", icon: "♙", eyebrow: "MEMBERS", title: "会員管理", description: "会員の追加・停止と、ビンゴや滞在中クーポンの利用権限を設定します。", action: "会員を管理する" },
+  { href: "/admin/members", icon: "♙", eyebrow: "MEMBERS", title: "会員管理", description: "会員の追加・停止と、ビンゴの利用権限を設定します。", action: "会員を管理する" },
   { href: "/admin/bingo", icon: "▦", eyebrow: "BINGO", title: "旅ビンゴ管理", description: "町ごとのビンゴを作成し、25マスの内容や公開状態を編集します。", action: "ビンゴを編集する" },
-  { href: "/admin/coupon-usages", icon: "◫", eyebrow: "COUPONS", title: "クーポン利用実績", description: "店舗別の利用件数を集計し、最近のクーポン利用履歴を確認します。", action: "利用実績を見る" },
 ] as const;
 
 export default function AdminDashboardPage() {
@@ -40,7 +39,7 @@ export default function AdminDashboardPage() {
 
   return <main className="admin-dashboard">
     <AdminNavigation current="home" />
-    <header className="admin-dashboard-hero"><div><p>ADMIN CONSOLE</p><h1>すべての管理を、<br />ここから。</h1><span>会員・旅ビンゴ・クーポンをひとつの管理トップから開けます。</span></div><div className="admin-dashboard-mark" aria-hidden><span>3</span><small>MANAGEMENT<br />TOOLS</small></div></header>
+    <header className="admin-dashboard-hero"><div><p>ADMIN CONSOLE</p><h1>すべての管理を、<br />ここから。</h1><span>会員・旅ビンゴをひとつの管理トップから開けます。</span></div><div className="admin-dashboard-mark" aria-hidden><span>2</span><small>MANAGEMENT<br />TOOLS</small></div></header>
     <section className="admin-dashboard-tools" aria-label="管理機能">
       {adminTools.map((tool, index) => <Link href={tool.href} key={tool.href} className="admin-tool-card"><div className="admin-tool-number">0{index + 1}</div><div className="admin-tool-icon" aria-hidden>{tool.icon}</div><p>{tool.eyebrow}</p><h2>{tool.title}</h2><span>{tool.description}</span><strong>{tool.action}<i aria-hidden>→</i></strong></Link>)}
     </section>
