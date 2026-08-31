@@ -1,12 +1,11 @@
 import Link from "next/link";
 
-export type AdminSection = "home" | "members" | "bingo" | "coupons";
+export type AdminSection = "home" | "members" | "bingo";
 
 const sections = [
   { key: "home", href: "/admin", label: "管理トップ" },
   { key: "members", href: "/admin/members", label: "会員管理" },
   { key: "bingo", href: "/admin/bingo", label: "旅ビンゴ" },
-  { key: "coupons", href: "/admin/coupon-usages", label: "クーポン実績" },
 ] as const;
 
 export default function AdminNavigation({ current }: { current: AdminSection }) {

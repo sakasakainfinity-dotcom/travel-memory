@@ -12,7 +12,7 @@ export default function ExplorePage() {
     <section className="bingo-list" aria-label="探索できる町">
       <article className="bingo-card explore-town-card">
         <div className="bingo-brand">茨城県</div><h2>大子町</h2>
-        <p>町BINGO・滞在中クーポン・お店や地域の情報を楽しめます。</p>
+        <p>町BINGOで、大子町のお店や地域の魅力を楽しめます。</p>
         <Link className="explore-primary" href="/explore/daigo">大子町を探索する <span aria-hidden>→</span></Link>
       </article>
     </section>

@@ -49,15 +49,8 @@ export async function PATCH(request: NextRequest) {
     }
     if (body.entitlement) {
       const e = body.entitlement;
-      if (!["if_then_bingo", "stay_coupon"].includes(e.type)) return NextResponse.json({ error: "Invalid entitlement" }, { status: 400 });
-      let stayId: string | null = null;
-      if (e.type === "stay_coupon" && e.active) {
-        if (!e.validFrom || !e.validUntil || Date.parse(e.validUntil) <= Date.parse(e.validFrom)) return NextResponse.json({ error: "宿泊期間を正しく入力してください。" }, { status: 400 });
-        const stay = await admin.from("stays").insert({ user_id: userId, check_in_at: e.validFrom, check_out_at: e.validUntil, reservation_source: "official" }).select("id").single();
-        if (stay.error) throw stay.error;
-        stayId = stay.data.id;
-      }
-      const { error } = await admin.from("user_entitlements").upsert({ user_id: userId, entitlement_type: e.type, active: Boolean(e.active), valid_from: e.validFrom || null, valid_until: e.validUntil || null, created_by: actorId, stay_id: stayId }, { onConflict: "user_id,entitlement_type" });
+      if (e.type !== "if_then_bingo") return NextResponse.json({ error: "Invalid entitlement" }, { status: 400 });
+      const { error } = await admin.from("user_entitlements").upsert({ user_id: userId, entitlement_type: e.type, active: Boolean(e.active), valid_from: e.validFrom || null, valid_until: e.validUntil || null, created_by: actorId, stay_id: null }, { onConflict: "user_id,entitlement_type" });
       if (error) throw error;
     }
     return NextResponse.json({ ok: true });
