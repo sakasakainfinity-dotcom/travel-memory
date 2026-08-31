@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import AdminNavigation from "@/components/admin/AdminNavigation";
+import BingoLocationMap from "@/components/bingo/BingoLocationMap";
 
 type Bingo = { id: string; title: string; slug: string; municipality_name: string; description: string | null; is_published: boolean };
-type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; question: string | null; hint: string | null; correct_answers: string[] | null; image_url: string | null; active: boolean };
+type Item = { id: string; bingo_id: string; position: number; type: "photo" | "quiz" | "user_mission"; title: string; description: string | null; question: string | null; hint: string | null; correct_answers: string[] | null; image_url: string | null; active: boolean; latitude: number | null; longitude: number | null };
 type AdminAccess = { state: "checking" | "allowed" | "denied"; email?: string; reason?: string };
 
 export default function AdminBingo() {
@@ -45,7 +46,7 @@ export default function AdminBingo() {
     }
     setAdminAccess({ state: "allowed", email: user.email });
     const { data, error } = await supabase.from("bingos")
-      .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,question,hint,correct_answers,image_url,active)")
+      .select("id,title,slug,municipality_name,description,is_published,items:bingo_items(id,bingo_id,position,type,title,description,question,hint,correct_answers,image_url,active,latitude,longitude)")
       .order("created_at");
     if (error) { setMessage(`ビンゴを読み込めませんでした: ${error.message}`); return; }
     const boards = (data ?? []) as unknown as (Bingo & { items: Item[] })[];
@@ -87,6 +88,8 @@ export default function AdminBingo() {
       next_question: editing.type === "quiz" ? editing.question ?? "" : "",
       next_hint: editing.type === "quiz" ? editing.hint ?? "" : "",
       next_correct_answers: editing.type === "quiz" ? editing.correct_answers ?? [] : [],
+      next_latitude: editing.latitude,
+      next_longitude: editing.longitude,
     });
     setMessage(error ? (error.message.includes("Administrator access required")
       ? "マスを保存できませんでした。入力内容ではなく、ログイン中のアカウントに管理者権限がありません。profiles.is_admin を確認してください。"
@@ -137,6 +140,13 @@ export default function AdminBingo() {
         <label className="admin-field-label">正解（複数ある場合は1行に1つ）<textarea required rows={3} className="bingo-field" placeholder={"大子\nだいご"} value={(editing.correct_answers ?? []).join("\n")} onChange={(e) => setEditing({ ...editing, correct_answers: e.target.value.split("\n").map((value) => value.trim()).filter(Boolean) })}/></label>
         <label className="admin-field-label">ヒント（任意）<textarea maxLength={300} rows={2} className="bingo-field" value={editing.hint ?? ""} onChange={(e) => setEditing({ ...editing, hint: e.target.value })}/></label>
       </>}
+      <fieldset className="admin-location-field"><legend>場所を設定</legend>
+        <p className="bingo-note">地図をクリックして、このBINGOの正解地点を設定してください。</p>
+        <BingoLocationMap editable value={editing.latitude != null && editing.longitude != null ? { latitude: editing.latitude, longitude: editing.longitude } : null} onChange={(location) => setEditing((current) => current ? { ...current, ...location } : current)}/>
+        <strong>📍 設定地点</strong>
+        <div className="admin-coordinate-fields"><label>緯度<input className="bingo-field" type="number" min={-90} max={90} step="any" value={editing.latitude ?? ""} onChange={(event) => setEditing({ ...editing, latitude: event.target.value === "" ? null : Number(event.target.value) })}/></label><label>経度<input className="bingo-field" type="number" min={-180} max={180} step="any" value={editing.longitude ?? ""} onChange={(event) => setEditing({ ...editing, longitude: event.target.value === "" ? null : Number(event.target.value) })}/></label></div>
+        <button type="button" className="bingo-action bingo-secondary" onClick={() => setEditing({ ...editing, latitude: null, longitude: null })}>位置情報をクリア</button>
+      </fieldset>
       <label className="admin-field-label">並び順（1〜25、13は予約済み）<input type="number" min={1} max={25} required className="bingo-field" value={editing.position + 1} onChange={(e) => setEditing({ ...editing, position: Number(e.target.value) - 1 })}/></label>
       <label className="admin-active"><input type="checkbox" checked={editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })}/> ユーザー画面に表示する</label>
       <div className="admin-modal-actions"><button className="bingo-action" disabled={saving}>{saving ? "保存中…" : "変更を保存"}</button><button type="button" className="bingo-action bingo-secondary" onClick={() => setEditing(null)}>キャンセル</button></div>
