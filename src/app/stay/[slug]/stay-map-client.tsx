@@ -36,6 +36,7 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
   const openSpot = (spot: StaySpot) => { setSelected(spot); void track("spot_view", stay.id, spot.id); };
   return <main className="stay-map-page">
     <section className="stay-map-content">
+      {stay.slug === "motomachi" && <h1 className="stay-map-title">まちやど　ガイドマップ</h1>}
       <div ref={container} className="stay-map-canvas" aria-label={`${stay.name}周辺のおすすめ地図`}/>
       <nav className="stay-map-filters" aria-label="カテゴリ絞り込み"><button aria-pressed={category === "all"} onClick={() => setCategory("all")}>すべて</button>{categories.map(item => <button key={item.id} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.name}</button>)}</nav>
       <div className="stay-spot-list">{spots.map((spot, index) => <article className="stay-spot-card" key={spot.id} onClick={() => openSpot(spot)}>
