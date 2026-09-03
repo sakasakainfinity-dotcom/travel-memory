@@ -8,10 +8,11 @@ import { supabase } from "@/lib/supabaseClient";
 
 type Recommendation = { stay_id: string; host_comment: string; is_featured: boolean; sort_order: number; is_published: boolean };
 type Stay = { id: string; name: string; slug: string; subtitle: string | null; description: string | null; image_url: string | null; address: string | null; latitude: number | null; longitude: number | null; is_published: boolean; recommendations?: { count: number }[] };
-type Category = { id: string; name: string };
+type Category = { id: string; name: string; slug: string };
 type SpotRow = AdminMapSpot & { address: string | null; google_maps_url: string | null; image_url: string | null; description: string | null; distance_label: string | null; walking_time: string | null; driving_time: string | null; business_hours: string | null; closed_days: string | null; website_url: string | null; instagram_url: string | null; recommendations?: Recommendation[] };
 const emptyStay = { name: "", slug: "", subtitle: "宿主おすすめMAP", description: "", image_url: "", address: "", latitude: "", longitude: "", is_published: false };
-const emptySpot = { id: "", name: "", latitude: "", longitude: "", address: "", google_maps_url: "", image_url: "", description: "", distance_label: "", walking_time: "", driving_time: "", business_hours: "", closed_days: "", website_url: "", instagram_url: "", host_comment: "", stay_id: "", category_ids: [] as string[], sort_order: 0, is_featured: false, is_published: true };
+const emptySpot = { id: "", name: "", latitude: "", longitude: "", google_maps_url: "", image_url: "", description: "", distance_label: "", walking_time: "", driving_time: "", business_hours: "", closed_days: "", website_url: "", instagram_url: "", host_comment: "", stay_id: "", category_ids: [] as string[], sort_order: 0, is_featured: false, is_published: true };
+const CATEGORY_SLUGS = ["restaurant", "souvenir", "general-goods", "sightseeing", "onsen", "experience"] as const;
 
 export default function StayMapsAdmin() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -36,14 +37,15 @@ export default function StayMapsAdmin() {
     const [stayResult, spotResult, categoryResult] = await Promise.all([
       supabase.from("stays").select("*,recommendations:stay_recommendations(count)").order("created_at"),
       supabase.from("stay_spots").select("*,recommendations:stay_recommendations(stay_id,host_comment,is_featured,sort_order,is_published)").order("created_at", { ascending: false }),
-      supabase.from("stay_spot_categories").select("id,name").order("sort_order"),
+      supabase.from("stay_spot_categories").select("id,name,slug").in("slug", CATEGORY_SLUGS).order("sort_order"),
     ]);
     if (stayResult.error || spotResult.error || categoryResult.error) setMessage(`読み込みに失敗しました: ${(stayResult.error || spotResult.error || categoryResult.error)?.message}`);
     const nextStays = (stayResult.data ?? []) as unknown as Stay[];
     setStays(nextStays);
     setSelectedStayId((current) => current || nextStays[0]?.id || "");
     setSpots((spotResult.data ?? []) as unknown as SpotRow[]);
-    setCategories((categoryResult.data ?? []) as Category[]);
+    const categoryRows = (categoryResult.data ?? []) as Category[];
+    setCategories(CATEGORY_SLUGS.flatMap((slug) => categoryRows.filter((category) => category.slug === slug)));
   }
   useEffect(() => { void load(); }, []);
 
@@ -76,9 +78,9 @@ export default function StayMapsAdmin() {
   }
   async function saveSpot(event: React.FormEvent) {
     event.preventDefault();
-    if (!spotForm.stay_id || !spotForm.host_comment.trim()) { setMessage("宿と宿主のひとことを入力してください"); return; }
+    if (!spotForm.stay_id || !spotForm.host_comment.trim()) { setMessage("宿と地元民からの一言を入力してください"); return; }
     setSaving(true);
-    const fields = ["name","address","google_maps_url","image_url","description","distance_label","walking_time","driving_time","business_hours","closed_days","website_url","instagram_url"] as const;
+    const fields = ["name","google_maps_url","image_url","description","distance_label","walking_time","driving_time","business_hours","closed_days","website_url","instagram_url"] as const;
     const payload: any = { latitude: Number(spotForm.latitude), longitude: Number(spotForm.longitude), is_published: spotForm.is_published };
     fields.forEach((key) => payload[key] = key === "name" ? spotForm[key].trim() : nullOrText(spotForm[key]));
     let spotId = spotForm.id;
@@ -117,7 +119,7 @@ export default function StayMapsAdmin() {
 
     <section className="stay-admin-workspace">
       <div className="stay-admin-map-column">
-        <div className="stay-admin-map-search"><div><b>場所を検索</b><small>店名・施設名・住所から探せます</small></div><PlaceGeocodeSearch onPick={(place) => { setSpotForm((current: any) => ({ ...current, stay_id: current.stay_id || selectedStayId, name: place.name, address: place.address || "", latitude: String(place.lat), longitude: String(place.lng) })); setShowDetails(false); }}/></div>
+        <div className="stay-admin-map-search"><div><b>場所を検索</b><small>店名・施設名・住所から探せます</small></div><PlaceGeocodeSearch onPick={(place) => { setSpotForm((current: any) => ({ ...current, stay_id: current.stay_id || selectedStayId, name: place.name, latitude: String(place.lat), longitude: String(place.lng) })); setShowDetails(false); }}/></div>
         <div className="stay-admin-map-help"><strong>① 検索 または 地図をクリック</strong><span>→</span><strong>② 右のフォームを入力</strong><span>→</span><strong>③ 保存</strong></div>
         <StaySpotMapEditor spots={staySpots} value={mapValue} stayCenter={selectedStay?.latitude != null && selectedStay.longitude != null ? { latitude: selectedStay.latitude, longitude: selectedStay.longitude } : null} onPick={pickLocation} onSelect={(spot) => void editSpot(spot as SpotRow)} />
         <p className="stay-admin-map-caption">既存のピンを選ぶと編集できます。新しい位置はオレンジ色のピンをドラッグして微調整できます。</p>
@@ -128,9 +130,11 @@ export default function StayMapsAdmin() {
         {!mapValue && <div className="stay-admin-empty-selection"><b>← 地図で場所を選んでください</b><p>場所を検索するか、登録したい地点をクリックするとフォームが使えます。</p></div>}
         {mapValue && <form className="stay-admin-form stay-admin-spot-form" onSubmit={saveSpot}>
           <label className="wide">店名・スポット名<input autoFocus required value={spotForm.name} onChange={(e) => setSpotForm({ ...spotForm, name: e.target.value })} placeholder="例：港町コーヒー"/></label>
-          <label className="wide">宿主のひとこと<textarea required maxLength={1000} rows={4} value={spotForm.host_comment} onChange={(e) => setSpotForm({ ...spotForm, host_comment: e.target.value })} placeholder="宿泊者へおすすめポイントを伝えましょう"/></label>
-          <fieldset className="wide"><legend>カテゴリ</legend>{categories.map((cat) => <label className="check" key={cat.id}><input type="checkbox" checked={spotForm.category_ids.includes(cat.id)} onChange={(e) => setSpotForm({ ...spotForm, category_ids: e.target.checked ? [...spotForm.category_ids, cat.id] : spotForm.category_ids.filter((id: string) => id !== cat.id) })}/>{cat.name}</label>)}</fieldset>
-          <label className="wide">住所<input value={spotForm.address || ""} onChange={(e) => setSpotForm({ ...spotForm, address: e.target.value })}/></label>
+          <label className="wide">地元民からの一言<textarea required maxLength={1000} rows={4} value={spotForm.host_comment} onChange={(e) => setSpotForm({ ...spotForm, host_comment: e.target.value })} placeholder="地元ならではのおすすめポイントを伝えましょう"/></label>
+          <fieldset className="wide stay-admin-categories"><legend>カテゴリー（複数選択可）</legend>{categories.map((cat) => {
+            const selected = spotForm.category_ids.includes(cat.id);
+            return <button type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} key={cat.id} onClick={() => setSpotForm((current: typeof emptySpot) => ({ ...current, category_ids: current.category_ids.includes(cat.id) ? current.category_ids.filter((id) => id !== cat.id) : [...current.category_ids, cat.id] }))}><span aria-hidden="true">{selected ? "✓" : "＋"}</span>{cat.name}</button>;
+          })}{categories.length === 0 && <p>カテゴリーを読み込めませんでした。データベースのマイグレーションを確認してください。</p>}</fieldset>
           <button type="button" className="stay-admin-detail-toggle wide" aria-expanded={showDetails} onClick={() => setShowDetails((value) => !value)}>{showDetails ? "詳細項目を閉じる −" : "写真・営業時間などを追加 ＋"}</button>
           {showDetails && <>{([['image_url','写真URL'],['google_maps_url','Google Maps URL'],['description','簡単な説明'],['distance_label','距離'],['walking_time','徒歩時間'],['driving_time','車の時間'],['business_hours','営業時間'],['closed_days','定休日'],['website_url','WebサイトURL'],['instagram_url','Instagram URL']] as const).map(([key,label]) => <label key={key}>{label}<input value={spotForm[key] || ""} onChange={(e) => setSpotForm({ ...spotForm, [key]: e.target.value })}/></label>)}<label>緯度<input required type="number" min="-90" max="90" step="any" value={spotForm.latitude} onChange={(e) => setSpotForm({ ...spotForm, latitude: e.target.value })}/></label><label>経度<input required type="number" min="-180" max="180" step="any" value={spotForm.longitude} onChange={(e) => setSpotForm({ ...spotForm, longitude: e.target.value })}/></label><label>並び順<input type="number" value={spotForm.sort_order} onChange={(e) => setSpotForm({ ...spotForm, sort_order: e.target.value })}/></label></>}
           <label className="check"><input type="checkbox" checked={spotForm.is_featured} onChange={(e) => setSpotForm({ ...spotForm, is_featured: e.target.checked })}/>★ 宿主おすすめ</label><label className="check"><input type="checkbox" checked={spotForm.is_published} onChange={(e) => setSpotForm({ ...spotForm, is_published: e.target.checked })}/>公開する</label>
