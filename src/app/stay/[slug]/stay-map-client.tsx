@@ -35,9 +35,7 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
 
   const openSpot = (spot: StaySpot) => { setSelected(spot); void track("spot_view", stay.id, spot.id); };
   return <main className="stay-map-page">
-    <header className="stay-map-hero">{stay.image_url && <img src={stay.image_url} alt=""/>}<div><span>HOST&apos;S LOCAL GUIDE</span><h1>{stay.name}</h1><h2>{stay.subtitle || "宿主おすすめMAP"}</h2><p>{stay.description}</p></div></header>
     <section className="stay-map-content">
-      <div className="stay-map-heading"><div><span>OUR FAVORITES</span><h2>宿主のおすすめだけを、地図に。</h2></div><b>{spots.length} SPOTS</b></div>
       <div ref={container} className="stay-map-canvas" aria-label={`${stay.name}周辺のおすすめ地図`}/>
       <nav className="stay-map-filters" aria-label="カテゴリ絞り込み"><button aria-pressed={category === "all"} onClick={() => setCategory("all")}>すべて</button>{categories.map(item => <button key={item.id} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.name}</button>)}</nav>
       <div className="stay-spot-list">{spots.map((spot, index) => <article className="stay-spot-card" key={spot.id} onClick={() => openSpot(spot)}>
