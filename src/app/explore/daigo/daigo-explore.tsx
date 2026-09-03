@@ -23,6 +23,7 @@ export default function DaigoExplore() {
   const [started, setStarted] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState("");
+  const [bingoAvailable, setBingoAvailable] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -33,7 +34,12 @@ export default function DaigoExplore() {
         .eq("slug", "daigo")
         .eq("is_published", true)
         .maybeSingle();
-      if (!active || !game) return;
+      if (!active) return;
+      if (!game) {
+        setBingoAvailable(false);
+        return;
+      }
+      setBingoAvailable(true);
 
       const items = (game.items ?? []) as BingoItem[];
       const positions = new Map(items.map((item) => [item.id, item.position]));
@@ -117,7 +123,17 @@ export default function DaigoExplore() {
       </div>
     </section>
 
-    <section className="daigo-bingo-card">
+    <section className="daigo-guidebook-card">
+      <div className="daigo-guidebook-icon" aria-hidden>⌖</div>
+      <div className="daigo-guidebook-copy">
+        <span>HOST&apos;S GUIDEBOOK</span>
+        <h2>大子町ガイドブック</h2>
+        <p>宿主おすすめのごはん、観光、買い物スポットを地図でめぐろう。</p>
+      </div>
+      <Link className="daigo-primary" href="/stay/motomachi">ガイドブックを開く<span aria-hidden>→</span></Link>
+    </section>
+
+    {bingoAvailable && <section className="daigo-bingo-card">
       <div className="daigo-section-head">
         <div><h2>町BINGO</h2><p>町を歩きながら、写真と謎解きを楽しもう。</p></div>
         <div className="daigo-clear"><strong>{clearCount} <i>/</i> 25</strong><span>CLEAR</span></div>
@@ -135,7 +151,7 @@ export default function DaigoExplore() {
         })}
       </div>
       <Link className="daigo-primary" href="/bingo/daigo">{started ? "BINGOの続きを遊ぶ" : "BINGOをはじめる"}<span aria-hidden>→</span></Link>
-    </section>
+    </section>}
 
     <Link className="daigo-member-link" href="/member"><span aria-hidden>♙</span> マイページへ <span aria-hidden>→</span></Link>
   </div>;
