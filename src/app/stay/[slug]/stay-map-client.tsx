@@ -44,7 +44,7 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
         <button className="stay-card-main" aria-label={`${spot.name}の詳細を見る`}><div className="stay-card-image"><img src={spot.image_url || FALLBACK_IMAGE} alt={spot.name}/><span>{index + 1}</span>{spot.is_featured && <b>★ 宿主おすすめ</b>}</div><div className="stay-card-copy"><small>{spot.categories.map(item => item.name).join(" · ") || "おすすめ"}</small><h3>{spot.name}</h3><p><em>宿主のひとこと</em>{spot.host_comment}</p><div>{travelLabel(stay, spot)}</div></div></button>
         <a href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={event => { event.stopPropagation(); void track("google_maps_click", stay.id, spot.id); }}>Google Mapsで開く ↗</a>
       </article>)}</div>
-      {!spots.length && <p className="stay-map-empty">このカテゴリのスポットはまだありません。</p>}
+      {!spots.length && <p className="stay-map-empty">宿主おすすめのスポットを準備しています。公開まで少しお待ちください。</p>}
     </section>
     {selected && <SpotDetail stay={stay} spot={selected} onClose={() => setSelected(null)}/>} 
   </main>;
