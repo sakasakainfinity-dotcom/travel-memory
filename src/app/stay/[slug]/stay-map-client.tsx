@@ -31,11 +31,12 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
   useEffect(() => {
     if (!map.current) return;
     markers.current.forEach(marker => marker.remove());
-    markers.current = spots.map((spot, index) => {
+    markers.current = spots.map(spot => {
       const button = document.createElement("button");
-      button.className = `stay-map-pin${spot.is_featured ? " is-featured" : ""}`;
+      const markerStyle = categoryMarker(spot.categories[0]);
+      button.className = `stay-map-pin ${markerStyle.className}${spot.is_featured ? " is-featured" : ""}`;
       button.dataset.spotId = spot.id;
-      button.textContent = String(index + 1);
+      button.innerHTML = markerStyle.icon;
       button.title = spot.name;
       button.setAttribute("aria-label", `${spot.name}を選択`);
       button.onclick = () => openSpot(spot);
@@ -77,13 +78,28 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
 
 function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
   return <div className="stay-detail-body">
-    <div className="stay-detail-heading"><div>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div><small>{categoryNames(spot)}</small></div>
-    <div className="stay-travel-times"><strong>🚶 <span>宿から徒歩</span> {spot.walking_time || "情報未登録"}</strong><strong>🚗 <span>車で</span> {spot.driving_time || "情報未登録"}</strong></div>
-    <dl><dt>営業時間</dt><dd>{spot.business_hours || "情報未登録"}</dd><dt>定休日</dt><dd>{spot.closed_days || "情報未登録"}</dd></dl>
-    {spot.host_comment && <blockquote><span>宿主より</span>{spot.host_comment}</blockquote>}
+    <div className="stay-detail-heading"><div><small>{categoryNames(spot)}</small>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div></div>
+    <div className="stay-travel-times"><strong>徒歩 <span>{spot.walking_time || "情報未登録"}</span></strong><i aria-hidden="true"/><strong>車 <span>{spot.driving_time || "情報未登録"}</span></strong></div>
+    <dl className="stay-business-info"><div><dt>営業時間</dt><dd>{spot.business_hours || "情報未登録"}</dd></div><i aria-hidden="true"/><div><dt>定休日</dt><dd>{spot.closed_days || "情報未登録"}</dd></div></dl>
+    {spot.host_comment && <section className="stay-host-note"><h3><span/>宿主からの一言<span/></h3><p>{spot.host_comment}</p></section>}
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
-    <div className="stay-detail-links"><a className="primary" href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={() => void track("google_maps_click", stay.id, spot.id)}>Google Mapsで見る ↗</a><div>{spot.website_url && <a href={spot.website_url} target="_blank" rel="noreferrer">Web</a>}{spot.instagram_url && <a href={spot.instagram_url} target="_blank" rel="noreferrer">Instagram</a>}</div></div>
+    <div className="stay-detail-links"><a className="primary" href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={() => void track("google_maps_click", stay.id, spot.id)}>Google Maps</a>{spot.instagram_url && <a href={spot.instagram_url} target="_blank" rel="noreferrer">Instagram</a>}{spot.website_url && <a href={spot.website_url} target="_blank" rel="noreferrer">公式サイト</a>}</div>
   </div>;
+}
+
+const markerIcons = {
+  food: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v7M4 3v5c0 2 6 2 6 0V3M7 10v11M15 3v18M15 3c6 2 6 10 0 11"/></svg>',
+  onsen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3c-3 3 3 4 0 7M12 3c-3 3 3 4 0 7M17 3c-3 3 3 4 0 7M4 14h16l-2 6H6l-2-6Z"/></svg>',
+  gift: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h18v12H3zM12 9v12M2 5h20v4H2zM12 5c-2-4-7-3-5 0h5Zm0 0c2-4 7-3 5 0h-5Z"/></svg>',
+  shop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 13H6L5 8Zm4 1V6a3 3 0 0 1 6 0v3"/></svg>',
+  activity: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 19 5-8 3 4 2-3 4 7H5ZM6 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg>',
+  default: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>',
+};
+
+function categoryMarker(category?: StaySpot["categories"][number]) {
+  const value = `${category?.name ?? ""} ${category?.slug ?? ""}`.toLowerCase();
+  const key = /飲食|カフェ|food|restaurant|cafe/.test(value) ? "food" : /温泉|湯|onsen|spa/.test(value) ? "onsen" : /土産|gift|souvenir/.test(value) ? "gift" : /雑貨|買物|買い物|shop|store/.test(value) ? "shop" : /体験|activity|experience/.test(value) ? "activity" : "default";
+  return { className: `is-${key}`, icon: markerIcons[key] };
 }
 
 function categoryNames(spot: StaySpot) { return spot.categories.map(item => item.name).join(" · ") || "おすすめ"; }
