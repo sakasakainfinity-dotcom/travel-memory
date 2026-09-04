@@ -6,12 +6,12 @@ import PlaceGeocodeSearch from "@/components/PlaceGeocodeSearch";
 import StaySpotMapEditor, { type AdminMapSpot } from "@/components/admin/StaySpotMapEditor";
 import { supabase } from "@/lib/supabaseClient";
 
-type Recommendation = { stay_id: string; host_comment: string; is_featured: boolean; sort_order: number; is_published: boolean };
+type Recommendation = { stay_id: string; host_comment: string; local_comment: string | null; is_featured: boolean; sort_order: number; is_published: boolean };
 type Stay = { id: string; name: string; slug: string; subtitle: string | null; description: string | null; image_url: string | null; address: string | null; latitude: number | null; longitude: number | null; is_published: boolean; recommendations?: { count: number }[] };
 type Category = { id: string; name: string; slug: string };
 type SpotRow = AdminMapSpot & { address: string | null; google_maps_url: string | null; image_url: string | null; description: string | null; distance_label: string | null; walking_time: string | null; driving_time: string | null; business_hours: string | null; closed_days: string | null; website_url: string | null; instagram_url: string | null; recommendations?: Recommendation[] };
 const emptyStay = { name: "", slug: "", subtitle: "宿主おすすめMAP", description: "", image_url: "", address: "", latitude: "", longitude: "", is_published: false };
-const emptySpot = { id: "", name: "", latitude: "", longitude: "", google_maps_url: "", image_url: "", description: "", distance_label: "", walking_time: "", driving_time: "", business_hours: "", closed_days: "", website_url: "", instagram_url: "", host_comment: "", stay_id: "", category_ids: [] as string[], sort_order: 0, is_featured: false, is_published: true };
+const emptySpot = { id: "", name: "", latitude: "", longitude: "", google_maps_url: "", image_url: "", description: "", distance_label: "", walking_time: "", driving_time: "", business_hours: "", closed_days: "", website_url: "", instagram_url: "", host_comment: "", local_comment: "", stay_id: "", category_ids: [] as string[], sort_order: 0, is_featured: false, is_published: true };
 const CATEGORY_SLUGS = ["restaurant", "souvenir", "general-goods", "sightseeing", "onsen", "experience"] as const;
 
 export default function StayMapsAdmin() {
@@ -36,7 +36,7 @@ export default function StayMapsAdmin() {
     setAllowed(true);
     const [stayResult, spotResult, categoryResult] = await Promise.all([
       supabase.from("stays").select("*,recommendations:stay_recommendations(count)").order("created_at"),
-      supabase.from("stay_spots").select("*,recommendations:stay_recommendations(stay_id,host_comment,is_featured,sort_order,is_published)").order("created_at", { ascending: false }),
+      supabase.from("stay_spots").select("*,recommendations:stay_recommendations(stay_id,host_comment,local_comment,is_featured,sort_order,is_published)").order("created_at", { ascending: false }),
       supabase.from("stay_spot_categories").select("id,name,slug").in("slug", CATEGORY_SLUGS).order("sort_order"),
     ]);
     if (stayResult.error || spotResult.error || categoryResult.error) setMessage(`読み込みに失敗しました: ${(stayResult.error || spotResult.error || categoryResult.error)?.message}`);
@@ -78,7 +78,7 @@ export default function StayMapsAdmin() {
   }
   async function saveSpot(event: React.FormEvent) {
     event.preventDefault();
-    if (!spotForm.stay_id || !spotForm.host_comment.trim()) { setMessage("宿と地元民からの一言を入力してください"); return; }
+    if (!spotForm.stay_id || !spotForm.host_comment.trim()) { setMessage("宿と宿主からの一言を入力してください"); return; }
     setSaving(true);
     const fields = ["name","google_maps_url","image_url","description","distance_label","walking_time","driving_time","business_hours","closed_days","website_url","instagram_url"] as const;
     const payload: any = { latitude: Number(spotForm.latitude), longitude: Number(spotForm.longitude), is_published: spotForm.is_published };
@@ -89,7 +89,7 @@ export default function StayMapsAdmin() {
     spotId = result.data.id;
     await supabase.from("stay_spot_category_links").delete().eq("spot_id", spotId);
     if (spotForm.category_ids.length) await supabase.from("stay_spot_category_links").insert(spotForm.category_ids.map((category_id: string) => ({ spot_id: spotId, category_id })));
-    const recommendation = await supabase.from("stay_recommendations").upsert({ stay_id: spotForm.stay_id, spot_id: spotId, host_comment: spotForm.host_comment.trim(), is_featured: spotForm.is_featured, is_published: spotForm.is_published, sort_order: Number(spotForm.sort_order) || 0 });
+    const recommendation = await supabase.from("stay_recommendations").upsert({ stay_id: spotForm.stay_id, spot_id: spotId, host_comment: spotForm.host_comment.trim(), local_comment: nullOrText(spotForm.local_comment), is_featured: spotForm.is_featured, is_published: spotForm.is_published, sort_order: Number(spotForm.sort_order) || 0 });
     setMessage(recommendation.error ? `おすすめを保存できませんでした: ${recommendation.error.message}` : "スポットを保存しました");
     if (!recommendation.error) startNewSpot();
     setSaving(false); await load();
@@ -130,7 +130,8 @@ export default function StayMapsAdmin() {
         {!mapValue && <div className="stay-admin-empty-selection"><b>← 地図で場所を選んでください</b><p>場所を検索するか、登録したい地点をクリックするとフォームが使えます。</p></div>}
         {mapValue && <form className="stay-admin-form stay-admin-spot-form" onSubmit={saveSpot}>
           <label className="wide">店名・スポット名<input autoFocus required value={spotForm.name} onChange={(e) => setSpotForm({ ...spotForm, name: e.target.value })} placeholder="例：港町コーヒー"/></label>
-          <label className="wide">地元民からの一言<textarea required maxLength={1000} rows={4} value={spotForm.host_comment} onChange={(e) => setSpotForm({ ...spotForm, host_comment: e.target.value })} placeholder="地元ならではのおすすめポイントを伝えましょう"/></label>
+          <label className="wide">宿主からの一言<textarea required maxLength={1000} rows={4} value={spotForm.host_comment} onChange={(e) => setSpotForm({ ...spotForm, host_comment: e.target.value })} placeholder="宿主ならではのおすすめポイントを伝えましょう"/></label>
+          <label className="wide">地元民からの一言<textarea maxLength={1000} rows={4} value={spotForm.local_comment} onChange={(e) => setSpotForm({ ...spotForm, local_comment: e.target.value })} placeholder="地元の方から聞いたおすすめポイントを伝えましょう"/></label>
           <fieldset className="wide stay-admin-categories"><legend>カテゴリー（複数選択可）</legend>{categories.map((cat) => {
             const selected = spotForm.category_ids.includes(cat.id);
             return <button type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} key={cat.id} onClick={() => setSpotForm((current: typeof emptySpot) => ({ ...current, category_ids: current.category_ids.includes(cat.id) ? current.category_ids.filter((id) => id !== cat.id) : [...current.category_ids, cat.id] }))}><span aria-hidden="true">{selected ? "✓" : "＋"}</span>{cat.name}</button>;
