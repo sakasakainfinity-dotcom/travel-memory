@@ -84,12 +84,25 @@ export default function StayMapsAdmin() {
     const payload: any = { latitude: Number(spotForm.latitude), longitude: Number(spotForm.longitude), is_published: spotForm.is_published };
     fields.forEach((key) => payload[key] = key === "name" ? spotForm[key].trim() : nullOrText(spotForm[key]));
     let spotId = spotForm.id;
+    const isNewSpot = !spotId;
     const result = spotId ? await supabase.from("stay_spots").update(payload).eq("id", spotId).select("id").single() : await supabase.from("stay_spots").insert(payload).select("id").single();
     if (result.error || !result.data) { setMessage(`保存できませんでした: ${result.error?.message}`); setSaving(false); return; }
     spotId = result.data.id;
-    await supabase.from("stay_spot_category_links").delete().eq("spot_id", spotId);
-    if (spotForm.category_ids.length) await supabase.from("stay_spot_category_links").insert(spotForm.category_ids.map((category_id: string) => ({ spot_id: spotId, category_id })));
-    const recommendation = await supabase.from("stay_recommendations").upsert({ stay_id: spotForm.stay_id, spot_id: spotId, host_comment: spotForm.host_comment.trim(), local_comment: nullOrText(spotForm.local_comment), is_featured: spotForm.is_featured, is_published: spotForm.is_published, sort_order: Number(spotForm.sort_order) || 0 });
+    const deleteLinks = await supabase.from("stay_spot_category_links").delete().eq("spot_id", spotId);
+    const insertLinks = !deleteLinks.error && spotForm.category_ids.length
+      ? await supabase.from("stay_spot_category_links").insert(spotForm.category_ids.map((category_id: string) => ({ spot_id: spotId, category_id })))
+      : { error: deleteLinks.error };
+    if (insertLinks.error) {
+      if (isNewSpot) await supabase.from("stay_spots").delete().eq("id", spotId);
+      setMessage(`カテゴリーを保存できませんでした: ${insertLinks.error.message}`); setSaving(false); await load(); return;
+    }
+    const recommendationPayload = { stay_id: spotForm.stay_id, spot_id: spotId, host_comment: spotForm.host_comment.trim(), local_comment: nullOrText(spotForm.local_comment), is_featured: spotForm.is_featured, is_published: spotForm.is_published, sort_order: Number(spotForm.sort_order) || 0 };
+    let recommendation = await supabase.from("stay_recommendations").upsert(recommendationPayload);
+    if (isMissingLocalComment(recommendation.error)) {
+      const { local_comment: _localComment, ...compatiblePayload } = recommendationPayload;
+      recommendation = await supabase.from("stay_recommendations").upsert(compatiblePayload);
+    }
+    if (recommendation.error && isNewSpot) await supabase.from("stay_spots").delete().eq("id", spotId);
     setMessage(recommendation.error ? `おすすめを保存できませんでした: ${recommendation.error.message}` : "スポットを保存しました");
     if (!recommendation.error) startNewSpot();
     setSaving(false); await load();
@@ -150,3 +163,4 @@ export default function StayMapsAdmin() {
 function nullOrText(value: unknown) { const text = String(value ?? "").trim(); return text || null; }
 function numberOrNull(value: unknown) { return value === "" || value == null ? null : Number(value); }
 function validCoordinates(latitude: unknown, longitude: unknown) { const lat = Number(latitude); const lng = Number(longitude); return latitude !== "" && longitude !== "" && Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat, longitude: lng } : null; }
+function isMissingLocalComment(error: { code?: string; message?: string } | null) { return Boolean(error && (error.code === "42703" || error.code === "PGRST204") && error.message?.includes("local_comment")); }
