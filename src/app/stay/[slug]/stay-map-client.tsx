@@ -86,10 +86,16 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
     <div className="stay-detail-heading"><div><small>{categoryNames(spot)}</small>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div></div>
     {(spot.walking_time || spot.driving_time) && <div className="stay-travel-times">{spot.walking_time && <strong>徒歩 <span>{spot.walking_time}</span></strong>}{spot.walking_time && spot.driving_time && <i aria-hidden="true"/>}{spot.driving_time && <strong>車 <span>{spot.driving_time}</span></strong>}</div>}
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
-    {spot.host_comment && <section className="stay-host-note"><h3><span/>宿主からの一言<span/></h3><p>{spot.host_comment}</p></section>}
+    {spot.host_comment && <HostComment text={spot.host_comment}/>}
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
     <div className="stay-detail-links"><a className="primary" href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={() => void track("google_maps_click", stay.id, spot.id)}>Google Mapsで見る ↗</a>{spot.instagram_url && <a href={spot.instagram_url} target="_blank" rel="noreferrer">Instagram</a>}{spot.website_url && <a href={spot.website_url} target="_blank" rel="noreferrer">公式サイト</a>}</div>
   </div>;
+}
+
+function HostComment({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const mayOverflow = text.length > 90 || text.split("\n").length > 4;
+  return <section className={`stay-host-note${expanded ? " is-expanded" : ""}`}><h3><span/>宿主からの一言<span/></h3><p>{text}</p>{mayOverflow && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "閉じる" : "もっと見る"}</button>}</section>;
 }
 
 const markerIcons = {
