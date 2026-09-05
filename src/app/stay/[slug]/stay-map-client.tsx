@@ -101,7 +101,13 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
 }
 
 function MapPinIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6.5-5.8 6.5-12a6.5 6.5 0 1 0-13 0c0 6.2 6.5 12 6.5 12Z"/><circle cx="12" cy="9" r="2.4"/><path d="m4 17 3.5-1.5 4.5 2 4.5-2L20 17v4l-3.5-1.5-4.5 2-4.5-2L4 21Z"/></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#34a853" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13l3.2-4.4L12 12.5A3.5 3.5 0 0 1 8.5 9H5a7 7 0 0 1 7-7Z"/>
+    <path fill="#4285f4" d="M12 2a7 7 0 0 1 5.72 2.97L14.8 7.3A3.5 3.5 0 0 0 12 5.5V2Z"/>
+    <path fill="#fbbc04" d="M17.72 4.97A7 7 0 0 1 19 9c0 1.79-.81 3.87-1.92 5.84L12 12.5A3.5 3.5 0 0 0 14.8 7.3l2.92-2.33Z"/>
+    <path fill="#ea4335" d="m17.08 14.84-1.88 2.76-3.2-5.1a3.5 3.5 0 0 0 3.5-3.5c0-.62-.16-1.2-.44-1.7l2.66-2.33A7 7 0 0 1 19 9c0 1.79-.81 3.87-1.92 5.84Z"/>
+    <circle cx="12" cy="9" r="2.15" fill="#fff"/>
+  </svg>;
 }
 
 function InstagramIcon() {
@@ -111,7 +117,7 @@ function InstagramIcon() {
 function HostComment({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
   const mayOverflow = text.length > 90 || text.split("\n").length > 4;
-  return <section className={`stay-host-note${expanded ? " is-expanded" : ""}`}><h3><span/>宿主からの一言<span/></h3><p>{text}</p>{mayOverflow && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "閉じる" : "もっと見る"}</button>}</section>;
+  return <section className={`stay-host-note${expanded ? " is-expanded" : ""}`}><h3><span/>宿主からの一言<span/></h3><p>{text}</p>{mayOverflow && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "閉じる" : "もっと見る"}<span aria-hidden="true">{expanded ? "⌃" : "⌄"}</span></button>}</section>;
 }
 
 const markerIcons = {
