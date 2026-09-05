@@ -40,7 +40,12 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
       button.title = spot.name;
       button.setAttribute("aria-label", `${spot.name}を選択`);
       button.onclick = () => openSpot(spot);
-      return new maplibregl.Marker({ element: button, anchor: "bottom" }).setLngLat([spot.longitude, spot.latitude]).addTo(map.current!);
+      return new maplibregl.Marker({
+        element: button,
+        anchor: "center",
+        rotationAlignment: "viewport",
+        pitchAlignment: "viewport",
+      }).setLngLat([spot.longitude, spot.latitude]).addTo(map.current!);
     });
     const points = spots.map(spot => [spot.longitude, spot.latitude] as [number, number]);
     if (stay.latitude != null && stay.longitude != null) points.push([stay.longitude, stay.latitude]);
@@ -72,18 +77,18 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
       </article>)}</div>
       {!spots.length && <p className="stay-map-empty">宿主おすすめのスポットを準備しています。公開まで少しお待ちください。</p>}
     </section>
-    {selected && <div className="stay-desktop-detail"><div className="stay-detail-backdrop" onClick={() => setSelected(null)}><article className="stay-detail" role="dialog" aria-modal="true" aria-label={`${selected.name}の詳細`} onClick={event => event.stopPropagation()}><button className="stay-detail-close" onClick={() => setSelected(null)} aria-label="閉じる">×</button><div className="stay-detail-image"><img src={selected.image_url || FALLBACK_IMAGE} alt={selected.name}/></div><SpotInformation stay={stay} spot={selected}/></article></div></div>}
+    {selected && <div className="stay-desktop-detail"><div className="stay-detail-backdrop" onClick={() => setSelected(null)}><article className="stay-detail" role="dialog" aria-modal="true" aria-label={`${selected.name}の詳細`} onClick={event => event.stopPropagation()}><button className="stay-detail-close" onClick={() => setSelected(null)} aria-label="閉じる">×</button><SpotInformation stay={stay} spot={selected}/></article></div></div>}
   </main>;
 }
 
 function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
   return <div className="stay-detail-body">
     <div className="stay-detail-heading"><div><small>{categoryNames(spot)}</small>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div></div>
-    <div className="stay-travel-times"><strong>徒歩 <span>{spot.walking_time || "情報未登録"}</span></strong><i aria-hidden="true"/><strong>車 <span>{spot.driving_time || "情報未登録"}</span></strong></div>
-    <dl className="stay-business-info"><div><dt>営業時間</dt><dd>{spot.business_hours || "情報未登録"}</dd></div><i aria-hidden="true"/><div><dt>定休日</dt><dd>{spot.closed_days || "情報未登録"}</dd></div></dl>
+    {(spot.walking_time || spot.driving_time) && <div className="stay-travel-times">{spot.walking_time && <strong>徒歩 <span>{spot.walking_time}</span></strong>}{spot.walking_time && spot.driving_time && <i aria-hidden="true"/>}{spot.driving_time && <strong>車 <span>{spot.driving_time}</span></strong>}</div>}
+    {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
     {spot.host_comment && <section className="stay-host-note"><h3><span/>宿主からの一言<span/></h3><p>{spot.host_comment}</p></section>}
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
-    <div className="stay-detail-links"><a className="primary" href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={() => void track("google_maps_click", stay.id, spot.id)}>Google Maps</a>{spot.instagram_url && <a href={spot.instagram_url} target="_blank" rel="noreferrer">Instagram</a>}{spot.website_url && <a href={spot.website_url} target="_blank" rel="noreferrer">公式サイト</a>}</div>
+    <div className="stay-detail-links"><a className="primary" href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={() => void track("google_maps_click", stay.id, spot.id)}>Google Mapsで見る ↗</a>{spot.instagram_url && <a href={spot.instagram_url} target="_blank" rel="noreferrer">Instagram</a>}{spot.website_url && <a href={spot.website_url} target="_blank" rel="noreferrer">公式サイト</a>}</div>
   </div>;
 }
 
