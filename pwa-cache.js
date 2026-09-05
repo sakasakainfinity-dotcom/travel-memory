@@ -2,6 +2,13 @@
 const ONE_DAY = 24 * 60 * 60;
 
 const runtimeCaching = [
+  // Guide maps are live CMS content. Never let yesterday's HTML/RSC response
+  // hide a spot that was just published by an administrator.
+  {
+    urlPattern: ({ url, request }) => request.destination === 'document' && url.pathname.startsWith('/stay/'),
+    handler: 'NetworkOnly',
+    options: {}
+  },
   // ページ・リソース（Nextの静的/SSR）
   {
     urlPattern: ({ request }) => request.destination === 'document' || request.destination === 'script' || request.destination === 'style',
