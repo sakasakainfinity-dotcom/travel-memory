@@ -86,13 +86,6 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
   return <div className="stay-detail-body">
     <div className="stay-detail-heading">
       <div className="stay-detail-name"><small>{categoryNames(spot)}</small>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div>
-      {(spot.website_url || spot.google_maps_url || spot.instagram_url) && <div className="stay-detail-actions">
-        {spot.website_url && <a className="stay-website-link" href={spot.website_url} target="_blank" rel="noreferrer">公式サイト <span aria-hidden="true">↗</span></a>}
-        {(spot.google_maps_url || spot.instagram_url) && <div className="stay-social-links">
-          {spot.google_maps_url && <a className="stay-icon-link stay-maps-link" href={spot.google_maps_url} target="_blank" rel="noreferrer" aria-label="Google Mapsで見る" onClick={() => void track("google_maps_click", stay.id, spot.id)}><MapPinIcon/></a>}
-          {spot.instagram_url && <a className="stay-icon-link stay-instagram-link" href={spot.instagram_url} target="_blank" rel="noreferrer" aria-label="Instagramを見る"><InstagramIcon/></a>}
-        </div>}
-      </div>}
     </div>
     {(spot.walking_time || spot.driving_time) && <div className="stay-travel-times">{spot.walking_time && <strong>徒歩 <span>{spot.walking_time}</span></strong>}{spot.walking_time && spot.driving_time && <i aria-hidden="true"/>}{spot.driving_time && <strong>車 <span>{spot.driving_time}</span></strong>}</div>}
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
