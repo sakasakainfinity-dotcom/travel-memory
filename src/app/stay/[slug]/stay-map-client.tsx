@@ -5,6 +5,7 @@ import maplibregl, { Marker, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { StayMap, StaySpot } from "@/lib/stayMaps";
 import { distanceKm } from "@/lib/stayMaps";
+import { PHOTO_SUBMISSION_FORM_URL } from "@/lib/photoSubmission";
 
 const FALLBACK_IMAGE = "/motomachi.jpg";
 
@@ -96,8 +97,21 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
     {(spot.walking_time || spot.driving_time) && <div className="stay-travel-times">{spot.walking_time && <strong>徒歩 <span>{spot.walking_time}</span></strong>}{spot.walking_time && spot.driving_time && <i aria-hidden="true"/>}{spot.driving_time && <strong>車 <span>{spot.driving_time}</span></strong>}</div>}
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
     {spot.host_comment && <HostComment text={spot.host_comment}/>}
+    <PhotoSubmissionLink/>
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
   </div>;
+}
+
+function PhotoSubmissionLink() {
+  const unavailable = !PHOTO_SUBMISSION_FORM_URL;
+  return <a
+    className={`stay-photo-submission${unavailable ? " is-unavailable" : ""}`}
+    href={PHOTO_SUBMISSION_FORM_URL || undefined}
+    target={unavailable ? undefined : "_blank"}
+    rel={unavailable ? undefined : "noreferrer"}
+    aria-disabled={unavailable || undefined}
+    onClick={unavailable ? event => event.preventDefault() : undefined}
+  ><span aria-hidden="true">📸</span> 観光写真投稿で<strong>特典GET！</strong></a>;
 }
 
 function MapPinIcon() {
