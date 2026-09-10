@@ -86,6 +86,7 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
   return <div className="stay-detail-body">
     <div className="stay-detail-heading">
       <div className="stay-detail-name"><small>{categoryNames(spot)}</small>{spot.is_featured && <b className="stay-featured">★ 宿主おすすめ</b>}<h2>{spot.name}</h2></div>
+      <SpotExternalLinks stay={stay} spot={spot}/>
     </div>
     {(spot.walking_time || spot.driving_time) && <div className="stay-travel-times">{spot.walking_time && <strong>徒歩 <span>{spot.walking_time}</span></strong>}{spot.walking_time && spot.driving_time && <i aria-hidden="true"/>}{spot.driving_time && <strong>車 <span>{spot.driving_time}</span></strong>}</div>}
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
@@ -93,6 +94,16 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
     <PhotoSubmissionLink/>
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
   </div>;
+}
+
+function SpotExternalLinks({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
+  return <nav className="stay-spot-external-links" aria-label={`${spot.name}の外部リンク`}>
+    {spot.website_url && <a className="stay-spot-website" href={spot.website_url} target="_blank" rel="noreferrer">公式サイト <span aria-hidden="true">↗</span></a>}
+    <div>
+      <a className="stay-spot-icon-link stay-maps-link" href={mapsUrl(spot)} target="_blank" rel="noreferrer" aria-label="Google Mapsで見る" onClick={() => void track("google_maps_click", stay.id, spot.id)}><MapPinIcon/></a>
+      {spot.instagram_url && <a className="stay-spot-icon-link stay-instagram-link" href={spot.instagram_url} target="_blank" rel="noreferrer" aria-label="Instagramを見る"><InstagramIcon/></a>}
+    </div>
+  </nav>;
 }
 
 function PhotoSubmissionLink() {
