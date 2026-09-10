@@ -91,13 +91,6 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
     {spot.host_comment && <HostComment text={spot.host_comment}/>}
     <PhotoSubmissionLink/>
-    {(spot.website_url || spot.google_maps_url || spot.instagram_url) && <div className="stay-detail-actions">
-      {spot.website_url && <a className="stay-website-link" href={spot.website_url} target="_blank" rel="noreferrer">公式サイト <span aria-hidden="true">↗</span></a>}
-      {(spot.google_maps_url || spot.instagram_url) && <div className="stay-social-links">
-        {spot.google_maps_url && <a className="stay-icon-link stay-maps-link" href={spot.google_maps_url} target="_blank" rel="noreferrer" aria-label="Google Mapsで見る" onClick={() => void track("google_maps_click", stay.id, spot.id)}><MapPinIcon/></a>}
-        {spot.instagram_url && <a className="stay-icon-link stay-instagram-link" href={spot.instagram_url} target="_blank" rel="noreferrer" aria-label="Instagramを見る"><InstagramIcon/></a>}
-      </div>}
-    </div>}
     <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
   </div>;
 }
