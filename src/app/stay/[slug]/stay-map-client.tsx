@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import maplibregl, { Marker, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { StayMap, StaySpot } from "@/lib/stayMaps";
 import { distanceKm } from "@/lib/stayMaps";
-import { PHOTO_SUBMISSION_FORM_URL } from "@/lib/photoSubmission";
 
 const FALLBACK_IMAGE = "/motomachi.jpg";
 
@@ -107,15 +107,9 @@ function SpotExternalLinks({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
 }
 
 function PhotoSubmissionLink() {
-  const unavailable = !PHOTO_SUBMISSION_FORM_URL;
-  return <a
-    className={`stay-photo-submission${unavailable ? " is-unavailable" : ""}`}
-    href={PHOTO_SUBMISSION_FORM_URL || undefined}
-    target={unavailable ? undefined : "_blank"}
-    rel={unavailable ? undefined : "noreferrer"}
-    aria-disabled={unavailable || undefined}
-    onClick={unavailable ? event => event.preventDefault() : undefined}
-  ><span aria-hidden="true">📸</span> 観光写真投稿で<strong>特典GET！</strong></a>;
+  return <Link className="stay-photo-submission" href="/photo-reward">
+    <span aria-hidden="true">📸</span> 観光写真投稿で<strong>特典GET！</strong>
+  </Link>;
 }
 
 function MapPinIcon() {
