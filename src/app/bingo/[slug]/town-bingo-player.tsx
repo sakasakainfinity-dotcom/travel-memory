@@ -175,7 +175,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
   return (
     <main className="bingo-shell">
       <div className="bingo-wrap">
-        <Link href="/bingo">← 街を選ぶ</Link>
+        <Link href={slug === "daigo" ? "/explore/daigo" : "/bingo"}>{slug === "daigo" ? "← 戻る" : "← 街を選ぶ"}</Link>
         <div className="bingo-brand">TOWN BINGO</div>
         <h1 className="bingo-title">{game.title}</h1>
         <div className="bingo-stats" aria-label="BINGOの進捗">
