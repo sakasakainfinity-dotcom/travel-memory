@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
 import { convertToUploadableImage } from "@/lib/convertToUploadableImage";
-import { bingoLines, formatDatedElapsed, normalizeAnswer } from "@/lib/bingo/lines";
+import { bingoLines, normalizeAnswer } from "@/lib/bingo/lines";
 import { supabase } from "@/lib/supabaseClient";
 import BingoLocationMap, { BingoMapSpot } from "@/components/bingo/BingoLocationMap";
 
@@ -95,6 +95,7 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
   const lines = bingoLines(5, clearedIndexes);
   const mappedItems = useMemo(() => game?.items.filter((item) => item.active && item.latitude != null && item.longitude != null) ?? [], [game]);
   const discoveredSpots = useMemo(() => mappedItems.filter((item) => done.has(item.id)).map((item): BingoMapSpot => ({ id: item.id, title: item.title, latitude: item.latitude!, longitude: item.longitude! })), [mappedItems, done]);
+  const journeyTime = getJourneyTime(progress?.startTime ?? null, progress?.completedAt ?? null, now);
 
   function save(next: GuestProgress) {
     setProgress(next);
@@ -177,9 +178,9 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
         <Link href="/bingo">← 街を選ぶ</Link>
         <div className="bingo-brand">TOWN BINGO</div>
         <h1 className="bingo-title">{game.title}</h1>
-        <div className="bingo-stats">
-          <span>CLEAR {done.size} / 25</span><span>BINGO {lines.length}</span>
-          <span>{formatDatedElapsed(progress?.startTime ?? null, progress?.completedAt ?? null, now)}</span>
+        <div className="bingo-stats" aria-label="BINGOの進捗">
+          <div className="bingo-stats-progress"><span>CLEAR <b>{done.size} / 25</b></span><span>BINGO <b>{lines.length}</b></span></div>
+          <div className="bingo-stats-time"><span>START <b>{journeyTime.startDate}</b></span><span>DAY <b>{journeyTime.days}</b></span><time>{journeyTime.time}</time></div>
         </div>
         <div className="bingo-view-tabs" role="tablist" aria-label="表示を切り替え"><button role="tab" aria-selected={view === "bingo"} onClick={() => setView("bingo")}>BINGO</button><button role="tab" aria-selected={view === "map"} onClick={() => setView("map")}>探索MAP</button></div>
         {!progress && <div className="bingo-card" style={{ marginTop: 16 }}>
@@ -187,19 +188,20 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
           <button className="bingo-action" onClick={start}>BINGOをスタート</button>
           <p className="bingo-note">ログイン不要。進捗はこの端末に保存されます。</p>
         </div>}
-        {view === "bingo" ? <><BingoGrid size={5} cleared={clearedIndexes} onSelect={(position) => selectItem(game.items.find((item) => item.position === position))}>
+        {view === "bingo" ? <><div className="town-bingo-board"><BingoGrid size={5} cleared={clearedIndexes} onSelect={(position) => selectItem(game.items.find((item) => item.position === position))}>
           {Array.from({ length: 25 }, (_, position) => {
             const item = game.items.find((candidate) => candidate.position === position);
             if (!item?.active) return <span className="bingo-empty" key={position}>—</span>;
             const isMission = item.type === "user_mission" || position === 12;
-            const clearedAt = progress?.clearedAtById?.[item.id];
-            const photo = progress?.photoById?.[item.id];
-            return <span className={`${isMission ? "user-mission-cell" : ""} ${photo ? "bingo-photo-cell" : ""}`} key={position}>
-              {photo && <img src={photo} alt={`${item.title}の投稿写真`}/>}
-              {done.has(item.id) ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{isMission ? progress?.customTitle : item.title}</small>{clearedAt && <time dateTime={clearedAt}>{formatDatedElapsed(progress?.startTime ?? null, clearedAt)}</time>}</span> : isMission ? <><b>YOUR MISSION</b><small>{progress?.customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!progress?.customTitle && <em>＋ 設定する</em>}</> : item.title}
+            const isClear = done.has(item.id);
+            return <span className={`mission-card-content ${isMission ? "user-mission-cell" : ""}`} key={position}>
+              {isMission ? <span className="mission-card-special">YOUR MISSION</span> : <span className={`mission-card-category is-${item.type}`}>{isClear ? "✓ CLEAR" : item.type.toUpperCase()}</span>}
+              <span className="mission-card-title">{isMission ? progress?.customTitle || "今回の旅でやりたいことを決めよう！" : item.title}</span>
+              {isMission && !progress?.customTitle && <em>＋ 設定する</em>}
+              <span className="mission-card-number">{String(position + 1).padStart(2, "0")}</span>
             </span>;
           })}
-        </BingoGrid>
+        </BingoGrid></div>
         {lines.length > 0 && <div className="bingo-card"><b>🎉 {lines.length} BINGO 達成！</b></div>}</> : <section className="bingo-exploration"><div className="bingo-map-progress"><div><span>DAIGO MAP</span><strong>{discoveredSpots.length} / {mappedItems.length} SPOTS DISCOVERED</strong></div><b>探索率 {mappedItems.length ? Math.round(discoveredSpots.length / mappedItems.length * 100) : 0}%</b></div><BingoLocationMap spots={discoveredSpots}/>{discoveredSpots.length === 0 && <p className="bingo-map-empty">BINGOをクリアすると、ここに発見したスポットが追加されます。</p>}</section>}
         {message && <p className="bingo-error">{message}</p>}
         {selected && <div className="bingo-modal" onClick={() => setSelected(null)}><div onClick={(event) => event.stopPropagation()}>
@@ -222,6 +224,16 @@ export default function TownBingoPlayer({ slug }: { slug: string }) {
       </div>
     </main>
   );
+}
+
+function getJourneyTime(startTime: string | null, completedAt: string | null, now: number) {
+  if (!startTime) return { startDate: "--.--", days: 0, time: "00:00:00" };
+  const start = new Date(startTime);
+  const end = completedAt ? new Date(completedAt).getTime() : now;
+  const seconds = Math.max(0, Math.floor((end - start.getTime()) / 1000));
+  const time = [Math.floor((seconds % 86400) / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
+    .map((part) => String(part).padStart(2, "0")).join(":");
+  return { startDate: `${start.getMonth() + 1}.${start.getDate()}`, days: Math.floor(seconds / 86400), time };
 }
 
 function resizePhoto(file: File): Promise<string> {
