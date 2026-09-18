@@ -1,37 +1,41 @@
 .page { min-height:100svh; overflow-x:hidden; background:#f6f2e9; color:#19372e; font-family:"Hiragino Sans","Yu Gothic",sans-serif; }
-.content { width:min(calc(100% - 32px),720px); margin:0 auto; padding:max(20px,env(safe-area-inset-top)) 0 max(76px,env(safe-area-inset-bottom)); }
-.backLink { display:inline-flex; align-items:center; gap:8px; min-height:44px; color:#245d49; font-size:13px; font-weight:800; text-decoration:none; }
-.backLink span { font-size:19px; }
-.backLink:focus-visible,.heroJump:focus-visible,.afterCards a:focus-visible { border-radius:6px; outline:3px solid #e46e45; outline-offset:3px; }
-.hero { padding:54px 0 66px; text-align:center; }
-.eyebrow { margin:0 0 22px; color:#245d49; font-family:Georgia,serif; font-size:13px; font-weight:700; letter-spacing:.28em; }
-.hero h1 { margin:0; font-family:Georgia,"Yu Mincho",serif; font-size:clamp(35px,9vw,53px); font-weight:500; line-height:1.32; letter-spacing:.01em; }
+.content { width:min(calc(100% - 32px),720px); margin:0 auto; padding:max(14px,env(safe-area-inset-top)) 0 max(76px,env(safe-area-inset-bottom)); }
+.backLink { display:inline-flex; align-items:center; gap:7px; min-height:38px; color:#245d49; font-size:12px; font-weight:800; text-decoration:none; }
+.backLink span { font-size:18px; }
+.backLink:focus-visible,.afterCards a:focus-visible { border-radius:6px; outline:3px solid #e46e45; outline-offset:3px; }
+.hero { padding:22px 0 25px; text-align:center; }
+.eyebrow { margin:0 0 8px; color:#245d49; font-family:Georgia,serif; font-size:11px; font-weight:700; letter-spacing:.25em; }
+.hero h1 { margin:0; font-family:Georgia,"Yu Mincho",serif; font-size:clamp(29px,7vw,44px); font-weight:500; line-height:1.22; letter-spacing:.01em; }
 .hero h1 em { color:#bd5c3d; font-style:normal; }
-.lead { margin:24px 0 0; color:#52675e; font-size:15px; line-height:1.9; }
-.heroJump { display:inline-flex; align-items:center; justify-content:center; gap:15px; min-height:48px; margin-top:30px; padding:0 23px; border:1px solid #b8c8bf; border-radius:999px; color:#245d49; font-size:13px; font-weight:800; text-decoration:none; }
-.heroJump span { color:#bd5c3d; font-size:16px; }
-.stepsSection,.conditionsSection,.formSection,.afterPost { padding:70px 0; border-top:1px solid #ced8d1; }
-.sectionHeading { margin-bottom:30px; }
-.sectionHeading>p { margin:0 0 9px; color:#bd5c3d; font-size:10px; font-weight:900; letter-spacing:.18em; }
-.sectionHeading h2 { margin:0; font-family:Georgia,"Yu Mincho",serif; font-size:29px; font-weight:600; letter-spacing:.02em; }
-.sectionHeading h2 span { color:#bd5c3d; }
-.steps { margin:0; padding:0; list-style:none; }
-.steps li { position:relative; display:grid; grid-template-columns:58px 1fr; gap:14px; padding-bottom:45px; }
-.steps li:last-child { padding-bottom:0; }
-.steps li:not(:last-child)::after { content:"↓"; position:absolute; bottom:10px; left:18px; color:#bd5c3d; font:20px Georgia,serif; }
-.stepNumber { padding-top:15px; color:#245d49; font:600 22px Georgia,serif; letter-spacing:.04em; }
-.stepCard { display:flex; align-items:center; gap:23px; min-height:160px; box-sizing:border-box; padding:25px; border:1px solid #d8ded7; border-radius:20px; background:#fffdf8; box-shadow:0 8px 24px #17332b0b; }
-.stepIcon { display:grid; width:72px; height:72px; flex:none; place-items:center; border-radius:50%; background:#edf2ed; color:#245d49; }
-.stepIcon svg { width:45px; height:45px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-.stepCopy h3 { margin:0 0 9px; font-size:21px; }
-.stepCopy p { margin:0; color:#596c63; font-size:13px; line-height:1.75; }
-.stepCopy strong { display:inline-block; margin-top:12px; padding:5px 9px; border-radius:4px; background:#fae7dd; color:#a8492d; font-size:11px; }
-.conditions { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-.conditions article { padding:22px 17px; border:1px solid #d8ded7; border-radius:16px; background:#fffdf8; box-shadow:0 5px 16px #17332b08; }
-.conditions article>span { display:grid; width:38px; height:38px; margin-bottom:16px; place-items:center; border-radius:50%; background:#e8efea; color:#245d49; font-family:Georgia,serif; font-size:15px; font-weight:700; }
-.conditions h3 { margin:0 0 8px; font-size:15px; }
-.conditions p { margin:0; color:#5b6e65; font-size:12px; line-height:1.65; }
-.formSection { scroll-margin-top:15px; }
+.stepsSection { padding:0 0 20px; }
+.sectionHeading { margin-bottom:12px; }
+.sectionHeading>p { margin:0 0 7px; color:#bd5c3d; font-size:9px; font-weight:900; letter-spacing:.18em; }
+.sectionHeading h2 { margin:0; font-family:Georgia,"Yu Mincho",serif; font-size:27px; font-weight:600; letter-spacing:.02em; }
+.stepsSection .sectionHeading { margin-bottom:9px; text-align:center; }
+.stepsSection .sectionHeading h2 { color:#bd5c3d; font-family:inherit; font-size:9px; font-weight:900; letter-spacing:.19em; }
+.steps { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0; padding:0; list-style:none; }
+.stepCard { height:100%; box-sizing:border-box; padding:14px; border:1px solid #d8ded7; border-radius:16px; background:#fffdf8; box-shadow:0 5px 18px #17332b09; }
+.stepTop { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+.stepNumber { color:#bd5c3d; font:600 19px Georgia,serif; letter-spacing:.04em; }
+.stepIcon { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; background:#edf2ed; color:#245d49; }
+.stepIcon svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.stepCopy h3 { margin:0 0 5px; font-size:17px; line-height:1.3; }
+.stepCopy p { margin:0; color:#596c63; font-size:11px; line-height:1.45; }
+.stepCopy strong { display:block; margin-top:7px; color:#a8492d; font-size:10px; line-height:1.4; }
+.rewardsSection { padding:17px 0 23px; border-top:1px solid #ced8d1; }
+.rewardsSection>h2 { margin:0 0 10px; text-align:center; font-family:Georgia,"Yu Mincho",serif; font-size:20px; font-weight:600; }
+.rewards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.rewards article { position:relative; overflow:hidden; padding:0 12px 12px; border:1px solid #d8ded7; border-radius:16px; background:#fffdf8; text-align:center; box-shadow:0 5px 18px #17332b09; }
+.rewardVisual { display:grid; height:62px; margin:0 -12px 8px; place-items:center; background:#e7efe9; color:#245d49; }
+.rewardVisual svg { width:43px; height:43px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.rewards article:nth-child(2) .rewardVisual { background:#f5e7dd; color:#a8492d; }
+.rewardLabel { margin:0 0 2px; color:#bd5c3d; font-size:9px; font-weight:900; letter-spacing:.08em; }
+.rewards h3 { margin:0; font-size:16px; line-height:1.25; }
+.rewards h3 strong { color:#a8492d; font-size:18px; }
+.rewardNote { margin:5px 0 0; color:#63736b; font-size:9px; }
+.formSection,.afterPost { padding:48px 0; border-top:1px solid #ced8d1; }
+.formSection { padding-top:32px; scroll-margin-top:15px; }
+.formSection .sectionHeading { text-align:center; }
 .formFrame { width:100%; overflow:hidden; border:1px solid #d8ded7; border-radius:20px; background:#fff; box-shadow:0 8px 28px #17332b0c; }
 .formFrame iframe { display:block; width:100%; max-width:100%; border:0; }
 .afterCards { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
@@ -44,37 +48,35 @@
 .afterCards .rewardLine { padding-top:12px; border-top:1px solid #dce2dd; color:#245d49; font-weight:900; }
 .rewardLine span { float:right; color:#bd5c3d; }
 .afterCards a { color:#a8492d; font-size:14px; font-weight:800; overflow-wrap:anywhere; }
-.closing { padding:75px 0 14px; text-align:center; }
+.closing { padding:65px 0 14px; text-align:center; }
 .closing span { color:#bd5c3d; }
 .closing p { margin:15px 0 0; font-family:Georgia,"Yu Mincho",serif; font-size:20px; line-height:1.9; }
 @media(max-width:560px) {
-  .content { width:min(calc(100% - 28px),720px); }
-  .hero { padding:41px 0 54px; }
-  .eyebrow { margin-bottom:18px; font-size:12px; }
-  .hero h1 { font-size:clamp(32px,9.5vw,42px); }
-  .lead { font-size:14px; }
-  .desktopBreak { display:none; }
-  .stepsSection,.conditionsSection,.formSection,.afterPost { padding:53px 0; }
-  .sectionHeading { margin-bottom:25px; }
-  .sectionHeading h2 { font-size:27px; }
-  .steps li { grid-template-columns:45px minmax(0,1fr); gap:8px; padding-bottom:43px; }
-  .steps li:not(:last-child)::after { left:12px; }
-  .stepNumber { padding-top:14px; font-size:19px; }
-  .stepCard { display:block; min-height:0; padding:22px 20px 23px; border-radius:17px; }
-  .stepIcon { width:65px; height:65px; margin-bottom:18px; }
-  .stepIcon svg { width:40px; height:40px; }
-  .stepCopy h3 { font-size:20px; }
-  .stepCopy p { font-size:13px; }
-  .conditions { grid-template-columns:1fr; gap:10px; }
-  .conditions article { display:grid; grid-template-columns:43px 1fr; gap:14px; padding:18px; }
-  .conditions article>span { width:40px; height:40px; margin:0; }
-  .conditions h3 { font-size:15px; }
-  .conditions p { font-size:12px; }
+  .content { width:min(calc(100% - 24px),720px); padding-top:max(8px,env(safe-area-inset-top)); }
+  .hero { padding:12px 0 19px; }
+  .hero h1 { font-size:clamp(27px,8.7vw,37px); }
+  .stepCard { padding:11px 10px 12px; border-radius:14px; }
+  .stepTop { margin-bottom:7px; }
+  .stepNumber { font-size:17px; }
+  .stepIcon { width:35px; height:35px; }
+  .stepIcon svg { width:22px; height:22px; }
+  .stepCopy h3 { font-size:clamp(14px,4.2vw,17px); white-space:nowrap; }
+  .stepCopy p { min-height:32px; font-size:10px; }
+  .stepCopy strong { min-height:28px; font-size:9px; }
+  .rewardsSection { padding-top:14px; }
+  .rewardsSection>h2 { margin-bottom:8px; font-size:18px; }
+  .rewards article { padding:0 8px 10px; border-radius:14px; }
+  .rewardVisual { height:51px; margin:0 -8px 7px; }
+  .rewardVisual svg { width:35px; height:35px; }
+  .rewards h3 { font-size:14px; }
+  .rewards h3 strong { font-size:16px; }
+  .formSection,.afterPost { padding:42px 0; }
+  .formSection { padding-top:28px; }
+  .sectionHeading { margin-bottom:20px; }
+  .sectionHeading h2 { font-size:25px; }
   .formFrame { margin-inline:-4px; width:calc(100% + 8px); border-radius:15px; }
   .afterCards { grid-template-columns:1fr; gap:12px; }
   .afterCards article { padding:24px 21px; }
-  .afterCards h3 { font-size:16px; }
   .closing { padding-top:58px; }
   .closing p { font-size:18px; }
 }
-@media(prefers-reduced-motion:no-preference) { .heroJump { transition:background .18s ease,transform .18s ease; } .heroJump:hover { background:#fffdf8; transform:translateY(-2px); } }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
-import type { ReactNode } from "react";
 import styles from "./photo-reward.module.css";
 
 export const metadata: Metadata = {
@@ -9,38 +8,26 @@ export const metadata: Metadata = {
   description: "大子町で撮った写真を3枚以上投稿して、宿で使える特典を受け取ろう。",
 };
 
-const steps: Array<{
-  number: string;
-  title: string;
-  description: ReactNode;
-  note?: string;
-  icon: ReactNode;
-}> = [
+const steps = [
   {
     number: "01",
     title: "写真を撮る",
-    description: <>街歩き・グルメ・自然・体験など、<br />大子町での旅の思い出を撮影。</>,
+    description: "大子町で旅の写真を撮影",
+    note: "1枚以上は顔が写った写真",
     icon: <CameraIcon />,
   },
   {
     number: "02",
     title: "3枚以上投稿",
-    description: <>このページのフォームから<br />写真を3枚以上まとめて投稿。</>,
-    note: "1枚以上は顔が写っている写真",
+    description: "このページからまとめて投稿",
+    note: "複数スポット・お店も1回でOK",
     icon: <PhotosIcon />,
   },
-  {
-    number: "03",
-    title: "特典GET！",
-    description: <>投稿が完了したら、<br />受付スタッフにお声がけください。</>,
-    icon: <GiftIcon />,
-  },
-];
+] as const;
 
-const conditions = [
-  { icon: "3+", title: "3枚以上", text: "写真を3枚以上投稿" },
-  { icon: "☺", title: "顔写真 1枚以上", text: "投稿写真のうち、1枚以上は顔が写っている写真" },
-  { icon: "⌖", title: "複数スポットOK", text: "別々でなくてもOK。複数スポット・店舗の写真も1回にまとめられます" },
+const rewards = [
+  { label: "特典 A", title: <>ドリンク1杯<br />プレゼント</>, note: "滞在中に使える", icon: <DrinkIcon /> },
+  { label: "特典 B", title: <>次回宿泊<br /><strong>500円OFF</strong></>, note: "次回使えるクーポン", icon: <CouponIcon /> },
 ] as const;
 
 const tallyEmbedUrl =
@@ -59,25 +46,24 @@ export default function PhotoRewardPage() {
         <header className={styles.hero}>
           <p className={styles.eyebrow}>PHOTO REWARD</p>
           <h1>旅の写真を投稿して、<br /><em>特典GET！</em></h1>
-          <p className={styles.lead}>大子町で撮った写真を3枚以上投稿すると、<br className={styles.desktopBreak} />宿で使える特典をプレゼント。</p>
-          <a className={styles.heroJump} href="#post-form">写真を投稿する <span aria-hidden="true">↓</span></a>
         </header>
 
         <section className={styles.stepsSection} aria-labelledby="steps-title">
           <div className={styles.sectionHeading}>
-            <p>HOW IT WORKS</p>
-            <h2 id="steps-title"><span>3</span> STEPS</h2>
+            <h2 id="steps-title">HOW TO JOIN</h2>
           </div>
           <ol className={styles.steps}>
             {steps.map((step) => (
               <li key={step.number}>
-                <div className={styles.stepNumber}>{step.number}</div>
                 <div className={styles.stepCard}>
-                  <div className={styles.stepIcon} aria-hidden="true">{step.icon}</div>
+                  <div className={styles.stepTop}>
+                    <span className={styles.stepNumber}>{step.number}</span>
+                    <span className={styles.stepIcon} aria-hidden="true">{step.icon}</span>
+                  </div>
                   <div className={styles.stepCopy}>
                     <h3>{step.title}</h3>
                     <p>{step.description}</p>
-                    {step.note && <strong>{step.note}</strong>}
+                    <strong>{step.note}</strong>
                   </div>
                 </div>
               </li>
@@ -85,16 +71,15 @@ export default function PhotoRewardPage() {
           </ol>
         </section>
 
-        <section className={styles.conditionsSection} aria-labelledby="conditions-title">
-          <div className={styles.sectionHeading}>
-            <p>BEFORE YOU POST</p>
-            <h2 id="conditions-title">投稿について</h2>
-          </div>
-          <div className={styles.conditions}>
-            {conditions.map((condition) => (
-              <article key={condition.title}>
-                <span aria-hidden="true">{condition.icon}</span>
-                <div><h3>{condition.title}</h3><p>{condition.text}</p></div>
+        <section className={styles.rewardsSection} aria-labelledby="rewards-title">
+          <h2 id="rewards-title">選べる特典</h2>
+          <div className={styles.rewards}>
+            {rewards.map((reward) => (
+              <article key={reward.label}>
+                <div className={styles.rewardVisual} aria-hidden="true">{reward.icon}</div>
+                <p className={styles.rewardLabel}>{reward.label}</p>
+                <h3>{reward.title}</h3>
+                <p className={styles.rewardNote}>{reward.note}</p>
               </article>
             ))}
           </div>
@@ -160,8 +145,12 @@ function PhotosIcon() {
   return <svg viewBox="0 0 64 64"><rect x="17" y="11" width="37" height="42" rx="2"/><path d="m18 44 11-12 8 8 5-6 12 13M25 25h.1"/><path d="M11 18v38h36"/></svg>;
 }
 
-function GiftIcon() {
-  return <svg viewBox="0 0 64 64"><path d="M10 27h44v27H10zM7 19h50v10H7zM32 19v35"/><path d="M32 19c-5-12-17-9-14-2 2 4 8 3 14 2Zm0 0c5-12 17-9 14-2-2 4-8 3-14 2Z"/></svg>;
+function DrinkIcon() {
+  return <svg viewBox="0 0 64 64"><path d="M17 14h29l-3 39H20zM45 23h4a8 8 0 0 1 0 16h-5M15 53h31M22 24h21"/><path d="m36 8 8 16"/></svg>;
+}
+
+function CouponIcon() {
+  return <svg viewBox="0 0 64 64"><path d="M10 20h44v10a7 7 0 0 0 0 14v10H10V44a7 7 0 0 0 0-14zM34 20v5M34 31v5M34 42v5M34 53v1"/><circle cx="23" cy="32" r="3"/><circle cx="23" cy="44" r="3"/><path d="m27 29-8 18"/></svg>;
 }
 
 function BellIcon() {
