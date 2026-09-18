@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { Marker, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -63,6 +64,7 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
   const openSpot = (spot: StaySpot) => { setSelected(spot); void track("spot_view", stay.id, spot.id); };
   return <main className="stay-map-page">
     <section className="stay-map-content">
+      {stay.slug === "motomachi" && <Link className="stay-map-back" href="/explore/daigo">← 戻る</Link>}
       {stay.slug === "motomachi" && <h1 className="stay-map-title">まちやど　ガイドマップ</h1>}
       <div className="stay-map-explorer">
         <nav className="stay-map-filters" aria-label="カテゴリ絞り込み"><button aria-pressed={category === "all"} onClick={() => setCategory("all")}>すべて</button>{categories.map(item => <button key={item.id} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.name}</button>)}</nav>
