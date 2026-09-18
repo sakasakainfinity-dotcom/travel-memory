@@ -143,10 +143,16 @@ export default function DaigoExplore() {
           const item = items.find((candidate) => candidate.position === position);
           const isMission = item?.type === "user_mission" || position === 12;
           const clearedTime = cell.clearedAt ? formatDatedElapsed(startTime, cell.clearedAt) : null;
-          return <div role="gridcell" aria-label={`${position + 1}マス目${cell.cleared ? `、達成済み${clearedTime ? `、${clearedTime}` : ""}` : ""}`} className={`bingo-cell${cell.cleared ? " is-clear" : ""}`} key={position}>
-            {!item?.active ? <span className="bingo-empty">—</span> : isMission ? <span className="user-mission-cell">
-              {cell.cleared ? <span className="bingo-clear-details"><b>✓ 達成！</b><small>{customTitle || item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>{clearedTime}</time>}</span> : <><b>YOUR MISSION</b><small>{customTitle || "今回の旅でやりたいことを決めよう！"}</small>{!customTitle && <em>＋ 設定する</em>}</>}
-            </span> : cell.cleared ? <span className={cell.photo ? "bingo-photo-cell" : ""}>{cell.photo && <img src={cell.photo} alt={`${item.title}の投稿写真`}/>}<span className="bingo-clear-details"><b>✓ 達成！</b><small>{item.title}</small>{clearedTime && <time dateTime={cell.clearedAt}>{clearedTime}</time>}</span></span> : item.title}
+          const displayTitle = isMission ? customTitle || item?.title : item?.title;
+          return <div role="gridcell" aria-label={`${position + 1}マス目${displayTitle ? `、${displayTitle}` : ""}${cell.cleared ? `、達成済み${clearedTime ? `、${clearedTime}` : ""}` : ""}`} className={`bingo-cell${cell.cleared ? " is-clear" : ""}${isMission ? " is-mission" : ""}`} key={position}>
+            {!item?.active ? <span className="bingo-empty">—</span> : <>
+              <span className="daigo-cell-number" aria-hidden>{String(position + 1).padStart(2, "0")}</span>
+              {cell.cleared && cell.photo && <img className="daigo-cell-photo" src={cell.photo} alt=""/>}
+              <span className="daigo-cell-title">{displayTitle}</span>
+              {cell.cleared
+                ? <span className="daigo-cell-status" aria-hidden>✓</span>
+                : isMission && <span className="daigo-cell-status daigo-cell-edit" aria-hidden>＋</span>}
+            </>}
           </div>;
         })}
       </div>
