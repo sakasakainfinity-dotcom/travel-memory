@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import maplibregl, { Marker, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { StayMap, StaySpot } from "@/lib/stayMaps";
@@ -107,9 +106,9 @@ function SpotExternalLinks({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
 }
 
 function PhotoSubmissionLink() {
-  return <Link className="stay-photo-submission" href="/photo-reward">
+  return <a className="stay-photo-submission" href="/photo-reward">
     <span aria-hidden="true">📸</span> 観光写真投稿で<strong>特典GET！</strong>
-  </Link>;
+  </a>;
 }
 
 function MapPinIcon() {
