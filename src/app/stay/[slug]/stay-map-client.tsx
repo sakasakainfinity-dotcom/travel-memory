@@ -74,7 +74,7 @@ export default function StayMapClient({ stay }: { stay: StayMap }) {
         </div>
       </div>
       <div className="stay-spot-list">{spots.map((spot, index) => <article className="stay-spot-card" key={spot.id} onClick={() => openSpot(spot)}>
-        <button className="stay-card-main" aria-label={`${spot.name}の詳細を見る`}><div className="stay-card-image"><img src={spot.image_url || FALLBACK_IMAGE} alt={spot.name}/><span>{index + 1}</span>{spot.is_featured && <b>★ 宿主おすすめ</b>}</div><div className="stay-card-copy"><small>{categoryNames(spot)}</small><h3>{spot.name}</h3><p><em>宿主からの一言</em>{spot.host_comment}</p>{spot.local_comment && <p><em>地元民からの一言</em>{spot.local_comment}</p>}<div>{travelLabel(stay, spot)}</div></div></button>
+        <button className="stay-card-main" aria-label={`${spot.name}の詳細を見る`}><div className="stay-card-image"><img src={spot.image_url || FALLBACK_IMAGE} alt={spot.name}/><span>{index + 1}</span>{spot.is_featured && <b>★ 宿主おすすめ</b>}</div><div className="stay-card-copy"><small>{categoryNames(spot)}</small><h3>{spot.name}</h3><p><em>宿主からの一言</em>{spot.host_comment}</p>{spot.local_comment && <p><em>AIによる評価</em>{spot.local_comment}</p>}<div>{travelLabel(stay, spot)}</div></div></button>
         <a href={mapsUrl(spot)} target="_blank" rel="noreferrer" onClick={event => { event.stopPropagation(); void track("google_maps_click", stay.id, spot.id); }}>Google Mapsで開く ↗</a>
       </article>)}</div>
       {!spots.length && <p className="stay-map-empty">宿主おすすめのスポットを準備しています。公開まで少しお待ちください。</p>}
@@ -93,7 +93,7 @@ function SpotInformation({ stay, spot }: { stay: StayMap; spot: StaySpot }) {
     {(spot.business_hours || spot.closed_days) && <dl className="stay-business-info">{spot.business_hours && <div><dt>営業時間</dt><dd>{spot.business_hours}</dd></div>}{spot.business_hours && spot.closed_days && <i aria-hidden="true"/>}{spot.closed_days && <div><dt>定休日</dt><dd>{spot.closed_days}</dd></div>}</dl>}
     {spot.host_comment && <HostComment text={spot.host_comment}/>}
     <PhotoSubmissionLink/>
-    <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>地元民からの一言</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
+    <div className="stay-desktop-extra">{spot.local_comment && <blockquote><span>AIによる評価</span>{spot.local_comment}</blockquote>}{spot.description && <p>{spot.description}</p>}{spot.address && <dl><dt>住所</dt><dd>{spot.address}</dd><dt>宿から</dt><dd>{travelLabel(stay, spot)}</dd></dl>}</div>
   </div>;
 }
 
