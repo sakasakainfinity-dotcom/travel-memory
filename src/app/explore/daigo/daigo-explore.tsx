@@ -130,7 +130,7 @@ export default function DaigoExplore() {
         <h2>大子町ガイドブック</h2>
         <p>宿主おすすめのごはん、観光、買い物スポットを地図でめぐろう。</p>
       </div>
-      <Link className="daigo-primary" href="/stay/motomachi">ガイドブックを開く<span aria-hidden>→</span></Link>
+      <Link className="daigo-primary" href="/stay/motomachi">ガイドマップを開く<span aria-hidden>→</span></Link>
     </section>
 
     {bingoAvailable && <section className="daigo-bingo-card">

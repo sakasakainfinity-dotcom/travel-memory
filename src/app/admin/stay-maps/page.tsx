@@ -144,7 +144,7 @@ export default function StayMapsAdmin() {
         {mapValue && <form className="stay-admin-form stay-admin-spot-form" onSubmit={saveSpot}>
           <label className="wide">店名・スポット名<input autoFocus required value={spotForm.name} onChange={(e) => setSpotForm({ ...spotForm, name: e.target.value })} placeholder="例：港町コーヒー"/></label>
           <label className="wide">宿主からの一言<textarea required maxLength={1000} rows={4} value={spotForm.host_comment} onChange={(e) => setSpotForm({ ...spotForm, host_comment: e.target.value })} placeholder="宿主ならではのおすすめポイントを伝えましょう"/></label>
-          <label className="wide">地元民からの一言<textarea maxLength={1000} rows={4} value={spotForm.local_comment} onChange={(e) => setSpotForm({ ...spotForm, local_comment: e.target.value })} placeholder="地元の方から聞いたおすすめポイントを伝えましょう"/></label>
+          <label className="wide">AIによる評価<textarea maxLength={1000} rows={4} value={spotForm.local_comment} onChange={(e) => setSpotForm({ ...spotForm, local_comment: e.target.value })} placeholder="AIによる評価を入力しましょう"/></label>
           <fieldset className="wide stay-admin-categories"><legend>カテゴリー（複数選択可）</legend>{categories.map((cat) => {
             const selected = spotForm.category_ids.includes(cat.id);
             return <button type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} key={cat.id} onClick={() => setSpotForm((current: typeof emptySpot) => ({ ...current, category_ids: current.category_ids.includes(cat.id) ? current.category_ids.filter((id) => id !== cat.id) : [...current.category_ids, cat.id] }))}><span aria-hidden="true">{selected ? "✓" : "＋"}</span>{cat.name}</button>;
