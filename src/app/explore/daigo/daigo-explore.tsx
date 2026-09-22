@@ -126,8 +126,8 @@ export default function DaigoExplore() {
     <section className="daigo-guidebook-card">
       <div className="daigo-guidebook-icon" aria-hidden>⌖</div>
       <div className="daigo-guidebook-copy">
-        <span>HOST&apos;S GUIDEBOOK</span>
-        <h2>大子町ガイドブック</h2>
+        <span>HOST&apos;S GUIDE MAP</span>
+        <h2>大子町ガイドマップ</h2>
         <p>宿主おすすめのごはん、観光、買い物スポットを地図でめぐろう。</p>
       </div>
       <Link className="daigo-primary" href="/stay/motomachi">ガイドマップを開く<span aria-hidden>→</span></Link>
